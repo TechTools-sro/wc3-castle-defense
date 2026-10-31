@@ -30,8 +30,9 @@ Invader of arm `d` = Player(8 + d): 0 North **The Scourge**, 1 East **The Burnin
    entrance and every grove building (`ShoppingTime`). Bosses don't hold the waves.
 4. **Push.** Each lane has its own tower (in front) and Nexus (behind). Tower destroyed → waves come out of the
    Nexus, stronger. **Nexus destroyed → that lane's boss rises** (+150 gold to all). Boss slain → +250 gold to all.
-5. **The Dark Gate** opens when the first player destroys his Nexus (see below).
-6. **Win** when every active lane's boss is dead **and the Dark Citadel is destroyed**. **Lose** when the castle dies. End dialog: *Play again*
+5. **Levels.** Level 1 = the player lanes. **Level 2 — the Dark Gate** (NE) opens when the first player destroys
+   his Nexus; **Level 3 — the Frozen Gate** (NW) opens when the Dark Citadel falls (see below).
+6. **Win** when every active lane's boss is dead **and the Dark Citadel and the Frozen Throne are destroyed**. **Lose** when the castle dies. End dialog: *Play again*
    (full reset → champion select, fresh castle, prices reset, taverns restocked) or *Finish game*.
 
 Only active lanes (player present) have monsters, a base and an open gate; empty lanes stay gated.
@@ -58,17 +59,21 @@ Standardized: the **lane stage picks the unit types**, the wave number only adds
   lane's next wave spawns **at once** (already stage 1).
 - Monsters attack-move along the lane waypoints (`WaveUnitTick`, 1 s) to the castle.
 
-## The Dark Gate (shared lane, NE — lane 8 / arm 4 in the script)
+## Levels 2 and 3 — the gate lanes (shared by everyone)
 
-- Closed by a gate (`SHARED_GATE`) until the **first** player destroys his Nexus (`OpenSharedPath`).
-  Then the gate opens, the **Dark Spire** (4000 HP, armor 8, 140 + 2d15 chaos, range 800; in the north leg) and the
-  **Dark Citadel** (80 000 HP, armor 15, 650 + 4d25 chaos missile every 2.5 s, range 700) appear, and every wave
-  also spawns there.
-- Its waves follow the same stage rule with the Dark Gate roster (stage 0 while the Spire stands, 1 after).
-- Every Dark Gate kill pays the killer **+(15 + wave) gold** extra (floating gold number, `SharedBounty`).
-- Dark Citadel destroyed: +500 gold to all; required for victory. A restart closes the gate again.
-- Geometry `SHARED_RECTS` in `gen/layout.py`: corner room at the plaza's NE corner → east-west leg →
-  north leg → base room in the top-right corner. Owner: the Scourge computer (Player 9).
+| | Level 2 — the Dark Gate | Level 3 — the Frozen Gate |
+|---|---|---|
+| Where | NE: corner room → leg east → leg north → base (`SHARED_RECTS`) | NW, around the Hall: corner room → leg west → leg north → base (`LEVEL3_RECTS`) |
+| Opens | when the first player destroys his Nexus | when the Dark Citadel falls |
+| Tower | Dark Spire: 40 000 HP, armor 8, ~700 chaos / 1.3 s, range 800 | Frozen Spire: 60 000 HP, armor 12, ~900 chaos / 1.3 s |
+| Nexus | Dark Citadel: 80 000 HP, armor 15, 650 + 4d25 missile / 2.5 s, range 700 | Frozen Throne: 150 000 HP, armor 20, 900 + 4d30 missile / 2.5 s |
+| Waves | own roster (stage 0 / 1), +300 HP, red tint | own roster, +500 HP and more damage, ice-blue tint |
+| Kill bonus | +(15 + wave) gold to the killer | +(30 + wave) gold |
+| Nexus down | +500 gold to all, opens Level 3 | +1000 gold to all |
+
+- Lane 8 / arm 4 and lane 9 / arm 5 in the script (`OpenGateLane`, `OnGateNexusDestroyed`, `gGateState`), both
+  owned by the Scourge computer (Player 9). Tower in the north leg far in front of the Nexus (no range overlap);
+  tower down → Protector + instant stronger wave, like a lane. A restart closes both gates again.
 
 ## Trees and the Bank
 
@@ -145,8 +150,9 @@ and an allied shop-sharing (`Xcs2`, `Aall`) buyer ability — the `Aall`-only ve
 
 ## Enemy bases and bosses (`gen/objects.py`)
 
-- Tower: 1800 HP, armor 4, 85 + 2d10 chaos / 1.3 s, range 750 — in the lane, far in front of the Nexus
-  (`tower_pos`, v = 2900) so their ranges never overlap: tower first, then its stronger waves, then the Nexus.
+- Tower: **25 000 HP**, armor 4, **~500 chaos** (495 + 1d10) / 1.3 s, range 750 — mid-lane (`tower_pos`, v = 3600,
+  1776 from the Champion's Circle), far in front of the Nexus (v = 5440) so their ranges never overlap: tower first,
+  then its stronger waves, then the Nexus.
 - **Nexus: 30 000 HP, armor 10, huge attack** 450 + 4d20 chaos missile every 2.5 s, range 700, hits air too
   (`BASE_HP`, `NEXUS_*`, `nexus_attack`).
 - Boss strength by player count: 1–2 / 3–5 / 6–8 players → 3500 / 6000 / 9000 HP, armor 3 / 4 / 5.

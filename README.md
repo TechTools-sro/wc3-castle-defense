@@ -1,7 +1,7 @@
 # TechTools Castle Defence (WarCraft III TFT 1.27)
 
 An 8-player co-op hero lane-defense map. Pick a champion, hold your own lane, push your own tower and Nexus,
-kill its boss — and keep the shared castle alive. The whole map is generated from code: terrain, walls,
+kill its boss, then break the Level 2 and Level 3 gates — and keep the shared castle alive. The whole map is generated from code: terrain, walls,
 objects, script and art. Nothing is made in the World Editor.
 
 Installed as `Maps/CustomMaps/TechToolsCastleDefence.w3x` (about 200 KiB).

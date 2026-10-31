@@ -8,7 +8,7 @@ fixed computer players.
 
 Pick a champion, hold **your own lane**, destroy your lane's tower and Nexus, kill the boss that rises from the
 ruins, and destroy the **Dark Citadel** behind the Dark Gate. **Win** when every boss is dead and the Dark Citadel
-has fallen. **Lose** when the Castle of Lordaeron in the middle falls.
+and the Frozen Throne have fallen. **Lose** when the Castle of Lordaeron in the middle falls.
 
 ## How a round goes
 
@@ -22,8 +22,10 @@ has fallen. **Lose** when the Castle of Lordaeron in the middle falls.
    strongest units come out of the ruins until the boss dies. ⚠️ The Nexus has 30 000 HP and a huge attack.
 5. **Wave size:** front line (melee) = 4 + wave, back line (ranged) = +1 every 2 waves. Every 10th wave adds
    weakened champions (1 at wave 10, 2 at wave 20, ...).
-6. **The Dark Gate (NE):** opens when the first player destroys a Nexus. A shared lane with a stronger tower and
-   Nexus; its monsters pay extra gold per kill.
+6. **Level 2 — the Dark Gate (NE):** opens when the first player destroys a Nexus. A shared lane with a stronger
+   tower and Nexus; its monsters pay extra gold per kill.
+7. **Level 3 — the Frozen Gate (NW):** opens when the Dark Citadel falls. The strongest tower, Nexus and monsters,
+   the most gold per kill. Win = every boss dead + the Dark Citadel and the Frozen Throne destroyed.
 
 ## Shops
 

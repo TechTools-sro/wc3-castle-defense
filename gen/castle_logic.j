@@ -52,6 +52,14 @@ function PingLane takes integer p returns nothing
     call DisplayTimedTextToPlayer(Player(p), 0.0, 0.0, 10.0, "Your lane: " + gPlayerColorCode[p] + LaneName(p) + "|r.  Circle = stat shop.")
 endfunction
 
+// Arm (faction / roster index) of a lane: lanes 0-7 -> 0-3, the gate lanes 8 (Level 2) -> 4 and 9 (Level 3) -> 5.
+function LaneArm takes integer L returns integer
+    if L >= 8 then
+        return L - 4
+    endif
+    return L / 2
+endfunction
+
 // Current price step of kind s for player p. Hero kinds count per player; castle kinds (type 3/4) count
 // globally, because the castle is shared and each castle bonus ability can only be added once.
 function KindNext takes integer p, integer s returns integer
@@ -518,7 +526,7 @@ endfunction
 
 // Every active lane gets its own strong tower + Nexus (the Nexus spawns that lane's waves).
 function CreateLaneBase takes integer L returns nothing
-    local integer d = L / 2
+    local integer d = LaneArm(L)
     set gTower[L] = CreateUnit(gInvader[d], gTurretType[d], gTowerX[L], gTowerY[L], gDirFace[d])
     set gNexus[L] = CreateUnit(gInvader[d], gBaseType[d], gNexusX[L], gNexusY[L], gDirFace[d])
     set gLaneState[L] = 0
@@ -544,7 +552,7 @@ endfunction
 
 // Waves come out of the lane's tower; once the tower is destroyed, out of the Nexus (or its ruins).
 function SpawnWaveUnit takes integer L, integer ut returns nothing
-    local integer d = L / 2
+    local integer d = LaneArm(L)
     local real x = gNexusSpawnX[L]
     local real y = gNexusSpawnY[L]
     local unit u
@@ -554,8 +562,15 @@ function SpawnWaveUnit takes integer L, integer ut returns nothing
     endif
     set u = CreateUnit(gInvader[d], ut, x + GetRandomReal(-140.0, 140.0), y + GetRandomReal(-90.0, 90.0), gDirFace[d])
     if L == 8 then
+        // Level 2 (Dark Gate): +300 HP, red
         call UnitAddAbility(u, 'AIl2')
         call SetUnitVertexColor(u, 255, 110, 110, 255)
+    elseif L == 9 then
+        // Level 3 (Frozen Gate): +500 HP, more damage, ice blue
+        call UnitAddAbility(u, 'AIl2')
+        call UnitAddAbility(u, 'AIl1')
+        call UnitAddAbility(u, 'AIat')
+        call SetUnitVertexColor(u, 140, 200, 255, 255)
     endif
     call SetUnitUserData(u, L * 16 + 1)
     call SetUnitState(u, UNIT_STATE_LIFE, GetUnitState(u, UNIT_STATE_MAX_LIFE))
@@ -571,7 +586,7 @@ endfunction
 // Standardized waves: the lane STAGE picks the unit types, the wave number only adds units.
 // Front line (melee) = 4 + wave, back line (ranged) = wave / 2. Every 10th wave: wave/10 weakened champions.
 function SpawnWave takes integer L returns nothing
-    local integer d = L / 2
+    local integer d = LaneArm(L)
     local integer st = LaneStage(L)
     local integer front = gFrontBase + gWave
     local integer back = gWave / gBackDiv
@@ -624,8 +639,11 @@ function OnWaveTimer takes nothing returns nothing
         endif
         set L = L + 1
     endloop
-    if gSharedState == 0 then
+    if gGateState[8] == 0 then
         call SpawnWave(8)
+    endif
+    if gGateState[9] == 0 then
+        call SpawnWave(9)
     endif
     call Msg("|cffff4040Wave " + I2S(gWave) + "|r is coming down the lanes!")
     if ModuloInteger(gWave, gChampEvery) == gChampEvery - 1 then
@@ -754,7 +772,7 @@ function BossCast takes unit boss, string ord, integer kind, unit target returns
 endfunction
 
 function BossSummon takes integer L returns nothing
-    local integer d = L / 2
+    local integer d = LaneArm(L)
     local integer i = 0
     local unit u
     local real a
@@ -770,7 +788,7 @@ function BossSummon takes integer L returns nothing
 endfunction
 
 function BossTick takes integer L returns nothing
-    local integer d = L / 2
+    local integer d = LaneArm(L)
     local unit b = gBoss[L]
     local unit t
     local real dx
@@ -883,7 +901,7 @@ endfunction
 
 function CheckVictory takes nothing returns nothing
     local integer L = 0
-    if gGameOver or gSharedState == 0 then
+    if gGameOver or gGateState[8] == 0 or gGateState[9] == 0 then
         return
     endif
     loop
@@ -915,7 +933,7 @@ endfunction
 // Any lane still sending waves? (tower/Nexus standing, or Nexus down but its boss alive, or the Dark Gate open)
 function AnyNexusLeft takes nothing returns boolean
     local integer L = 0
-    if gSharedState == 0 then
+    if gGateState[8] == 0 or gGateState[9] == 0 then
         return true
     endif
     loop
@@ -931,7 +949,7 @@ endfunction
 // A lane's tower fell: a Protector (the faction champion, bigger) guards the Nexus, and that lane's next wave
 // comes at once - already the stronger Nexus wave. Works for the Dark Gate (lane 8) too.
 function OnTowerDestroyed takes integer L returns nothing
-    local integer d = L / 2
+    local integer d = LaneArm(L)
     local real x = (gTowerX[L] + gNexusX[L]) * 0.5
     local real y = (gTowerY[L] + gNexusY[L]) * 0.5
     local unit p = CreateUnit(gInvader[d], gChampion[d], x, y, gDirFace[d])
@@ -945,8 +963,8 @@ function OnTowerDestroyed takes integer L returns nothing
     set gProtY[L] = y
     call DestroyEffect(AddSpecialEffect("Abilities\\Spells\\Undead\\AnimateDead\\AnimateDeadTarget.mdl", x, y))
     call PingMinimap(x, y, 3.0)
-    if L == 8 then
-        call Msg("The |cffff4040" + gTurretName[4] + "|r has fallen!  A |cffffcc00Protector|r guards the " + gBaseName[4] + " - the next wave comes NOW, stronger!")
+    if L >= 8 then
+        call Msg("The " + gDirColor[d] + gTurretName[d] + "|r has fallen!  A |cffffcc00Protector|r guards the " + gBaseName[d] + " - the next wave comes NOW, stronger!")
     else
         call Msg(gPlayerColorCode[L] + GetPlayerName(Player(L)) + "|r's " + gTurretName[d] + " has fallen!  A |cffffcc00Protector|r guards the Nexus - the next wave comes NOW, stronger!")
     endif
@@ -962,7 +980,7 @@ function ProtectorTick takes nothing returns nothing
     local real dx
     local real dy
     loop
-        exitwhen L > 8
+        exitwhen L > 9
         if gProtector[L] != null then
             if GetWidgetLife(gProtector[L]) <= 0.405 then
                 set gProtector[L] = null
@@ -979,28 +997,43 @@ function ProtectorTick takes nothing returns nothing
 endfunction
 
 //---------------------------------------------------------------------------
-// The Dark Gate: shared NE lane (lane 8 / arm 4). Opens when the first player destroys his Nexus.
+// Gate levels: LEVEL 2 = the Dark Gate (lane 8, NE) opens when the first player destroys his Nexus;
+// LEVEL 3 = the Frozen Gate (lane 9, NW) opens when the Dark Citadel falls. gGateState: -1 closed, 0 open, 2 done.
 //---------------------------------------------------------------------------
-function OpenSharedPath takes nothing returns nothing
-    if gSharedState != -1 then
+function OpenGateLane takes integer L returns nothing
+    local integer d = LaneArm(L)
+    if gGateState[L] != -1 or gGameOver then
         return
     endif
-    set gSharedState = 0
-    call SetDestructableInvulnerable(gGate[8], false)
-    call ModifyGateBJ(bj_GATEOPERATION_OPEN, gGate[8])
-    set gTower[8] = CreateUnit(gInvader[4], gTurretType[4], gTowerX[8], gTowerY[8], gDirFace[4])
-    set gNexus[8] = CreateUnit(gInvader[4], gBaseType[4], gNexusX[8], gNexusY[8], gDirFace[4])
-    call PingMinimapEx(gGateX[8], gGateY[8], 6.0, 255, 60, 60, true)
+    set gGateState[L] = 0
+    call SetDestructableInvulnerable(gGate[L], false)
+    call ModifyGateBJ(bj_GATEOPERATION_OPEN, gGate[L])
+    set gTower[L] = CreateUnit(gInvader[d], gTurretType[d], gTowerX[L], gTowerY[L], gDirFace[d])
+    set gNexus[L] = CreateUnit(gInvader[d], gBaseType[d], gNexusX[L], gNexusY[L], gDirFace[d])
+    call PingMinimapEx(gGateX[L], gGateY[L], 6.0, 255, 60, 60, true)
+    call PingMinimapEx(gNexusX[L], gNexusY[L], 6.0, 255, 60, 60, true)
     call StartSound(bj_questWarningSound)
-    call Msg("|cffff4040The Dark Gate is open!|r  Stronger monsters from the north-east - more gold per kill!")
+    if L == 8 then
+        call Msg("|cffff4040LEVEL 2:|r " + gDirColor[d] + gFactionName[d] + "|r is open (north-east)!  Stronger monsters, more gold per kill!")
+    else
+        call Msg("|cff80dfffLEVEL 3:|r " + gDirColor[d] + gFactionName[d] + "|r is open (north-west)!  The strongest monsters, the most gold per kill!")
+    endif
 endfunction
 
-function OnSharedNexusDestroyed takes nothing returns nothing
-    set gSharedState = 2
-    call DestroyEffect(AddSpecialEffect("Objects\\Spawnmodels\\Other\\NeutralBuildingExplosion\\NeutralBuildingExplosion.mdl", gNexusX[8], gNexusY[8]))
+function OnGateNexusDestroyed takes integer L returns nothing
+    local integer d = LaneArm(L)
+    local integer gold = 500
+    set gGateState[L] = 2
+    if L == 9 then
+        set gold = 1000
+    endif
+    call DestroyEffect(AddSpecialEffect("Objects\\Spawnmodels\\Other\\NeutralBuildingExplosion\\NeutralBuildingExplosion.mdl", gNexusX[L], gNexusY[L]))
     call StartSound(bj_questWarningSound)
-    call Msg("|cff40ff40The Dark Citadel is destroyed!|r   |cffffcc00+500 gold|r")
-    call GiveAllGold(500)
+    call Msg("|cff40ff40The " + gBaseName[d] + " is destroyed!|r   |cffffcc00+" + I2S(gold) + " gold|r")
+    call GiveAllGold(gold)
+    if L == 8 then
+        call OpenGateLane(9)
+    endif
     if not AnyNexusLeft() then
         set gWaitingClear = false
         call PauseTimer(gWaveTimer)
@@ -1011,10 +1044,13 @@ function OnSharedNexusDestroyed takes nothing returns nothing
     call CheckVictory()
 endfunction
 
-// Dark Gate monsters pay the killer extra gold (floating +N, only the killer sees it).
+// Gate monsters pay the killer extra gold (floating +N, only the killer sees it): Level 2 +15, Level 3 +30 (+ wave).
 function SharedBounty takes unit u, integer kid returns nothing
     local integer g = 15 + gWave
     local texttag tt = CreateTextTag()
+    if GetUnitUserData(u) / 16 == 9 then
+        set g = 30 + gWave
+    endif
     call SetPlayerState(Player(kid), PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(Player(kid), PLAYER_STATE_RESOURCE_GOLD) + g)
     call SetTextTagText(tt, "|cffffcc00+" + I2S(g) + "|r", 0.024)
     call SetTextTagPos(tt, GetUnitX(u), GetUnitY(u), 80.0)
@@ -1027,8 +1063,8 @@ function SharedBounty takes unit u, integer kid returns nothing
 endfunction
 
 function OnNexusDestroyed takes integer L returns nothing
-    local integer d = L / 2
-    call OpenSharedPath()
+    local integer d = LaneArm(L)
+    call OpenGateLane(8)
     set gLaneState[L] = 1
     set gBossTick[L] = 0
     set gBoss[L] = CreateUnit(gInvader[d], gBossType[d * 3 + 1], gNexusX[L], gNexusY[L], gDirFace[d])
@@ -1048,7 +1084,7 @@ function OnNexusDestroyed takes integer L returns nothing
 endfunction
 
 function OnBossSlain takes integer L returns nothing
-    local integer d = L / 2
+    local integer d = LaneArm(L)
     set gLaneState[L] = 2
     set gBoss[L] = null
     call DropLoot(5, gNexusX[L] + 120.0, gNexusY[L])
@@ -1112,14 +1148,18 @@ function OnUnitDeath takes nothing returns nothing
         set d = oid - 8
         if kid >= 0 and kid < 8 then
             set gKills[kid] = gKills[kid] + 1
-            if GetUnitUserData(u) >= 128 and GetUnitUserData(u) < 144 then
+            if GetUnitUserData(u) >= 128 and GetUnitUserData(u) < 160 then
                 call SharedBounty(u, kid)
             endif
         endif
         if u == gNexus[8] then
-            call OnSharedNexusDestroyed()
+            call OnGateNexusDestroyed(8)
         elseif u == gTower[8] then
             call OnTowerDestroyed(8)
+        elseif u == gNexus[9] then
+            call OnGateNexusDestroyed(9)
+        elseif u == gTower[9] then
+            call OnTowerDestroyed(9)
         endif
         if IsUnitInGroup(u, gFirstWave) then
             call GroupRemoveUnit(gFirstWave, u)
@@ -1325,7 +1365,7 @@ function TestStep takes nothing returns nothing
         call KillUnit(gNexus[0])
     elseif gTestClock == 40 then
         call PanCameraToTimed(gGateX[8] + 800.0, gGateY[8], 0.0)
-        call Msg("[TEST] Dark Gate state=" + I2S(gSharedState))
+        call Msg("[TEST] gate states L2=" + I2S(gGateState[8]) + " L3=" + I2S(gGateState[9]))
     elseif gTestClock == 45 then
         call KillUnit(gBoss[0])
     elseif gTestClock == 50 then
@@ -1350,6 +1390,11 @@ function TestStep takes nothing returns nothing
         endloop
         call KillUnit(gTower[8])
         call KillUnit(gNexus[8])
+    elseif gTestClock == 60 then
+        call PanCameraToTimed(gGateX[9] - 800.0, gGateY[9], 0.0)
+        call Msg("[TEST] gate states L2=" + I2S(gGateState[8]) + " L3=" + I2S(gGateState[9]))
+        call KillUnit(gTower[9])
+        call KillUnit(gNexus[9])
     endif
 endfunction
 
@@ -1651,12 +1696,17 @@ function CDRestart takes nothing returns nothing
         set i = i + 1
     endloop
     // the Dark Gate closes again (its units were removed with the invaders' units above)
-    set gSharedState = -1
-    set gNexus[8] = null
-    set gTower[8] = null
-    set gProtector[8] = null
-    call ModifyGateBJ(bj_GATEOPERATION_CLOSE, gGate[8])
-    call SetDestructableInvulnerable(gGate[8], true)
+    set j = 8
+    loop
+        exitwhen j > 9
+        set gGateState[j] = -1
+        set gNexus[j] = null
+        set gTower[j] = null
+        set gProtector[j] = null
+        call ModifyGateBJ(bj_GATEOPERATION_CLOSE, gGate[j])
+        call SetDestructableInvulnerable(gGate[j], true)
+        set j = j + 1
+    endloop
     set j = 0
     loop
         exitwhen j >= gHeroPoolCount
@@ -1832,7 +1882,7 @@ function InitGame takes nothing returns nothing
     call FogEnable(false)
     call FogMaskEnable(false)
     loop
-        exitwhen i > 8
+        exitwhen i > 9
         set gGate[i] = CreateDestructable(gGateType[i], gGateX[i], gGateY[i], gGateFace[i], 1.0, 0)
         call SetDestructableInvulnerable(gGate[i], true)
         set i = i + 1

@@ -40,7 +40,7 @@
 
 | Area | Functions |
 |---|---|
-| Helpers | `Msg`, `IsPlaying`, `GiveAllGold`, `SideName`, `GrantLevelTwo`, `LaneName`, `PingLane` |
+| Helpers | `Msg`, `IsPlaying`, `GiveAllGold`, `SideName`, `GrantLevelTwo`, `LaneName`, `PingLane`, `LaneArm` (lane → arm: 0-7 → 0-3, 8 → 4, 9 → 5; use it instead of `L / 2`) |
 | Shops | `KindNext` (per-player vs global step), `StockCircle` (player circle), `StockCastle` (castle), `CastleShockwave`, `AdvanceStatPrice` (apply any circle/castle buy), `BuyIncome` + `IncomeTick` (bank, 60 s), `PremiumLevel` + `TryUpgradePremium` (merge premium items, `gPremItem[i*8+L]`), `OnItemPickup`, `GrabTomeEnum`/`GrabTick` (bought items on the ground → champion), `OnHeroLevel` (refill + stats past the Attributes cap) |
 | Lane hint | `ShowLaneHint` (creates the circle unit, its rect, label) |
 | Scoreboard | `BoardSet`, `TimeText` (m:ss), `UpdateBoard` (1 s; game time `gGameTime` counted in `OnTick`), `BoardWidth`, `CreateBoard` |
@@ -49,7 +49,7 @@
 | Bosses | `BossFindTarget`, `BossCast`, `BossSummon`, `BossTick` |
 | Tick (1 s) | `OnTick`: steer waves, on a cleared wave pay gold + 1 tree and start the countdown, boss AI |
 | Outcome | `ShowEndDialog`, `CheckVictory`, `OnCastleDestroyed`, `DropLoot`, `AnyNexusLeft` (any lane still spawning), `OnTowerDestroyed` (Protector + instant wave), `ProtectorTick` (leash), `OnNexusDestroyed`, `OnBossSlain` |
-| Dark Gate | `OpenSharedPath` (first Nexus down), `OnSharedNexusDestroyed`, `SharedBounty` — lane 8 / arm 4 reuse the lane arrays (`gTower[8]`, `gWpX[64..]`, `gStageUnit[24..]`, `gGate[8]`), state `gSharedState` (-1 closed, 0 open, 2 destroyed) |
+| Gate levels | `OpenGateLane` (L = 8: Level 2 on the first Nexus, 9 = Level 3 on the Dark Citadel), `OnGateNexusDestroyed`, `SharedBounty` — gate lanes reuse the lane arrays (`gTower[L]`, `gWpX[L*8..]`, `gStageUnit[arm*6..]`, `gGate[L]`), state `gGateState[L]` (-1 closed, 0 open, 2 destroyed) |
 | Revive/deaths | `OnReviveTimer`, `StartRevive`, `OnUnitDeath` (kills, deaths, bounty, first-wave tracking, tower/Nexus/boss/castle), `OnPlayerLeave` |
 | Camera/commands | `OnZoomChat`, `ApplyZoom`, `SetFollow`, `SpaceTick` (0.1 s quick position), `OnFollowToggle`, `OnHelpChat` |
 | Dev cheats | `IsDev` (`DEV_NAMES`), `DevArg` (number after a command), `OnDevChat` (`-addmoney`, `-addwood`/`-addtree`, `-lvl`) |
@@ -80,8 +80,9 @@
 | `tvh0 tvo0 tvu0 tve0 tvn0` | unit | The 5 taverns |
 | `shpa`, `shpb`, `shpc` | unit (base `ngme`) | Premium Armory, Apothecary, Bank (gold-mine model) |
 | `ns{d}0`, `nt{d}0`, `nb{d}{k}` | unit | Nexus, tower, boss of arm d (k = player-count tier 0–2) |
-| `ns40`, `nt40` | unit (bases `unp2`, `uzg1`) | Dark Citadel, Dark Spire (the shared Dark Gate lane) |
-| `nc{d}0` (d 0–4) | unit (base: faction champion) | Weakened wave champion (every 10th wave) |
+| `ns40`, `nt40` | unit (bases `unp2`, `uzg1`) | Level 2: Dark Citadel, Dark Spire |
+| `ns50`, `nt50` | unit (bases `uaod`, `uzg1`) | Level 3: Frozen Throne, Frozen Spire |
+| `nc{d}0` (d 0–5) | unit (base: faction champion) | Weakened wave champion (every 10th wave) |
 | `Ib01` | item (base `tst2`) | Bank: Income +100 for 1 tree |
 | `Ih Im Id Ir Is Ia Ii Il` + `00`–`39` | item (base `tst2`) | Circle shop kinds × price steps |
 | `Iy Ik Ie` + `00`–`39`, `Ic00`, `Iw00` | item (base `tst2`) | Castle shop: health/armor/regen steps, repair, shockwave (1 tree each) |
@@ -97,7 +98,9 @@
 ## Coordinates
 
 Arm-local `(u, v)`: u across, v outward; arm d = 0 N, 1 E, 2 S, 3 W (`from_arm`). Lane `L = 2d + side`.
-Plaza `|x|,|y| ≤ 1536`; lanes `|u| ∈ [384, 1024]`, `v ∈ [1536, 3968)`; base rooms `v ∈ [3968, 4864]`;
-tower `(±704, 2900)` (mid-lane), Nexus `(±704, 4544)`; hall at `(-3200, 3200)`; grove SE (`GROVE_RECTS`);
-Dark Gate NE (`SHARED_RECTS`: corner room 1280–1920, leg to x 3840, leg up to y 3840, base room x 2944–4096 / y 3840–4864).
-Wave units carry `userdata = lane*16 + waypoint` (Dark Gate units: 128–143).
+Map 112×112 tiles (playable ±6400 x, -6656..6144 y). Plaza `|x|,|y| ≤ 1536`; lanes `|u| ∈ [384, 1024]`,
+`v ∈ [1536, 4992)`; base rooms `v ∈ [4992, 5888]`;
+tower `(±704, 3600)` (mid-lane), Nexus `(±704, 5440)`; hall at `(-3200, 3200)`; grove SE (`GROVE_RECTS`);
+Dark Gate NE (`SHARED_RECTS`: corner room 1280–1920, leg to x 3840, leg up to y 3840, base room x 2944–4096 / y 3840–4864);
+Frozen Gate NW (`LEVEL3_RECTS`: corner room x -2048..-1280, leg west to x -5120 under the Hall, leg north at x -5120..-4480, base room x -5248..-4352 / y 3968–4864).
+Wave units carry `userdata = lane*16 + waypoint` (gate units: 128–159).

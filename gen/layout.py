@@ -11,18 +11,18 @@ Arm d: 0=North, 1=East, 2=South, 3=West (clockwise rotation of the North arm).
 Lane L = 2*d + side; side 0 = left (u<0), 1 = right (u>0). Lane L = Player(L).
 """
 
-MAP_TILES = 96
-HALF = MAP_TILES * 128 // 2            # 6144
+MAP_TILES = 112                        # was 96: lanes got 1024 longer so the tower sits well away from the circle
+HALF = MAP_TILES * 128 // 2            # 7168
 CAMCOMP = (6, 6, 4, 8)                 # boundary tiles: left, right, bottom, top (WE default)
-PLAY_MINX = -HALF + CAMCOMP[0] * 128   # -5376
-PLAY_MAXX = HALF - CAMCOMP[1] * 128    # 5376
-PLAY_MINY = -HALF + CAMCOMP[2] * 128   # -5632
-PLAY_MAXY = HALF - CAMCOMP[3] * 128    # 5120
+PLAY_MINX = -HALF + CAMCOMP[0] * 128   # -6400
+PLAY_MAXX = HALF - CAMCOMP[1] * 128    # 6400
+PLAY_MINY = -HALF + CAMCOMP[2] * 128   # -6656
+PLAY_MAXY = HALF - CAMCOMP[3] * 128    # 6144
 
 PLAZA = 1536                           # plaza = |x|,|y| <= PLAZA (all bounds on the 128 grid)
 LANE_IN, LANE_OUT = 384, 1024          # lane corridor spans |u| in [LANE_IN, LANE_OUT] (640 = gate width)
-LANE_END = 3968                        # lanes run v in [PLAZA, LANE_END]
-BASE_START, BASE_END = 3968, 4864      # each lane ends in its OWN enemy base room
+LANE_END = 4992                        # lanes run v in [PLAZA, LANE_END]
+BASE_START, BASE_END = 4992, 5888      # each lane ends in its OWN enemy base room
 ROOM_IN, ROOM_OUT = 256, 1152           # base room spans |u| in [ROOM_IN, ROOM_OUT]; |u| < ROOM_IN stays a wall
 
 HALL_CENTRE = (-3200, 3200)            # Hall of Champions (champion select), in the NW void
@@ -66,7 +66,10 @@ def classify(x, y):
             return ("grove", -1)
     for (x0, y0, x1, y1) in SHARED_RECTS:
         if x0 <= x <= x1 and y0 <= y <= y1:
-            return ("shared", -1)
+            return ("shared", 0)
+    for (x0, y0, x1, y1) in LEVEL3_RECTS:
+        if x0 <= x <= x1 and y0 <= y <= y1:
+            return ("shared", 1)
     for d in range(4):
         u, v = to_arm(d, x, y)
         au = abs(u)
@@ -88,10 +91,10 @@ def lane_side(L):
 
 LANE_U = 704
 LANE_WAYPOINTS_ARM = [      # (|u| * side, v); the last point is the castle. Point 1 lies BELOW the tower spawn
-    (LANE_U, 2660),         # 0 spawn (tower; the script switches to the Nexus once the tower falls)
-    (LANE_U, 2400),         # 1
-    (LANE_U, 1800),         # 2 bottom of the lane
-    (LANE_U, 1200),         # 3 plaza edge
+    (LANE_U, 3360),         # 0 spawn (tower; the script switches to the Nexus once the tower falls)
+    (LANE_U, 2800),         # 1
+    (LANE_U, 2100),         # 2
+    (LANE_U, 1300),         # 3 plaza edge
     (LANE_U, 700),          # 4 plaza
     (0, 0),                 # 5 castle
 ]
@@ -129,26 +132,26 @@ def lane_label(L):
 def nexus_pos(L):
     """The lane's own enemy Nexus (spawns the waves of this lane, its boss rises from it)."""
     d, s = L // 2, lane_side(L)
-    return from_arm(d, s * LANE_U, 4544)
+    return from_arm(d, s * LANE_U, 5440)
 
 
 def tower_pos(L):
     """The lane's own strong enemy tower, in the lane centre far in front of its Nexus: tower (range 750) and
     Nexus (range 700, measured from its big footprint) never cover the same spot, so the tower, its stronger waves and the Nexus are fought one by one."""
     d, s = L // 2, lane_side(L)
-    return from_arm(d, s * LANE_U, 2900)
+    return from_arm(d, s * LANE_U, 3600)
 
 
 def tower_spawn(L):
     """While the tower stands, the lane's waves come out of it (just in front, on the lane side)."""
     d, s = L // 2, lane_side(L)
-    return from_arm(d, s * LANE_U, 2660)
+    return from_arm(d, s * LANE_U, 3360)
 
 
 def nexus_spawn(L):
     """After the tower falls, stronger waves come out of the Nexus itself."""
     d, s = L // 2, lane_side(L)
-    return from_arm(d, s * LANE_U, 4230)
+    return from_arm(d, s * LANE_U, 5120)
 
 
 # Hall of Champions: taverns in a ring, the souls (selectors) in the middle.
@@ -210,3 +213,22 @@ SHARED_TOWER_SPAWN = (SHARED_U, 2660)
 SHARED_NEXUS_SPAWN = (SHARED_U, 4290)
 SHARED_GATE = ("ITg3", 1984, 1600, 0.0)      # spans y 1280..1920 = the leg width
 SHARED_WAYPOINTS = [SHARED_TOWER_SPAWN, (SHARED_U, 2400), (SHARED_U, 1600), (2300, 1600), (1450, 1450), (0, 0)]
+
+
+# --------------------------------------------------------------------------
+# LEVEL 3 — the Frozen Gate: second shared lane in the NW (lane 9 in the script). Closed until the Dark Citadel
+# (Level 2) falls. The corridor runs AROUND the Hall of Champions (x -3968..-2432, y 2432..3968): corner room at the
+# plaza's NW corner -> leg west under the Hall -> leg north left of the Hall -> base room in the top-left corner.
+LEVEL3_RECTS = [
+    (-2048, 1280, -1280, 2048),     # corner room (overlaps the plaza corner -> the opening)
+    (-5120, 1408, -2048, 2048),     # leg west (under the Hall, above the West lanes' base rooms)
+    (-5120, 2048, -4480, 3968),     # leg north (left of the Hall)
+    (-5248, 3968, -4352, 4864),     # base room
+]
+LEVEL3_U = -4800                    # centre line of the north leg / base
+LEVEL3_TOWER = (LEVEL3_U, 2900)
+LEVEL3_NEXUS = (LEVEL3_U, 4416)
+LEVEL3_TOWER_SPAWN = (LEVEL3_U, 2660)
+LEVEL3_NEXUS_SPAWN = (LEVEL3_U, 4100)
+LEVEL3_GATE = ("ITg3", -2112, 1728, 0.0)     # spans y 1408..2048 = the west leg
+LEVEL3_WAYPOINTS = [LEVEL3_TOWER_SPAWN, (LEVEL3_U, 2300), (LEVEL3_U, 1728), (-3200, 1728), (-1700, 1650), (0, 0)]

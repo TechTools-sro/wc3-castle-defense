@@ -68,9 +68,17 @@ SHARED = {"name": "The Dark Gate", "color": "|cffff4040",
                     ("ngh2", "uabo"), ("ufro", "nerw"), ("ninf", "nbal")],
           "stages": [("ngh2", "uabo"), ("ninf", "nbal"), ("ninf", "nbal")],
           "champion": "nrvd"}
+# LEVEL 3 — the Frozen Gate (second shared lane, NW, arm 5): opens when the Dark Citadel falls; strongest of all.
+LEVEL3 = {"name": "The Frozen Gate", "color": "|cff80dfff",
+          "base": ("uaod", "Frozen Throne"), "turret": ("uzg1", "Frozen Spire"),
+          "stages": [("nsoc", "ufro"), ("nbal", "ninf"), ("nbal", "ninf")],
+          "champion": "nlrv"}
+LEVEL3_BASE_HP, LEVEL3_BASE_ARMOR, LEVEL3_NEXUS_DMG = 150000, 20, (900, 4, 30)
+LEVEL3_TURRET_HP, LEVEL3_TURRET_ARMOR, LEVEL3_TURRET_DMG = 60000, 12, (895, 1, 10)   # strongest tower
+LEVEL3_TINT = (140, 200, 255)
 SHARED_BASE_HP, SHARED_BASE_ARMOR = 80000, 15     # 10x the old 8000
 SHARED_NEXUS_DMG = (650, 4, 25)
-SHARED_TURRET_HP, SHARED_TURRET_ARMOR, SHARED_TURRET_DMG = 4000, 8, (140, 2, 15)
+SHARED_TURRET_HP, SHARED_TURRET_ARMOR, SHARED_TURRET_DMG = 40000, 8, (695, 1, 10)    # stronger than a lane tower
 SHARED_TINT = (255, 90, 90)
 
 # Wave size (same for every lane and stage): front line = melee, back line = ranged.
@@ -254,7 +262,7 @@ def nexus_attack(dmg):
             ("ua1g", S, "ground,air,structure,debris,item,ward"), ("uwu1", I, 1)]
 
 
-def wave_champion_id(d):     # weakened faction champion for waves (d = 4: the Dark Gate)
+def wave_champion_id(d):     # weakened faction champion for waves (d = 4: Dark Gate, 5: Frozen Gate)
     return f"nc{d}0"
 
 
@@ -266,7 +274,7 @@ BASE_HP, BASE_ARMOR = 30000, 10      # 10x the old 3000: the Nexus is the lane's
 # Every Nexus fights back (huge attack, out of the tower's reach - see layout.tower_pos)
 NEXUS_DMG, NEXUS_COOLDOWN, NEXUS_RANGE = (450, 4, 20), 2.5, 700
 NEXUS_MISSILE = "Abilities\\Weapons\\FrostWyrmMissile\\FrostWyrmMissile.mdl"
-TURRET_HP, TURRET_ARMOR, TURRET_DMG = 1800, 4, (85, 2, 10)   # ~96 chaos per hit / 1.3 s: strong vs early heroes
+TURRET_HP, TURRET_ARMOR, TURRET_DMG = 25000, 4, (495, 1, 10)  # ~500 chaos per hit / 1.3 s (Jiri: 500 dmg, 25000 HP)
 BOSS_HP = [3500, 6000, 9000]
 BOSS_ARMOR = [3, 4, 5]
 BOSS_DMG = [(28, 2, 8), (38, 2, 10), (48, 2, 12)]
@@ -328,6 +336,20 @@ def custom_units():
                 ("ua1r", I, 800), ("uacq", U, 850.0), ("ua1t", S, "chaos"), ("uabi", S, ""),
                 ("usid", I, 1000), ("usin", I, 1000), ("usca", R, 1.5), ("uclr", I, tr), ("uclg", I, tg), ("uclb", I, tb),
                 ("ubba", I, 200), ("ubdi", I, 1), ("ubsi", I, 1)]))
+        if d == 0:     # once: the Frozen Gate's (Level 3) tower + Nexus (ids ns50 / nt50)
+            tr, tg, tb = LEVEL3_TINT
+            units.append((LEVEL3["base"][0], base_id(5), [
+                ("unam", S, LEVEL3["base"][1]), ("uhpm", I, LEVEL3_BASE_HP), ("udef", I, LEVEL3_BASE_ARMOR),
+                ("udty", S, "fort"), ("uabi", S, ""), ("utra", S, ""), ("ures", S, ""), ("uupt", S, "")] + nexus_attack(LEVEL3_NEXUS_DMG) + [
+                ("usid", I, 1000), ("usin", I, 1000), ("ubba", I, 1000), ("ubdi", I, 1), ("ubsi", I, 1),
+                ("usca", R, 1.6), ("uclr", I, tr), ("uclg", I, tg), ("uclb", I, tb)]))
+            sb, sd, ss = LEVEL3_TURRET_DMG
+            units.append((LEVEL3["turret"][0], turret_id(5), [
+                ("unam", S, LEVEL3["turret"][1]), ("uhpm", I, LEVEL3_TURRET_HP), ("udef", I, LEVEL3_TURRET_ARMOR),
+                ("udty", S, "fort"), ("ua1b", I, sb), ("ua1d", I, sd), ("ua1s", I, ss), ("ua1c", U, 1.3),
+                ("ua1r", I, 800), ("uacq", U, 850.0), ("ua1t", S, "chaos"), ("uabi", S, ""),
+                ("usid", I, 1000), ("usin", I, 1000), ("usca", R, 1.7), ("uclr", I, tr), ("uclg", I, tg), ("uclb", I, tb),
+                ("ubba", I, 300), ("ubdi", I, 1), ("ubsi", I, 1)]))
         for k in range(3):
             base, dice, sides = BOSS_DMG[k]
             mods = [
@@ -345,7 +367,7 @@ def custom_units():
                     mods.append((fid, S, b[key]))
             units.append((b["base"], boss_id(d, k), mods))
     # weakened wave champions (every 10th wave): half damage, about half HP, smaller model
-    for d, f in enumerate(FACTIONS + [SHARED]):
+    for d, f in enumerate(FACTIONS + [SHARED, LEVEL3]):
         units.append((f["champion"], wave_champion_id(d), [
             ("uhpm", I, WAVE_CHAMP_HP), ("udef", I, WAVE_CHAMP_ARMOR), ("ua1b", I, WAVE_CHAMP_DMG[0]),
             ("ua1d", I, WAVE_CHAMP_DMG[1]), ("ua1s", I, WAVE_CHAMP_DMG[2]), ("usca", R, WAVE_CHAMP_SCALE)]))

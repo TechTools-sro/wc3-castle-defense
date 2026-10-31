@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-10-31 (late) — Level 3, bigger map, stronger towers
+
+- **Level 3 — the Frozen Gate (NW):** second shared lane, opens when the Dark Citadel (Level 2) falls. Corridor
+  around the Hall of Champions (`LEVEL3_RECTS`), Frozen Spire 60 000 HP / ~900 dmg, Frozen Throne 150 000 HP with a
+  900 + 4d30 missile, ice-blue waves (+500 HP, +damage), +(30 + wave) gold per kill, +1000 gold when it falls;
+  victory now also needs the Frozen Throne. Gate code generalized from one shared lane to two:
+  `LaneArm`, `OpenGateLane(L)`, `OnGateNexusDestroyed(L)`, `gGateState[L]` (replaces `gSharedState`).
+- **Map 96×96 → 112×112:** player lanes 1024 longer (`LANE_END` 4992, base rooms 4992–5888); tower at v 3600
+  (1776 from the Champion's Circle, was 1076), Nexus 5440, waypoints re-spaced.
+- **Towers:** lane tower 25 000 HP and ~500 damage (was 1800 / ~96); Dark Spire 40 000 / ~700.
+  Verified: pjass + base-id check + build + top-down render (both gate corridors, longer lanes);
+  not tried in-game yet (his game was running).
+
 ## 2026-10-31 (late) — upgradable premium items
 
 - Premium items level up to Lv 5: picking up a shop (Lv 1) premium item while holding the same item merges both
