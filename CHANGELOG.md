@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.6 — 2026-11-01: Nexus HP −60 %, Nexus damage ×2
+
+- **Uploaded as catalogue map #21** (HTTP 201, download SHA-256 `56a858ac…` matches; joins the map family, 7 versions).
+
+- Jiří: the Nexuses were far too tanky ("sniz zivoty nexusu o 60%") and should hit harder ("a zvys jim DMG").
+  Every Nexus HP ×0.4, attack ×2 (`BASE_HP`, `NEXUS_DMG`, `GATE_LEVELS[*]["nexus"]` in `gen/objects.py`):
+  lane 30 000 → 12 000 HP, 450+4d20 → 900+4d40; gates L2–L5 32 000 / 60 000 / 100 000 / 160 000 HP,
+  1300+4d50 / 1800+4d60 / 2400+4d80 / 3200+4d100. Verified: pjass + build; not tried in-game.
+
 ## v1.5 — 2026-10-31 (late): towers 5x damage, no lifesteal on towers / Nexus
 
 - **Uploaded as catalogue map #20** (HTTP 201, download SHA-256 `546d3b00…` matches).
