@@ -141,6 +141,9 @@ and an allied shop-sharing (`Xcs2`, `Aall`) buyer ability — the `Aall`-only ve
 
 ## Secret grove (narrow passage at the SE plaza corner)
 
+The grove shops sell **remotely**: select a shop (e.g. jump there via the minimap) and buy — your champion can be
+anywhere on the map (`Aneu` radius 20 000). Bought items go straight into his inventory.
+
 - **Fountain of Power**: 2 % max HP + 2 % max mana per second.
 - **Bank**: trees → passive income (see above).
 - **Premium Armory** — 8 simple items, **1000 gold** each, stock 3, restock 30 s (`PREMIUM_DEF`), hotkeys

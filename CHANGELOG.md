@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-31 (late) — grove shops sell remotely
+
+- The original `Aneu` (neutral shop buyer selection, used by the Premium Armory, Bank and Apothecary) now has a
+  20 000 radius: select a grove shop and buy with your champion anywhere on the map. Verified: build; not tried
+  in-game yet.
+
 ## 2026-10-31 (late) — Levels 4 and 5, gate bosses, standardized wave units
 
 - **Levels 4 (Shadow Gate, SW) and 5 (Inferno Gate, far SW chamber behind the L4 base)**; all gate levels now come

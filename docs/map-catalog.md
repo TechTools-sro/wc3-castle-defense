@@ -36,7 +36,8 @@ ruins, then fight through the four shared **gate levels** (2–5). **Win** when 
   Armor +2, Strength +10, Agility +10, Intelligence +10, All stats +3 — bonuses show as green stats.
 - **The Castle** (select it; 1 tree each): Castle Health +1000, Castle Armor +3, Castle Regeneration +10 HP/s,
   Repair +2000 HP, Shockwave (damages every monster near the castle).
-- **Secret grove** (narrow passage at the SE corner of the plaza): Fountain of Power (fast HP + mana),
+- **Secret grove** (narrow passage at the SE corner of the plaza; its shops sell to your champion anywhere on the
+  map — just select the shop): Fountain of Power (fast HP + mana),
   **Premium Armory** (1000 gold: lifesteal, attack speed, critical strike, bash, evasion, boots, regeneration,
   mana regeneration — buy the same item again to upgrade it, up to Lv 5), **Bank** (1 tree = +10 gold income every minute), Apothecary (potions, scrolls).
 
