@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-31 (late) — pace settings
+
+- New chat commands for any player: `-break N` (shopping break 5–300 s, default 120) and `-wave N` (gap between
+  waves 1–60 s, default 10); no number shows the current values; changes are announced to everyone and shorten a
+  running countdown at once. Listed in `-help`. `OnConfigChat` in `gen/castle_logic.j`.
+  Verified: pjass + build; not tried in-game yet.
+
 ## 2026-10-31 (late) — game clock
 
 - Scoreboard title now starts with the game time (`m:ss`, `h:mm:ss` after an hour), counted from the end of champion

@@ -52,7 +52,8 @@
 | Dark Gate | `OpenSharedPath` (first Nexus down), `OnSharedNexusDestroyed`, `SharedBounty` — lane 8 / arm 4 reuse the lane arrays (`gTower[8]`, `gWpX[64..]`, `gStageUnit[24..]`, `gGate[8]`), state `gSharedState` (-1 closed, 0 open, 2 destroyed) |
 | Revive/deaths | `OnReviveTimer`, `StartRevive`, `OnUnitDeath` (kills, deaths, bounty, first-wave tracking, tower/Nexus/boss/castle), `OnPlayerLeave` |
 | Camera/commands | `OnZoomChat`, `ApplyZoom`, `SetFollow`, `SpaceTick` (0.1 s quick position), `OnFollowToggle`, `OnHelpChat` |
-| Dev cheats | `IsDev` (`DEV_NAMES`), `DevArg`, `OnDevChat` (`-addmoney`, `-addwood`/`-addtree`, `-lvl`) |
+| Dev cheats | `IsDev` (`DEV_NAMES`), `DevArg` (number after a command), `OnDevChat` (`-addmoney`, `-addwood`/`-addtree`, `-lvl`) |
+| Pace settings | `OnConfigChat` (`-break N`, `-wave N` → `gWaveBreak`, `gWaveInterval`) |
 | Quests | `AddQuest`, `CreateQuests` |
 | Test build | `TestKillEnum`, `TestStep` (shop buys, castle buy, tower/Nexus/boss kills, Dark Gate), `TestBuyOrder`, `TestBuyHero` (only with `gTestMode`) |
 | Round | `StartGame`, `HidePickTag`/`ShowPickTags`, `AssignHero`, `EndChampionSelect`, `AllChosen`, `OnUnitSold`, `SetupChampionSelect`, `RemoveEnumItemCB`, `CDRestart`, `OnEndClick` |

@@ -1653,6 +1653,8 @@ function OnHelpChat takes nothing returns nothing
     call DisplayTimedTextToPlayer(p, 0.0, 0.0, 15.0, "|cff4fc3ff-zoom 250|r   |cffc8c8c8zoom out|r")
     call DisplayTimedTextToPlayer(p, 0.0, 0.0, 15.0, "|cff4fc3ff-cam|r   |cffc8c8c8camera follows your hero|r")
     call DisplayTimedTextToPlayer(p, 0.0, 0.0, 15.0, "|cff4fc3ffSpace|r   |cffc8c8c8jump to your hero|r")
+    call DisplayTimedTextToPlayer(p, 0.0, 0.0, 15.0, "|cff4fc3ff-break 60|r   |cffc8c8c8shopping break length (s)|r")
+    call DisplayTimedTextToPlayer(p, 0.0, 0.0, 15.0, "|cff4fc3ff-wave 5|r   |cffc8c8c8seconds between waves|r")
     set p = null
 endfunction
 
@@ -1705,6 +1707,55 @@ function OnDevChat takes nothing returns nothing
         set n = DevArg(m, 4, 1)
         call SetHeroLevel(gHero[id], GetHeroLevel(gHero[id]) + n, true)
         call DisplayTimedTextToPlayer(p, 0.0, 0.0, 4.0, "|cff4fc3ff[dev] level " + I2S(GetHeroLevel(gHero[id])) + "|r")
+    endif
+    set p = null
+endfunction
+
+//---------------------------------------------------------------------------
+// Pace settings (any player, announced to everyone):
+//   -break 60   shopping-break length (5-300 s)      -wave 5   seconds between waves (1-60 s)
+// Without a number they show the current value. A running countdown that is longer is shortened at once.
+//---------------------------------------------------------------------------
+function OnConfigChat takes nothing returns nothing
+    local player p = GetTriggerPlayer()
+    local string m = GetEventPlayerChatString()
+    local string who = gPlayerColorCode[GetPlayerId(p)] + GetPlayerName(p) + "|r"
+    local integer n
+    local boolean isBreak = SubString(m, 0, 6) == "-break"
+    if not isBreak and SubString(m, 0, 5) != "-wave" then
+        set p = null
+        return
+    endif
+    if isBreak then
+        set n = DevArg(m, 6, -1)
+    else
+        set n = DevArg(m, 5, -1)
+    endif
+    if n < 0 then
+        call DisplayTimedTextToPlayer(p, 0.0, 0.0, 6.0, "Break |cffffcc00" + I2S(R2I(gWaveBreak)) + "s|r   Wave gap |cffffcc00" + I2S(R2I(gWaveInterval)) + "s|r")
+        set p = null
+        return
+    endif
+    if isBreak then
+        if n < 5 then
+            set n = 5
+        elseif n > 300 then
+            set n = 300
+        endif
+        set gWaveBreak = I2R(n)
+        call Msg(who + " set the shopping break to |cffffcc00" + I2S(n) + "s|r")
+    else
+        if n < 1 then
+            set n = 1
+        elseif n > 60 then
+            set n = 60
+        endif
+        set gWaveInterval = I2R(n)
+        call Msg(who + " set the wave gap to |cffffcc00" + I2S(n) + "s|r")
+    endif
+    // a countdown that is running now gets shortened if it is longer than the new setting
+    if gStarted and not gGameOver and not gWaitingClear and gWave > 0 and TimerGetRemaining(gWaveTimer) > NextWaveDelay() then
+        call TimerStart(gWaveTimer, NextWaveDelay(), false, function OnWaveTimer)
     endif
     set p = null
 endfunction
@@ -1795,6 +1846,15 @@ function InitGame takes nothing returns nothing
         set i = i + 1
     endloop
     call TriggerAddAction(t, function OnDevChat)
+    set t = CreateTrigger()
+    set i = 0
+    loop
+        exitwhen i >= 8
+        call TriggerRegisterPlayerChatEvent(t, Player(i), "-break", false)
+        call TriggerRegisterPlayerChatEvent(t, Player(i), "-wave", false)
+        set i = i + 1
+    endloop
+    call TriggerAddAction(t, function OnConfigChat)
     set gEndDialog = DialogCreate()
     set t = CreateTrigger()
     call TriggerRegisterDialogEvent(t, gEndDialog)

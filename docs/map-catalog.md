@@ -49,6 +49,8 @@ has fallen. **Lose** when the Castle of Lordaeron in the middle falls.
 | `-zoom 250` | zoom out (`-zoom` = normal) |
 | `-cam` / Esc | camera follows your hero |
 | Space | jump to your hero |
+| `-break 60` | shopping break length in seconds (5–300) |
+| `-wave 5` | seconds between waves (1–60) |
 
 ## Scoreboard
 

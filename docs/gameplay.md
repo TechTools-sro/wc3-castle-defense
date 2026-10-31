@@ -143,7 +143,10 @@ and an allied shop-sharing (`Xcs2`, `Aall`) buyer ability — the `Aall`-only ve
 - **Scoreboard** (top right, 1 s refresh): title `m:ss    Wave N    Castle HP / max HP` (game time from the end of champion select, stops at the end;
   max HP includes Castle Health upgrades). The end dialog shows the time ("VICTORY in 23:45!").; columns Player · Lv · Kills · Deaths.
 - **-help** (only to the asker): gold `Commands`, then light-blue command + grey description per line:
-  `-zoom 250` zoom out · `-cam` camera follows your hero · `Space` jump to your hero.
+  `-zoom 250` zoom out · `-cam` camera follows your hero · `Space` jump to your hero · `-break 60` · `-wave 5`.
+- **Pace settings** (any player, announced to all; `OnConfigChat`): `-break N` = shopping-break length (5–300 s,
+  default 120), `-wave N` = seconds between waves (1–60 s, default 10). No number = show the current values.
+  A countdown already running is shortened at once if it is longer than the new value; kept across *Play again*.
 - **-zoom N**: 250 = distance 2500 (also accepts the raw distance); `-zoom` alone = normal. Remembered.
 - **Esc / -cam**: camera follows the champion. **Space**: jumps to the champion (quick position kept on him).
 - F9 quests: "Defend your lane" + short tips.
