@@ -41,7 +41,7 @@
 | Area | Functions |
 |---|---|
 | Helpers | `Msg`, `IsPlaying`, `GiveAllGold`, `SideName`, `GrantLevelTwo`, `LaneName`, `PingLane` |
-| Shops | `KindNext` (per-player vs global step), `StockCircle` (player circle), `StockCastle` (castle), `CastleShockwave`, `AdvanceStatPrice` (apply any circle/castle buy), `BuyIncome` + `IncomeTick` (bank, 60 s), `OnItemPickup`, `GrabTomeEnum`/`GrabTick` (bought items on the ground → champion), `OnHeroLevel` (refill + stats past the Attributes cap) |
+| Shops | `KindNext` (per-player vs global step), `StockCircle` (player circle), `StockCastle` (castle), `CastleShockwave`, `AdvanceStatPrice` (apply any circle/castle buy), `BuyIncome` + `IncomeTick` (bank, 60 s), `PremiumLevel` + `TryUpgradePremium` (merge premium items, `gPremItem[i*8+L]`), `OnItemPickup`, `GrabTomeEnum`/`GrabTick` (bought items on the ground → champion), `OnHeroLevel` (refill + stats past the Attributes cap) |
 | Lane hint | `ShowLaneHint` (creates the circle unit, its rect, label) |
 | Scoreboard | `BoardSet`, `TimeText` (m:ss), `UpdateBoard` (1 s; game time `gGameTime` counted in `OnTick`), `BoardWidth`, `CreateBoard` |
 | Setup | `SetupAlliances`, `SetupDarkness`, `MakeWallInvulnerable`, `CreateKingdom`, `CreateLaneBase` |
@@ -85,10 +85,11 @@
 | `Ib01` | item (base `tst2`) | Bank: Income +100 for 1 tree |
 | `Ih Im Id Ir Is Ia Ii Il` + `00`–`39` | item (base `tst2`) | Circle shop kinds × price steps |
 | `Iy Ik Ie` + `00`–`39`, `Ic00`, `Iw00` | item (base `tst2`) | Castle shop: health/armor/regen steps, repair, shockwave (1 tree each) |
-| `Ip01`–`Ip08` | item | Premium items |
+| `Ip01`–`Ip08` | item | Premium items Lv 1 (sold) |
+| `Iu<i><L>` (i 1–8, L 2–5) | item | Premium items Lv 2–5 (made by the merge, never sold) |
 | `Xh Xm Xd Xa Xs Xg Xi Xl` + `00`–`39` | ability | Hero bonus abilities (bases `AIlf AImb AIat AId1 AIs1 AIa1 AIi1 AIx1`) |
 | `Xk Xy Xr` + `00`–`39` | ability | Castle armor / max-HP / regen abilities (`AId1`, `AIlf`, `Arel`) |
-| `Xp01`–`Xp08` | ability | Premium item abilities |
+| `Xp01`–`Xp08`, `Xu<i><L>` | ability | Premium item abilities Lv 1 / Lv 2–5 |
 | `Xatt` | hero ability (base `Aamk`) | Attributes: 100 levels, +3 all stats per level, learnable from hero level 11 |
 | `Xcsh`, `Xcs2` | ability (bases `Aneu`, `Aall`) | Castle shop buyer selection, 3000 radius |
 | `BTNCDStr/Agi/Int.blp` | imported icon | `ReplaceableTextures\CommandButtons\` (+ `CommandButtonsDisabled\DISBTN…`) |

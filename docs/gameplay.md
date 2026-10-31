@@ -127,10 +127,20 @@ and an allied shop-sharing (`Xcs2`, `Aall`) buyer ability — the `Aall`-only ve
 
 - **Fountain of Power**: 2 % max HP + 2 % max mana per second.
 - **Bank**: trees → passive income (see above).
-- **Premium Armory** — 8 simple items, **1000 gold** each, stock 3, restock 30 s (`PREMIUM`):
-  Vampire Fang 30 % lifesteal · Fury Gloves +40 % attack speed · Executioner's Axe 20 % for 3× damage ·
-  Stormhammer 20 % stun 1 s +40 dmg · Phantom Cloak 25 % dodge · Winged Boots +100 move speed ·
-  Troll Heart +15 HP/s · Arcane Mask +150 % mana regen. Hotkeys Q W E R / A S D F.
+- **Premium Armory** — 8 simple items, **1000 gold** each, stock 3, restock 30 s (`PREMIUM_DEF`), hotkeys
+  Q W E R / A S D F. **Upgradable to Lv 5:** buying an item you already hold merges both into the next level
+  (`TryUpgradePremium`); at Lv 5 a new buy is refunded. Lv 1 → Lv 5:
+
+  | Item | Lv 1 | per level | Lv 5 |
+  |---|---|---|---|
+  | Vampire Fang | 30 % lifesteal | +10 % | 70 % |
+  | Fury Gloves | +40 % attack speed | +15 % | +100 % |
+  | Executioner's Axe | 20 % chance for 3× damage | +5 % | 40 % |
+  | Stormhammer | 20 % stun 1 s, +40 dmg | +5 %, +20 dmg | 40 %, +120 |
+  | Phantom Cloak | 25 % dodge | +5 % | 45 % |
+  | Winged Boots | +100 move speed | +25 | +200 (engine cap 522) |
+  | Troll Heart | +15 HP/s | +10 | +55 |
+  | Arcane Mask | +150 % mana regen | +50 % | +350 % |
 - **Apothecary**: potions, scrolls, boots, rings, staff of teleportation (`SHOPS["apothecary"]`), stock 8, restock 10 s.
 
 ## Enemy bases and bosses (`gen/objects.py`)

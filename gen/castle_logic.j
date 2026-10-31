@@ -213,9 +213,66 @@ function IncomeTick takes nothing returns nothing
     endloop
 endfunction
 
+// Premium items level up: picking up a shop (Lv 1) premium item while already holding the same item merges
+// both into the next level. At the max level the new one is refunded.
+function PremiumLevel takes integer id, integer fam returns integer
+    local integer L = 1
+    loop
+        exitwhen L > gPremMax
+        if gPremItem[fam * 8 + L] == id then
+            return L
+        endif
+        set L = L + 1
+    endloop
+    return 0
+endfunction
+
+function TryUpgradePremium takes unit h, item it returns boolean
+    local integer id = GetItemTypeId(it)
+    local integer fam = 0
+    local integer s = 0
+    local integer L
+    local item o
+    loop
+        exitwhen fam >= gPremCount or gPremItem[fam * 8 + 1] == id
+        set fam = fam + 1
+    endloop
+    if fam >= gPremCount then
+        return false
+    endif
+    loop
+        exitwhen s >= 6
+        set o = UnitItemInSlot(h, s)
+        if o != null and o != it then
+            set L = PremiumLevel(GetItemTypeId(o), fam)
+            if L > 0 then
+                call RemoveItem(it)
+                if L >= gPremMax then
+                    call SetPlayerState(GetOwningPlayer(h), PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(GetOwningPlayer(h), PLAYER_STATE_RESOURCE_GOLD) + gPremPrice)
+                    call DisplayTimedTextToPlayer(GetOwningPlayer(h), 0.0, 0.0, 5.0, "|cffffcc00" + gPremName[fam] + "|r is already max level - refunded")
+                else
+                    call RemoveItem(o)
+                    call UnitAddItemById(h, gPremItem[fam * 8 + L + 1])
+                    call DestroyEffect(AddSpecialEffectTarget("Abilities\\Spells\\Items\\AIem\\AIemTarget.mdl", h, "origin"))
+                    call DisplayTimedTextToPlayer(GetOwningPlayer(h), 0.0, 0.0, 5.0, "|cffffcc00" + gPremName[fam] + "|r |cff4fc3ffLv " + I2S(L + 1) + "|r: " + gPremEffect[fam * 8 + L + 1])
+                endif
+                set o = null
+                return true
+            endif
+        endif
+        set s = s + 1
+    endloop
+    set o = null
+    return false
+endfunction
+
 function OnItemPickup takes nothing returns nothing
     local integer p = GetPlayerId(GetOwningPlayer(GetTriggerUnit()))
     local item it = GetManipulatedItem()
+    if p < 8 and GetTriggerUnit() == gHero[p] and TryUpgradePremium(gHero[p], it) then
+        set it = null
+        return
+    endif
     if p < 8 then
         if GetItemTypeId(it) == gBankItem then
             call BuyIncome(p, it)

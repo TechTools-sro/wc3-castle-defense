@@ -33,7 +33,7 @@ has fallen. **Lose** when the Castle of Lordaeron in the middle falls.
   Repair +2000 HP, Shockwave (damages every monster near the castle).
 - **Secret grove** (narrow passage at the SE corner of the plaza): Fountain of Power (fast HP + mana),
   **Premium Armory** (1000 gold: lifesteal, attack speed, critical strike, bash, evasion, boots, regeneration,
-  mana regeneration), **Bank** (1 tree = +100 gold income every minute), Apothecary (potions, scrolls).
+  mana regeneration — buy the same item again to upgrade it, up to Lv 5), **Bank** (1 tree = +100 gold income every minute), Apothecary (potions, scrolls).
 
 ## Champions
 

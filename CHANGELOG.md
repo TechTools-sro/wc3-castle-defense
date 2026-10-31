@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-31 (late) — upgradable premium items
+
+- Premium items level up to Lv 5: picking up a shop (Lv 1) premium item while holding the same item merges both
+  into the next level (`TryUpgradePremium`); at Lv 5 a new buy is refunded (1000 gold). Each level is its own
+  item (`Iu<i><L>`) + ability (`Xu<i><L>`) with stronger values (table in `docs/gameplay.md`), generated from
+  `PREMIUM_DEF` in `gen/objects.py`. Verified: pjass + build (32 level items + 8 shop items in w3t);
+  not tried in-game yet.
+
 ## 2026-10-31 (late) — Nexus fights back, tower moved forward
 
 - Every lane Nexus: 30 000 HP (10× the old 3000), armor 10, and a **huge attack** (450 + 4d20 chaos missile every

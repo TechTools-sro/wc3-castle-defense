@@ -95,18 +95,40 @@ ALL_HEROES = [h for (_, _, hs) in TAVERNS for h in hs]
 # + one custom ability cloned from a real item ability with a stronger value.
 #   (item id, base item, name, effect line, icon, ability base, ability id, [(field, type, data ptr, value)])
 PREMIUM_PRICE = 1000
-PREMIUM = [
-    ("Ip01", "modt", "Vampire Fang", "30% lifesteal", "BTNMaskOfDeath", "AIva", "Xp01", [("Ivam", "U", 1, 0.30)]),
-    ("Ip02", "gcel", "Fury Gloves", "+40% attack speed", "BTNGlove", "AIsx", "Xp02", [("Isx1", "U", 1, 0.40)]),
-    ("Ip03", "ratc", "Executioner's Axe", "20% chance for 3x damage", "BTNCriticalStrike", "AIcs", "Xp03",
-     [("Ocr1", "U", 1, 20.0), ("Ocr2", "U", 2, 3.0), ("Ocr3", "U", 3, 0.0), ("Ocr4", "U", 4, 0.0)]),
-    ("Ip04", "ratc", "Stormhammer", "20% chance to stun 1 s, +40 damage", "BTNBash", "AIbx", "Xp04",
-     [("Hbh1", "U", 1, 20.0), ("Hbh3", "U", 3, 40.0), ("adur", "U", 0, 1.0), ("ahdu", "U", 0, 1.0)]),
-    ("Ip05", "evtl", "Phantom Cloak", "25% chance to dodge attacks", "BTNEvasion", "AIev", "Xp05", [("Eev1", "U", 1, 0.25)]),
-    ("Ip06", "bspd", "Winged Boots", "+100 movement speed", "BTNBootsOfSpeed", "AIms", "Xp06", [("Imvb", "I", 1, 100)]),
-    ("Ip07", "rlif", "Troll Heart", "+15 HP per second", "BTNRegenerate", "Arel", "Xp07", [("Ihpr", "I", 1, 15)]),
-    ("Ip08", "rwiz", "Arcane Mask", "+150% mana regeneration", "BTNSobiMask", "AIrm", "Xp08", [("Imrp", "U", 1, 1.5)]),
+# Upgradable: buying an item you already hold merges both into the next level (Lv 1..PREMIUM_LEVELS).
+# Each level = its own item type + ability with stronger values; only Lv 1 is sold.
+#   (name, base item, icon, ability base, [(field, type, data ptr)], values(L) -> [one per field], effect(L) -> text)
+PREMIUM_LEVELS = 5
+PREMIUM_DEF = [
+    ("Vampire Fang", "modt", "BTNMaskOfDeath", "AIva", [("Ivam", "U", 1)],
+     lambda L: [0.30 + 0.10 * (L - 1)], lambda L: f"{30 + 10 * (L - 1)}% lifesteal"),
+    ("Fury Gloves", "gcel", "BTNGlove", "AIsx", [("Isx1", "U", 1)],
+     lambda L: [0.40 + 0.15 * (L - 1)], lambda L: f"+{40 + 15 * (L - 1)}% attack speed"),
+    ("Executioner's Axe", "ratc", "BTNCriticalStrike", "AIcs", [("Ocr1", "U", 1), ("Ocr2", "U", 2), ("Ocr3", "U", 3), ("Ocr4", "U", 4)],
+     lambda L: [20.0 + 5 * (L - 1), 3.0, 0.0, 0.0], lambda L: f"{20 + 5 * (L - 1)}% chance for 3x damage"),
+    ("Stormhammer", "ratc", "BTNBash", "AIbx", [("Hbh1", "U", 1), ("Hbh3", "U", 3), ("adur", "U", 0), ("ahdu", "U", 0)],
+     lambda L: [20.0 + 5 * (L - 1), 40.0 + 20 * (L - 1), 1.0, 1.0],
+     lambda L: f"{20 + 5 * (L - 1)}% chance to stun 1 s, +{40 + 20 * (L - 1)} damage"),
+    ("Phantom Cloak", "evtl", "BTNEvasion", "AIev", [("Eev1", "U", 1)],
+     lambda L: [0.25 + 0.05 * (L - 1)], lambda L: f"{25 + 5 * (L - 1)}% chance to dodge attacks"),
+    ("Winged Boots", "bspd", "BTNBootsOfSpeed", "AIms", [("Imvb", "I", 1)],
+     lambda L: [100 + 25 * (L - 1)], lambda L: f"+{100 + 25 * (L - 1)} movement speed"),
+    ("Troll Heart", "rlif", "BTNRegenerate", "Arel", [("Ihpr", "I", 1)],
+     lambda L: [15 + 10 * (L - 1)], lambda L: f"+{15 + 10 * (L - 1)} HP per second"),
+    ("Arcane Mask", "rwiz", "BTNSobiMask", "AIrm", [("Imrp", "U", 1)],
+     lambda L: [1.5 + 0.5 * (L - 1)], lambda L: f"+{150 + 50 * (L - 1)}% mana regeneration"),
 ]
+
+
+def premium_item_id(i, L):       # Lv 1 = the shop item Ip01..Ip08, higher levels Iu<i><L>
+    return f"Ip0{i + 1}" if L == 1 else f"Iu{i + 1}{L}"
+
+
+def premium_abil_id(i, L):
+    return f"Xp0{i + 1}" if L == 1 else f"Xu{i + 1}{L}"
+
+
+PREMIUM = [(premium_item_id(i, 1),) for i in range(len(PREMIUM_DEF))]   # shop list (Lv 1 ids)
 PREMIUM_KEYS = "QWERASDF"
 
 # Bank (secret grove): trade trees (lumber, +1 per cleared wave) for passive income.
@@ -428,13 +450,19 @@ def custom_items():
         ("ides", S, f"+{INCOME_STEP} gold every minute"), ("iabi", S, ""),
         ("igol", I, 0), ("ilum", I, INCOME_TREE_COST), ("isto", I, 20), ("istr", I, 1), ("isst", I, 0),
         ("ubpx", I, 0), ("ubpy", I, 0)]))
-    for i, (iid, base, name, effect, icon, _ab, aid, _f) in enumerate(PREMIUM):
+    for i, (name, base, icon, _ab, _f, _vals, effect) in enumerate(PREMIUM_DEF):
         key = PREMIUM_KEYS[i]
-        out.append((base, iid, [
-            ("unam", S, name), ("iico", S, CB + icon + ".blp"), ("uhot", S, key),
-            ("utip", S, f"|cffffcc00{name}|r (|cffffcc00{key}|r)"), ("utub", S, effect), ("ides", S, effect),
-            ("iabi", S, aid), ("igol", I, PREMIUM_PRICE), ("ilum", I, 0),
-            ("isto", I, 3), ("istr", I, 30), ("isst", I, 0), ("ubpx", I, i % 4), ("ubpy", I, i // 4)]))
+        for L in range(1, PREMIUM_LEVELS + 1):
+            hint = "|cff80ff80Max level|r" if L == PREMIUM_LEVELS else f"|cffff8c00Buy again to upgrade (max Lv {PREMIUM_LEVELS})|r"
+            mods = [("unam", S, name if L == 1 else f"{name} Lv {L}"), ("iico", S, CB + icon + ".blp"),
+                    ("utub", S, f"{effect(L)}|n|n{hint}"), ("ides", S, effect(L)),
+                    ("iabi", S, premium_abil_id(i, L)), ("igol", I, PREMIUM_PRICE), ("ilum", I, 0)]
+            if L == 1:      # the shop item
+                mods += [("uhot", S, key), ("utip", S, f"|cffffcc00{name}|r (|cffffcc00{key}|r)"),
+                         ("isto", I, 3), ("istr", I, 30), ("isst", I, 0), ("ubpx", I, i % 4), ("ubpy", I, i // 4)]
+            else:
+                mods += [("utip", S, f"|cffffcc00{name}|r  |cff4fc3ffLv {L}|r")]
+            out.append((base, premium_item_id(i, L), mods))
     return out
 
 
@@ -451,6 +479,8 @@ def custom_abilities():
     out.append(("Aall", CASTLE_SHARE_ABIL, [("aran", U, 1, 0, 3000.0), ("Neu1", U, 1, 1, 3000.0)]))
     out.append(attribute_ability())
     vt = {"U": U, "I": I}
-    for (_iid, _b, _n, _e, _i, abase, aid, fields) in PREMIUM:
-        out.append((abase, aid, [(f, vt[ty], 1, dp, v) for f, ty, dp, v in fields]))
+    for i, (_n, _b, _i, abase, fields, vals, _e) in enumerate(PREMIUM_DEF):
+        for L in range(1, PREMIUM_LEVELS + 1):
+            out.append((abase, premium_abil_id(i, L),
+                        [(f, vt[ty], 1, dp, v) for (f, ty, dp), v in zip(fields, vals(L))]))
     return out

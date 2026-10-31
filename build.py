@@ -292,6 +292,12 @@ globals
     integer array gWaveChamp
     integer gChampEvery = 10
     integer array gIncome
+    integer array gPremItem
+    string array gPremName
+    string array gPremEffect
+    integer gPremCount = 0
+    integer gPremMax = 5
+    integer gPremPrice = 1000
     string array gDevName
     integer gDevCount = 0
     integer gAttrMaxHeroLevel = 110
@@ -493,6 +499,15 @@ def build_script():
     for i, n in enumerate(DEV_NAMES):
         a(f"    set gDevName[{i}] = {jstr(n)}")
     a(f"    set gDevCount = {len(DEV_NAMES)}")
+    # upgradable premium items: gPremItem[i*8 + L] (L = 1..PREMIUM_LEVELS), Lv 1 = the shop item
+    for i, (name, _b, _ic, _ab, _f, _v, effect) in enumerate(OB.PREMIUM_DEF):
+        a(f"    set gPremName[{i}] = {jstr(name)}")
+        for lv in range(1, OB.PREMIUM_LEVELS + 1):      # (not "L": that is the script's line list here)
+            a(f"    set gPremItem[{i * 8 + lv}] = '{OB.premium_item_id(i, lv)}'")
+            a(f"    set gPremEffect[{i * 8 + lv}] = {jstr(effect(lv))}")
+    a(f"    set gPremCount = {len(OB.PREMIUM_DEF)}")
+    a(f"    set gPremMax = {OB.PREMIUM_LEVELS}")
+    a(f"    set gPremPrice = {OB.PREMIUM_PRICE}")
     a(f"    set gBankItem = '{OB.BANK_ITEM}'")
     a(f"    set gIncomeStep = {OB.INCOME_STEP}")
     a("    set gInvader[4] = Player(8)")
