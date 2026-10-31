@@ -59,4 +59,4 @@ and the Frozen Throne have fallen. **Lose** when the Castle of Lordaeron in the 
 
 ## Scoreboard
 
-Top right: game time, wave, castle HP (current / max) and per player level, kills and deaths.
+Top right: game time, wave, castle HP (current / max) and per player level, kills, deaths and income (gold per minute).

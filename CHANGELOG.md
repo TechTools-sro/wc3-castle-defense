@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-31 (late) — income on the scoreboard
+
+- New scoreboard column **Income** (`+N`, bank gold per minute) after Deaths (`CreateBoard` / `UpdateBoard`).
+  Verified: pjass + build; not seen in-game yet.
+
 ## 2026-10-31 (late) — economy: smaller income, kill gold = wave
 
 - Bank: 1 tree now buys **+10 gold/min** (was +100), `INCOME_STEP`.

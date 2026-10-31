@@ -385,7 +385,8 @@ function TimeText takes integer s returns string
     return out + ":" + I2S(sec)
 endfunction
 
-// Compact scoreboard: the title carries game time + wave + castle HP; one row per player = name, level, kills, deaths.
+// Compact scoreboard: the title carries game time + wave + castle HP; one row per player = name, level, kills,
+// deaths, income (gold per minute from the Bank).
 function UpdateBoard takes nothing returns nothing
     local integer i
     local string castle
@@ -410,6 +411,7 @@ function UpdateBoard takes nothing returns nothing
             endif
             call BoardSet(gBoardRow[i], 2, I2S(gKills[i]))
             call BoardSet(gBoardRow[i], 3, I2S(gDeaths[i]))
+            call BoardSet(gBoardRow[i], 4, "|cffffcc00+" + I2S(gIncome[i]) + "|r")
         endif
         set i = i + 1
     endloop
@@ -444,16 +446,18 @@ function CreateBoard takes nothing returns nothing
     endloop
     set gBoard = CreateMultiboard()
     call MultiboardSetRowCount(gBoard, rows)
-    call MultiboardSetColumnCount(gBoard, 4)
+    call MultiboardSetColumnCount(gBoard, 5)
     call MultiboardSetItemsStyle(gBoard, true, false)
     call BoardWidth(rows, 0, 0.075)
     call BoardWidth(rows, 1, 0.022)
     call BoardWidth(rows, 2, 0.03)
     call BoardWidth(rows, 3, 0.038)
+    call BoardWidth(rows, 4, 0.038)
     call BoardSet(0, 0, "|cffffcc00Player|r")
     call BoardSet(0, 1, "|cffffcc00Lv|r")
     call BoardSet(0, 2, "|cffffcc00Kills|r")
     call BoardSet(0, 3, "|cffffcc00Deaths|r")
+    call BoardSet(0, 4, "|cffffcc00Income|r")
     set i = 0
     loop
         exitwhen i >= 8
