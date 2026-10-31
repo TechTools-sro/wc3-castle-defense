@@ -1,0 +1,5 @@
+dist/
+ref/
+tools/pjass-src/
+__pycache__/
+*.pyc
