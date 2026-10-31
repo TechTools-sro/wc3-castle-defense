@@ -68,7 +68,8 @@ SHARED = {"name": "The Dark Gate", "color": "|cffff4040",
                     ("ngh2", "uabo"), ("ufro", "nerw"), ("ninf", "nbal")],
           "stages": [("ngh2", "uabo"), ("ninf", "nbal"), ("ninf", "nbal")],
           "champion": "nrvd"}
-SHARED_BASE_HP, SHARED_BASE_ARMOR = 8000, 10
+SHARED_BASE_HP, SHARED_BASE_ARMOR = 80000, 15     # 10x the old 8000
+SHARED_NEXUS_DMG = (650, 4, 25)
 SHARED_TURRET_HP, SHARED_TURRET_ARMOR, SHARED_TURRET_DMG = 4000, 8, (140, 2, 15)
 SHARED_TINT = (255, 90, 90)
 
@@ -222,6 +223,15 @@ def turret_id(d):
     return f"nt{d}0"
 
 
+def nexus_attack(dmg):
+    """Attack fields for a Nexus building: one big chaos missile every NEXUS_COOLDOWN s at ground + air."""
+    base, dice, sides = dmg
+    return [("uaen", I, 1), ("ua1b", I, base), ("ua1d", I, dice), ("ua1s", I, sides), ("ua1c", U, NEXUS_COOLDOWN),
+            ("ua1r", I, NEXUS_RANGE), ("uacq", U, float(NEXUS_RANGE + 50)), ("ua1t", S, "chaos"), ("ua1w", S, "missile"),
+            ("ua1m", S, NEXUS_MISSILE), ("ua1z", I, 900), ("uma1", U, 0.15), ("ulpz", U, 200.0),
+            ("ua1g", S, "ground,air,structure,debris,item,ward"), ("uwu1", I, 1)]
+
+
 def wave_champion_id(d):     # weakened faction champion for waves (d = 4: the Dark Gate)
     return f"nc{d}0"
 
@@ -230,7 +240,10 @@ def boss_id(d, k):           # k = player-count tier: 0 (1-2 players), 1 (3-5), 
     return f"nb{d}{k}"
 
 
-BASE_HP, BASE_ARMOR = 3000, 6
+BASE_HP, BASE_ARMOR = 30000, 10      # 10x the old 3000: the Nexus is the lane's big final obstacle
+# Every Nexus fights back (huge attack, out of the tower's reach - see layout.tower_pos)
+NEXUS_DMG, NEXUS_COOLDOWN, NEXUS_RANGE = (450, 4, 20), 2.5, 700
+NEXUS_MISSILE = "Abilities\\Weapons\\FrostWyrmMissile\\FrostWyrmMissile.mdl"
 TURRET_HP, TURRET_ARMOR, TURRET_DMG = 1800, 4, (85, 2, 10)   # ~96 chaos per hit / 1.3 s: strong vs early heroes
 BOSS_HP = [3500, 6000, 9000]
 BOSS_ARMOR = [3, 4, 5]
@@ -270,7 +283,7 @@ def custom_units():
         b = f["boss"]
         units.append((bb, base_id(d), [
             ("unam", S, bname), ("uhpm", I, BASE_HP), ("udef", I, BASE_ARMOR), ("udty", S, "fort"),
-            ("uabi", S, ""), ("utra", S, ""), ("ures", S, ""), ("uupt", S, ""), ("uaen", I, 0),
+            ("uabi", S, ""), ("utra", S, ""), ("ures", S, ""), ("uupt", S, "")] + nexus_attack(NEXUS_DMG) + [
             ("usid", I, 1000), ("usin", I, 1000), ("ubba", I, 200), ("ubdi", I, 1), ("ubsi", I, 1)]))
         base, dice, sides = TURRET_DMG
         units.append((tb, turret_id(d), [
@@ -283,8 +296,8 @@ def custom_units():
             tr, tg, tb = SHARED_TINT
             units.append((SHARED["base"][0], base_id(4), [
                 ("unam", S, SHARED["base"][1]), ("uhpm", I, SHARED_BASE_HP), ("udef", I, SHARED_BASE_ARMOR),
-                ("udty", S, "fort"), ("uabi", S, ""), ("utra", S, ""), ("ures", S, ""), ("uupt", S, ""),
-                ("uaen", I, 0), ("usid", I, 1000), ("usin", I, 1000), ("ubba", I, 500), ("ubdi", I, 1), ("ubsi", I, 1),
+                ("udty", S, "fort"), ("uabi", S, ""), ("utra", S, ""), ("ures", S, ""), ("uupt", S, "")] + nexus_attack(SHARED_NEXUS_DMG) + [
+                ("usid", I, 1000), ("usin", I, 1000), ("ubba", I, 500), ("ubdi", I, 1), ("ubsi", I, 1),
                 ("usca", R, 1.2), ("uclr", I, tr), ("uclg", I, tg), ("uclb", I, tb)]))
             sb, sd, ss = SHARED_TURRET_DMG
             units.append((SHARED["turret"][0], turret_id(4), [

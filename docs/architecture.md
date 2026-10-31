@@ -97,6 +97,6 @@
 
 Arm-local `(u, v)`: u across, v outward; arm d = 0 N, 1 E, 2 S, 3 W (`from_arm`). Lane `L = 2d + side`.
 Plaza `|x|,|y| ≤ 1536`; lanes `|u| ∈ [384, 1024]`, `v ∈ [1536, 3968)`; base rooms `v ∈ [3968, 4864]`;
-tower `(±704, 4096)`, Nexus `(±704, 4544)`; hall at `(-3200, 3200)`; grove SE (`GROVE_RECTS`);
+tower `(±704, 2900)` (mid-lane), Nexus `(±704, 4544)`; hall at `(-3200, 3200)`; grove SE (`GROVE_RECTS`);
 Dark Gate NE (`SHARED_RECTS`: corner room 1280–1920, leg to x 3840, leg up to y 3840, base room x 2944–4096 / y 3840–4864).
 Wave units carry `userdata = lane*16 + waypoint` (Dark Gate units: 128–143).

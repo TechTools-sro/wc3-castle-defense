@@ -87,12 +87,12 @@ def lane_side(L):
 
 
 LANE_U = 704
-LANE_WAYPOINTS_ARM = [      # (|u| * side, v); the last point is the castle
-    (LANE_U, 3880),         # 0 spawn (tower; the script switches to the Nexus once the tower falls)
-    (LANE_U, 3500),         # 1 top of the lane
-    (LANE_U, 2700),         # 2
-    (LANE_U, 1900),         # 3 bottom of the lane
-    (LANE_U, 1000),         # 4 plaza
+LANE_WAYPOINTS_ARM = [      # (|u| * side, v); the last point is the castle. Point 1 lies BELOW the tower spawn
+    (LANE_U, 2660),         # 0 spawn (tower; the script switches to the Nexus once the tower falls)
+    (LANE_U, 2400),         # 1
+    (LANE_U, 1800),         # 2 bottom of the lane
+    (LANE_U, 1200),         # 3 plaza edge
+    (LANE_U, 700),          # 4 plaza
     (0, 0),                 # 5 castle
 ]
 
@@ -133,15 +133,16 @@ def nexus_pos(L):
 
 
 def tower_pos(L):
-    """The lane's own strong enemy tower, centred right in front of its Nexus."""
+    """The lane's own strong enemy tower, in the lane centre far in front of its Nexus: tower (range 750) and
+    Nexus (range 700, measured from its big footprint) never cover the same spot, so the tower, its stronger waves and the Nexus are fought one by one."""
     d, s = L // 2, lane_side(L)
-    return from_arm(d, s * LANE_U, 4096)
+    return from_arm(d, s * LANE_U, 2900)
 
 
 def tower_spawn(L):
     """While the tower stands, the lane's waves come out of it (just in front, on the lane side)."""
     d, s = L // 2, lane_side(L)
-    return from_arm(d, s * LANE_U, 3880)
+    return from_arm(d, s * LANE_U, 2660)
 
 
 def nexus_spawn(L):
@@ -203,9 +204,9 @@ SHARED_RECTS = [
     (2944, 3840, 4096, 4864),     # base room
 ]
 SHARED_U = 3520                   # centre line of the north leg / base
-SHARED_TOWER = (SHARED_U, 4032)
+SHARED_TOWER = (SHARED_U, 2900)   # in the north leg, far in front of the Citadel (ranges don't overlap)
 SHARED_NEXUS = (SHARED_U, 4544)
-SHARED_TOWER_SPAWN = (SHARED_U, 3700)
+SHARED_TOWER_SPAWN = (SHARED_U, 2660)
 SHARED_NEXUS_SPAWN = (SHARED_U, 4290)
 SHARED_GATE = ("ITg3", 1984, 1600, 0.0)      # spans y 1280..1920 = the leg width
-SHARED_WAYPOINTS = [SHARED_TOWER_SPAWN, (SHARED_U, 2600), (SHARED_U, 1600), (2300, 1600), (1450, 1450), (0, 0)]
+SHARED_WAYPOINTS = [SHARED_TOWER_SPAWN, (SHARED_U, 2400), (SHARED_U, 1600), (2300, 1600), (1450, 1450), (0, 0)]

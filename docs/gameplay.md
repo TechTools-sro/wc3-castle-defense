@@ -61,8 +61,9 @@ Standardized: the **lane stage picks the unit types**, the wave number only adds
 ## The Dark Gate (shared lane, NE — lane 8 / arm 4 in the script)
 
 - Closed by a gate (`SHARED_GATE`) until the **first** player destroys his Nexus (`OpenSharedPath`).
-  Then the gate opens, the **Dark Spire** (4000 HP, armor 8, 140 + 2d15 chaos, range 800) and the **Dark Citadel**
-  (8000 HP, armor 10) appear in the NE base room, and every wave also spawns there.
+  Then the gate opens, the **Dark Spire** (4000 HP, armor 8, 140 + 2d15 chaos, range 800; in the north leg) and the
+  **Dark Citadel** (80 000 HP, armor 15, 650 + 4d25 chaos missile every 2.5 s, range 700) appear, and every wave
+  also spawns there.
 - Its waves follow the same stage rule with the Dark Gate roster (stage 0 while the Spire stands, 1 after).
 - Every Dark Gate kill pays the killer **+(15 + wave) gold** extra (floating gold number, `SharedBounty`).
 - Dark Citadel destroyed: +500 gold to all; required for victory. A restart closes the gate again.
@@ -134,7 +135,10 @@ and an allied shop-sharing (`Xcs2`, `Aall`) buyer ability — the `Aall`-only ve
 
 ## Enemy bases and bosses (`gen/objects.py`)
 
-- Tower: 1800 HP, armor 4, 85 + 2d10 chaos / 1.3 s, range 750. Nexus: 3000 HP, armor 6.
+- Tower: 1800 HP, armor 4, 85 + 2d10 chaos / 1.3 s, range 750 — in the lane, far in front of the Nexus
+  (`tower_pos`, v = 2900) so their ranges never overlap: tower first, then its stronger waves, then the Nexus.
+- **Nexus: 30 000 HP, armor 10, huge attack** 450 + 4d20 chaos missile every 2.5 s, range 700, hits air too
+  (`BASE_HP`, `NEXUS_*`, `nexus_attack`).
 - Boss strength by player count: 1–2 / 3–5 / 6–8 players → 3500 / 6000 / 9000 HP, armor 3 / 4 / 5.
   Bosses cast spells, summon, and are leashed to their ruins (`BossTick`).
 

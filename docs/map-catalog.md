@@ -16,9 +16,10 @@ has fallen. **Lose** when the Castle of Lordaeron in the middle falls.
 2. **Your lane:** your champion spawns and revives on your Champion's Circle at your lane entrance.
 3. **Waves:** the next wave comes 10 s after every monster is dead; after every 5th wave there is a **2-minute
    shopping break**. Each cleared wave pays every player `50 + 50 × wave` gold and **1 tree**.
-4. **Stages:** while your tower stands, basic units come out of it. Tower down → a **Protector** guards the Nexus,
+4. **Stages:** the tower stands mid-lane, far in front of the Nexus — take them one at a time. While your tower
+   stands, basic units come out of it. Tower down → a **Protector** guards the Nexus,
    the next wave comes at once and stronger units come out of the Nexus. Nexus down → its boss rises and the
-   strongest units come out of the ruins until the boss dies.
+   strongest units come out of the ruins until the boss dies. ⚠️ The Nexus has 30 000 HP and a huge attack.
 5. **Wave size:** front line (melee) = 4 + wave, back line (ranged) = +1 every 2 waves. Every 10th wave adds
    weakened champions (1 at wave 10, 2 at wave 20, ...).
 6. **The Dark Gate (NE):** opens when the first player destroys a Nexus. A shared lane with a stronger tower and

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-31 (late) — Nexus fights back, tower moved forward
+
+- Every lane Nexus: 30 000 HP (10× the old 3000), armor 10, and a **huge attack** (450 + 4d20 chaos missile every
+  2.5 s, range 700, air too). Dark Citadel: 80 000 HP, armor 15, 650 + 4d25. `nexus_attack()` in `gen/objects.py`.
+- Lane towers moved from right in front of the Nexus (v 4096) to mid-lane (v 2900), Dark Spire likewise (y 2900), so
+  tower and Nexus ranges never overlap: tower → stronger waves → Nexus, one at a time. Tower spawns at 2660,
+  lane waypoints re-spaced so point 1 lies below the spawn.
+  Verified: pjass + build + top-down render; not tried in-game yet.
+
 ## 2026-10-31 (late) — pace settings
 
 - New chat commands for any player: `-break N` (shopping break 5–300 s, default 120) and `-wave N` (gap between
