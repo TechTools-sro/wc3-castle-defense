@@ -48,7 +48,9 @@ tools/run_test.sh 'Maps\Test\TechToolsCastleDefence_TEST.w3x' <outdir> 40   # Wi
   v1.2 = #17 and v1.1 = #16 (both have the broken Bank / upgrades), unversioned = #3 (stale; only an admin can
   delete old entries).
   Upload = `POST /warcraft3-api/maps` (multipart `file`, `title`, `players`, `description`, `doc=@docs/map-catalog.md`)
-  with a `/shared-auth-api/login` session. A new file makes a NEW entry; only an admin can delete the old one.
+  with a `/shared-auth-api/login` session. Since techtools-4 `53552315` the catalogue groups versions: an upload with
+  the same title (minus the trailing version, e.g. "TechTools Castle Defence v1.6") joins this map as a new version
+  (only its uploaders/admins can add versions); the card shows the newest, the detail page lists all versions.
   The uploader can replace the doc: `PUT /warcraft3-api/maps/:id/doc`. Keep `docs/map-catalog.md` current.
 
 ## The owner's design rules (Jiří — binding)
