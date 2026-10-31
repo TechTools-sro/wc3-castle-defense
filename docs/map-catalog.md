@@ -39,7 +39,8 @@ ruins, then fight through the four shared **gate levels** (2–5). **Win** when 
 - **Secret grove** (narrow passage at the SE corner of the plaza; its shops sell to your champion anywhere on the
   map — just select the shop): Fountain of Power (fast HP + mana),
   **Premium Armory** (1000 gold: lifesteal, attack speed, critical strike, bash, evasion, boots, regeneration,
-  mana regeneration — buy the same item again to upgrade it, up to Lv 5), **Bank** (1 tree = +10 gold income every minute), Apothecary (potions, scrolls).
+  mana regeneration — buy the same item again to upgrade it, up to Lv 5; **Long Reach** 1500 gold = +150 attack
+  range, up to 5×, so melee champions can hit from a distance), **Bank** (1 tree = +10 gold income every minute), Apothecary (potions, scrolls).
 
 ## Champions
 

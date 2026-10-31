@@ -30,7 +30,7 @@ GAME_DIR = os.environ.get("WC3_DIR", "/home/novakj/games/warcraft3")
 TEST = "--test" in sys.argv
 # VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
 # map name (game list, lobby, loading screen), the file name and the catalogue title.
-MAP_VERSION = "1.2"
+MAP_VERSION = "1.3"
 MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
@@ -323,6 +323,10 @@ globals
     real array gProtX
     real array gProtY
     integer gBankItem = 0
+    integer gReachItem = 0
+    integer gReachTech = 0
+    integer gReachMax = 5
+    integer gReachStep = 150
     unit gBankShop = null
     unit gArmoryShop = null
     integer gIncomeStep = 100
@@ -494,6 +498,32 @@ def build_script():
         lx, ly = LY.lane_label(lane)
         a(f"    set gLaneLabelX[{lane}] = {jr(lx)}")
         a(f"    set gLaneLabelY[{lane}] = {jr(ly)}")
+    # shopping-break pings/effects: the grove entrance + every grove building
+    fx = [LY.GROVE_ENTRANCE] + [(x, y) for (_, x, y) in LY.GROVE_BUILDINGS]
+    for i, (x, y) in enumerate(fx):
+        a(f"    set gShopFxX[{i}] = {jr(x)}")
+        a(f"    set gShopFxY[{i}] = {jr(y)}")
+    a(f"    set gShopFxCount = {len(fx)}")
+    a(f"    set gAttrMaxHeroLevel = {OB.ATTR_REQ_LEVEL + OB.ATTR_LEVELS - 1}")
+    a(f"    set gAttrPerLevel = {OB.ATTR_PER_LEVEL}")
+    for i, n in enumerate(DEV_NAMES):
+        a(f"    set gDevName[{i}] = {jstr(n)}")
+    a(f"    set gDevCount = {len(DEV_NAMES)}")
+    # upgradable premium items: gPremItem[i*8 + L] (L = 1..PREMIUM_LEVELS), Lv 1 = the shop item
+    for i, (name, _b, _ic, _ab, _f, _v, effect) in enumerate(OB.PREMIUM_DEF):
+        a(f"    set gPremName[{i}] = {jstr(name)}")
+        for lv in range(1, OB.PREMIUM_LEVELS + 1):      # (not "L": that is the script's line list here)
+            a(f"    set gPremItem[{i * 8 + lv}] = '{OB.premium_item_id(i, lv)}'")
+            a(f"    set gPremEffect[{i * 8 + lv}] = {jstr(effect(lv))}")
+    a(f"    set gPremCount = {len(OB.PREMIUM_DEF)}")
+    a(f"    set gPremMax = {OB.PREMIUM_LEVELS}")
+    a(f"    set gPremPrice = {OB.PREMIUM_PRICE}")
+    a(f"    set gBankItem = '{OB.BANK_ITEM}'")
+    a(f"    set gIncomeStep = {OB.INCOME_STEP}")
+    a(f"    set gReachItem = '{OB.REACH_ITEM}'")
+    a(f"    set gReachTech = '{OB.REACH_TECH}'")
+    a(f"    set gReachMax = {OB.REACH_LEVELS}")
+    a(f"    set gReachStep = {OB.REACH_STEP}")
     # gate lanes 8-11 = Levels 2-5 (arms 4-7), all owned by the Scourge computer (Player 9)
     for g in OB.GATE_LEVELS:
         lane, arm, f = g["lane"], g["arm"], g
@@ -763,6 +793,19 @@ def misc_constants(game):
     return ("\r\n".join(out) + "\r\n").encode("latin1")
 
 
+REQUIRED_SCRIPT_DATA = ["set gBankItem = ", "set gIncomeStep = ", "set gPremItem[1] = ", "set gPremCount = ",
+                        "set gShopFxCount = ", "set gDevCount = ", "set gAttrPerLevel = ", "set gReachItem = ",
+                        "set gGateState[11] = ", "set gStageUnit[0] = ", "set gStatItem[0] = ", "set gHeroPool[0] = "]
+
+
+def check_script_data(script):
+    """Fail the build if a data block vanished from InitData. An edit once deleted the Bank / premium / dev-name
+    data: the map still compiled and ran, but Bank buys and item upgrades silently did nothing (2026-10-31)."""
+    missing = [s for s in REQUIRED_SCRIPT_DATA if s not in script]
+    if missing:
+        sys.exit("InitData is missing: " + ", ".join(missing))
+
+
 def check_object_bases():
     """Every custom object must be based on a REAL object of its kind. An item based on an ability id built fine
     and then crashed the game right after the loading screen (2026-10-31), so this fails the build instead."""
@@ -796,6 +839,7 @@ def main():
     with open(script_path, "w", encoding="utf-8", newline="") as fh:
         fh.write(script)
     pjass(script_path)
+    check_script_data(script)
     check_object_bases()
 
     art = SP.render()
@@ -812,6 +856,7 @@ def main():
         "war3map.w3t": WF.write_w3u(OB.custom_items(), OB.original_item_mods()),
         "war3map.w3a": WF.write_w3a(OB.original_ability_mods() + HK.hero_hotkey_mods(os.path.join(ROOT, "ref"), OB.ALL_HEROES),
                                     OB.custom_abilities()),
+        "war3map.w3q": WF.write_w3a([], OB.custom_upgrades()),
         "war3mapPreview.tga": SP.preview_tga(art),
     }
     for path, tile in SP.loading_tiles(art).items():          # TechTools loading screen

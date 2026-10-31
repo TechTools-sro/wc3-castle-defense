@@ -161,6 +161,10 @@ anywhere on the map (`Aneu` radius 20 000). Bought items go straight into his in
   | Winged Boots | +100 move speed | +25 | +200 (engine cap 522) |
   | Troll Heart | +15 HP/s | +10 | +55 |
   | Arcane Mask | +150 % mana regen | +50 % | +350 % |
+
+- **Long Reach** (key Z, row 3, **1500 gold**): +150 attack range for your champion per buy, up to 5× (+750) —
+  melee champions hit from a distance. Instant via the custom range upgrade `Rcrg` (`REACH_*`, `TryReach`);
+  at the max a new buy is refunded; reset on restart.
 - **Apothecary**: potions, scrolls, boots, rings, staff of teleportation (`SHOPS["apothecary"]`), stock 8, restock 10 s.
 
 ## Enemy bases and bosses (`gen/objects.py`)

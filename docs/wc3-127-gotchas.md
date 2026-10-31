@@ -2,6 +2,10 @@
 
 ## Crashes and silent failures
 
+- **A data block silently vanished from `InitData`** (a big search-and-replace in `build.py` swallowed it): the map
+  compiled and ran, but Bank buys and premium upgrades did nothing because their ids were 0. `check_script_data`
+  now fails the build when a required block is missing — add new data blocks to `REQUIRED_SCRIPT_DATA`.
+
 - **A custom object must be based on a real object of the same kind.** An item based on an ability id
   (`AIlf`) built fine and crashed the game (ACCESS_VIOLATION) right after the loading screen.
   `build.py:check_object_bases` now fails the build instead.

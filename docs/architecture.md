@@ -9,10 +9,12 @@
    doodads) → `war3map.doo`; pathing → `war3map.wpm` (walls are abyss cells in the wpm; see gotchas).
 3. **Script** `build_script` = generated `globals` + `InitData` (all constants from Python) + `gen/castle_logic.j`
    → `dist/war3map.j` → **pjass** (`tools/pjass-src/pjass` + `ref/Scripts_common.j` + `ref/Scripts_Blizzard.j`).
-4. **Object check** `check_object_bases`: every custom unit/item/ability must have a real base of its kind
+4. **Data check** `check_script_data`: `InitData` must contain every block in `REQUIRED_SCRIPT_DATA` (Bank, premium,
+   dev names, shop pings, gates, rosters, …) — fails the build otherwise.
+   **Object check** `check_object_bases`: every custom unit/item/ability must have a real base of its kind
    (checked against `ref/*.slk`) — fails the build otherwise.
 5. **Object data**: `war3map.w3u` (units), `war3map.w3t` (items), `war3map.w3a` (abilities: original edits +
-   QWER hotkeys + custom), all via `gen/w3files.py`.
+   QWER hotkeys + custom), `war3map.w3q` (upgrades: Long Reach), all via `gen/w3files.py`.
 6. **Info + art + constants**: `war3mapMisc.txt` (full [Misc] gameplay constants with `MaxHeroLevel` edited), `war3map.w3i`, minimap `war3mapMap.blp` + `war3map.mmp`, `war3mapPreview.tga`
    (`splash.render_icon`), loading tiles (`splash.render` → 4 BLPs), Str/Agi/Int button icons (`gen/icons.py`).
 7. **Pack** `tools/mpq.write_w3x` (StormLib via ctypes, HM3W header with max players = 8 humans) →
@@ -41,7 +43,7 @@
 | Area | Functions |
 |---|---|
 | Helpers | `Msg`, `IsPlaying`, `GiveAllGold`, `SideName`, `GrantLevelTwo`, `LaneName`, `PingLane`, `LaneArm` (lane → arm: 0-7 → 0-3, 8 → 4, 9 → 5; use it instead of `L / 2`) |
-| Shops | `KindNext` (per-player vs global step), `StockCircle` (player circle), `StockCastle` (castle), `CastleShockwave`, `AdvanceStatPrice` (apply any circle/castle buy), `BuyIncome` + `IncomeTick` (bank, paid by `OnTick` on every full game-clock minute), `PremiumLevel` + `TryUpgradePremium` (merge premium items, `gPremItem[i*8+L]`), `OnItemPickup`, `OnItemSold` (neutral shops: counts Bank buys, hands remote purchases to the buyer), `GrabTomeEnum`/`GrabTick` (bought items on the ground → champion), `OnHeroLevel` (refill + stats past the Attributes cap) |
+| Shops | `KindNext` (per-player vs global step), `StockCircle` (player circle), `StockCastle` (castle), `CastleShockwave`, `AdvanceStatPrice` (apply any circle/castle buy), `BuyIncome` + `IncomeTick` (bank, paid by `OnTick` on every full game-clock minute), `PremiumLevel` + `TryUpgradePremium` (merge premium items, `gPremItem[i*8+L]`), `OnItemPickup`, `TryReach` (Long Reach), `OnItemSold` (neutral shops: counts Bank buys, hands remote purchases to the buyer, merges premium items), `GrabTomeEnum`/`GrabTick` (bought items on the ground → champion), `OnHeroLevel` (refill + stats past the Attributes cap) |
 | Lane hint | `ShowLaneHint` (creates the circle unit, its rect, label) |
 | Scoreboard | `BoardSet`, `TimeText` (m:ss), `UpdateBoard` (1 s; game time `gGameTime` counted in `OnTick`), `BoardWidth`, `CreateBoard` |
 | Setup | `SetupAlliances`, `SetupDarkness`, `MakeWallInvulnerable`, `CreateKingdom`, `CreateLaneBase` |
@@ -84,6 +86,8 @@
 | `nb41`, `nb51`, `nb61`, `nb71` | unit (boss bases of the source factions) | Gate level bosses |
 | `q<arm><stage><m|r>` (e.g. `q00m`) | unit (base: the stage's model unit) | Standardized wave units (200/30 melee, 120/60 ranged, ×stage) |
 | `nc{d}0` (d 0–7) | unit (base: faction champion) | Weakened wave champion (every 10th wave) |
+| `Ixr1` | item (base `tst2`) | Long Reach (+150 attack range per buy) |
+| `Rcrg` | upgrade (base `Rhri`, `war3map.w3q`) | Long Reach range upgrade, 5 levels × 150 (`ratr`); every hero lists it in `upgr` |
 | `Ib01` | item (base `tst2`) | Bank: Income +10 per minute for 1 tree |
 | `Ih Im Id Ir Is Ia Ii Il` + `00`–`39` | item (base `tst2`) | Circle shop kinds × price steps |
 | `Iy Ik Ie` + `00`–`39`, `Ic00`, `Iw00` | item (base `tst2`) | Castle shop: health/armor/regen steps, repair, shockwave (1 tree each) |

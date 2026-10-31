@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.3 — 2026-10-31 (late): Long Reach; the real cause of the Bank / upgrade bugs
+
+- **Root cause found:** the Level 3 refactor (`ae99bb3`) replaced a region of `build.py` that also held the
+  `InitData` lines for the Bank item, income step, premium items, dev names, shop-break pings and Attributes. The map
+  built and ran, but `gBankItem` / `gPremItem` were 0, so Bank buys and premium upgrades did nothing (v1.1, v1.2 are
+  affected). Lines restored; new `check_script_data()` fails the build when a required data block is missing.
+- **Long Reach** (Premium Armory, key Z, 1500 gold): +150 attack range per buy, max 5× (+750), so melee champions hit
+  from a distance; instant via the custom upgrade `Rcrg` (new `war3map.w3q`), heroes list it under "upgrades used".
+- The `--test` map buys Income, Long Reach and a premium item twice remotely and prints `income=`, `reach=` and the
+  Lv 2 item slot. Verified: pjass + data check + build; in-game test pending.
+
 ## v1.2 — 2026-10-31 (late): Bank income bought remotely was never counted; income on the clock; item upgrades
 
 - **Uploaded as catalogue map #17** (HTTP 201, download SHA-256 `9501a23e…` matches the build).

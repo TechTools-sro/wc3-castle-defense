@@ -23,7 +23,8 @@ tools/run_test.sh 'Maps\Test\TechToolsCastleDefence_TEST.w3x' <outdir> 40   # Wi
 
 - The game lives in `/home/novakj/games/warcraft3` (`WC3_DIR`); the map installs to `Maps/CustomMaps/`.
   Test copies go to `Maps/Test/` — **delete that folder when done**.
-- A build is "done" only after: pjass passes, `check_object_bases()` passes (both run inside `build.py`),
+- A build is "done" only after: pjass passes, `check_script_data()` and `check_object_bases()` pass (all run inside
+  `build.py`; add every new `InitData` block to `REQUIRED_SCRIPT_DATA`),
   and — whenever object data or game logic changed — an in-game run without a new `BlizzardError` crash folder.
 - Installing is safe while he plays ONLY because `build.py` replaces the map atomically (temp file + rename).
   Never copy a map over the installed one any other way (in-place overwrite crashed his game).
@@ -35,7 +36,7 @@ tools/run_test.sh 'Maps\Test\TechToolsCastleDefence_TEST.w3x' <outdir> 40   # Wi
 
 ## Versions
 
-- `MAP_VERSION` in `build.py` (now **v1.2**) is in the map name, the file name (`TechToolsCastleDefence_v1.2.w3x`) and
+- `MAP_VERSION` in `build.py` (now **v1.3**) is in the map name, the file name (`TechToolsCastleDefence_v1.3.w3x`) and
   the catalogue title. ⚠️ **Jiří's rule: every feature = a new version (1.2, 1.3, …) AND an upload to the
   catalogue** (LAN players must have the identical file). Bump, build, commit, upload, verify the download's
   SHA-256, record the new entry below + in `CHANGELOG.md`. Install removes older `TechToolsCastleDefence*.w3x`.

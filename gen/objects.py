@@ -170,18 +170,24 @@ def premium_abil_id(i, L):
 PREMIUM = [(premium_item_id(i, 1),) for i in range(len(PREMIUM_DEF))]   # shop list (Lv 1 ids)
 PREMIUM_KEYS = "QWERASDF"
 
+# Long Reach (Premium Armory, slot row 3): each buy = +REACH_STEP attack range for your champion, up to REACH_LEVELS
+# times - melee champions then hit from a distance. Applied instantly through a custom range upgrade (REACH_TECH,
+# based on Long Rifles 'Rhri', effect 'ratr') that every hero lists under "upgrades used".
+REACH_ITEM, REACH_TECH = "Ixr1", "Rcrg"
+REACH_STEP, REACH_LEVELS, REACH_PRICE = 150, 5, 1500
+
 # Bank (secret grove): trade trees (lumber, +1 per cleared wave) for passive income.
 BANK_ITEM = "Ib01"
 INCOME_STEP = 10             # gold per minute per bought income (1 tree -> +10 gold/min)
 INCOME_TREE_COST = 1
 
 SHOPS = {
-    "armory": ("shpa", "Premium Armory", [p[0] for p in PREMIUM]),
+    "armory": ("shpa", "Premium Armory", [p[0] for p in PREMIUM] + [REACH_ITEM]),
     "bank": ("shpc", "Bank", [BANK_ITEM]),
     "apothecary": ("shpb", "Apothecary", ["phea", "pman", "pghe", "pgma", "pres", "plcl",
                                           "bspd", "prvt", "rlif", "rwiz", "stel", "pnvl"]),
 }
-SHOP_ITEMS = sorted({i for (_, _, items) in SHOPS.values() for i in items} - {p[0] for p in PREMIUM} - {BANK_ITEM})   # originals only
+SHOP_ITEMS = sorted({i for (_, _, items) in SHOPS.values() for i in items} - {p[0] for p in PREMIUM} - {BANK_ITEM, REACH_ITEM})   # originals only
 
 CASTLE_ID = "hcd0"
 # The castle is owned by Player 15 (neutral "extra" slot). Its shop gets BOTH buyer-selection abilities with a
@@ -471,7 +477,22 @@ def original_unit_mods():
     return [(h, [("ugol", I, 0), ("ulum", I, 0), ("ufoo", I, 0), ("usst", I, 0),
                  ("usma", I, 1), ("usrg", I, 1), ("ureq", S, ""),
                  ("ua1g", S, _hero_targets_with_air(h)),
-                 ("uhab", S, _ref_slk("Units_UnitAbilities.slk")[h]["heroAbilList"] + "," + ATTR_ABIL)]) for h in ALL_HEROES]
+                 ("uhab", S, _ref_slk("Units_UnitAbilities.slk")[h]["heroAbilList"] + "," + ATTR_ABIL),
+                 ("upgr", S, _hero_upgrades_with_reach(h))]) for h in ALL_HEROES]
+
+
+def _hero_upgrades_with_reach(h):
+    """The hero's "upgrades used" (Units/UnitBalance.slk) + the Long Reach range upgrade."""
+    cur = _ref_slk("Units_UnitBalance.slk").get(h, {}).get("upgrades") or "_"
+    ups = [u for u in cur.split(",") if u and u != "_"]
+    return ",".join(ups + [REACH_TECH])
+
+
+def custom_upgrades():
+    """war3map.w3q: Long Reach = +REACH_STEP attack range per level ('ratr', level n = base + mod*(n-1))."""
+    return [("Rhri", REACH_TECH, [("glvl", I, 0, 0, REACH_LEVELS), ("gef1", S, 0, 0, "ratr"),
+                                  ("gba1", U, 0, 0, float(REACH_STEP)), ("gmo1", U, 0, 0, float(REACH_STEP)),
+                                  ("gnam", S, 0, 0, "Long Reach")])]
 
 
 # Minion kill gold is paid by the script (MinionBounty: gold = wave number x level), so the wave unit types
@@ -516,6 +537,14 @@ def custom_items():
             # item (an ability id as item base crashed 1.27 right after loading) -> a powered-down tome.
             ibase = "tst2"
             out.append((ibase, stat_item_id(si, k), mods))
+    out.append(("tst2", REACH_ITEM, [
+        ("unam", S, "Long Reach"), ("iico", S, CB + "BTNImprovedBows.blp"), ("uhot", S, "Z"),
+        ("utip", S, "|cffffcc00Long Reach|r (|cffffcc00Z|r)"),
+        ("utub", S, f"+{REACH_STEP} attack range for your champion - melee champions hit from a distance.|n|n"
+                    f"|cffff8c00Buy again: +{REACH_STEP} more (max {REACH_LEVELS}x = +{REACH_STEP * REACH_LEVELS})|r"),
+        ("ides", S, f"+{REACH_STEP} attack range"), ("iabi", S, ""),
+        ("igol", I, REACH_PRICE), ("ilum", I, 0), ("isto", I, 3), ("istr", I, 30), ("isst", I, 0),
+        ("ubpx", I, 0), ("ubpy", I, 2)]))
     out.append(("tst2", BANK_ITEM, [
         ("unam", S, f"Income +{INCOME_STEP}"), ("iico", S, CB + "BTNChestOfGold.blp"), ("uhot", S, "Q"),
         ("utip", S, f"|cffffcc00Income +{INCOME_STEP}|r (|cffffcc00Q|r)"),

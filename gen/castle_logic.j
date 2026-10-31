@@ -210,6 +210,24 @@ function BuyIncome takes integer p, item it returns nothing
     call DisplayTimedTextToPlayer(Player(p), 0.0, 0.0, 5.0, "|cffffcc00Income +" + I2S(gIncomeStep) + "|r   now " + I2S(gIncome[p]) + " gold/min")
 endfunction
 
+// Long Reach: +gReachStep attack range per buy (instant level of the range upgrade gReachTech), max gReachMax.
+function TryReach takes integer p, item it returns boolean
+    local integer lvl
+    if GetItemTypeId(it) != gReachItem or gReachItem == 0 then
+        return false
+    endif
+    call RemoveItem(it)
+    set lvl = GetPlayerTechCount(Player(p), gReachTech, true)
+    if lvl >= gReachMax then
+        call SetPlayerState(Player(p), PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(Player(p), PLAYER_STATE_RESOURCE_GOLD) + 1500)
+        call DisplayTimedTextToPlayer(Player(p), 0.0, 0.0, 5.0, "|cffffcc00Long Reach|r is already max - refunded")
+    else
+        call SetPlayerTechResearched(Player(p), gReachTech, lvl + 1)
+        call DisplayTimedTextToPlayer(Player(p), 0.0, 0.0, 5.0, "|cffffcc00Long Reach|r |cff4fc3ffLv " + I2S(lvl + 1) + "|r: +" + I2S(gReachStep * (lvl + 1)) + " attack range")
+    endif
+    return true
+endfunction
+
 function IncomeTick takes nothing returns nothing
     local integer p = 0
     loop
@@ -286,6 +304,8 @@ function OnItemSold takes nothing returns nothing
     if p < 8 and GetItemTypeId(it) != 0 then
         if GetItemTypeId(it) == gBankItem then
             call BuyIncome(p, it)
+        elseif TryReach(p, it) then
+            // Long Reach applied
         else
             if not UnitHasItem(b, it) then
                 if not UnitAddItem(b, it) then
@@ -305,6 +325,10 @@ function OnItemPickup takes nothing returns nothing
     local integer p = GetPlayerId(GetOwningPlayer(GetTriggerUnit()))
     local item it = GetManipulatedItem()
     if p < 8 and GetTriggerUnit() == gHero[p] and TryUpgradePremium(gHero[p], it) then
+        set it = null
+        return
+    endif
+    if p < 8 and TryReach(p, it) then
         set it = null
         return
     endif
@@ -1431,6 +1455,8 @@ function TestStep takes nothing returns nothing
         else
             call Msg("|cffff0000[TEST] bank buy (remote): REJECTED|r")
         endif
+        // Long Reach bought remotely -> range upgrade level 1
+        call IssueNeutralImmediateOrderById(Player(0), gArmoryShop, gReachItem)
         // premium item bought twice remotely -> must merge into Lv 2
         call SetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD) + 3000)
         call IssueNeutralImmediateOrderById(Player(0), gArmoryShop, gPremItem[1])
@@ -1449,7 +1475,7 @@ function TestStep takes nothing returns nothing
         call KillUnit(gNexus[0])
     elseif gTestClock == 40 then
         call PanCameraToTimed(gGateX[8] + 800.0, gGateY[8], 0.0)
-        call Msg("[TEST] gate states L2=" + I2S(gGateState[8]) + " L3=" + I2S(gGateState[9]) + "   income=" + I2S(gIncome[0]) + "   Fang Lv2 held=" + I2S(R2I(I2R(GetInventoryIndexOfItemTypeBJ(gHero[0], gPremItem[2])))))
+        call Msg("[TEST] gate states L2=" + I2S(gGateState[8]) + " L3=" + I2S(gGateState[9]) + "   income=" + I2S(gIncome[0]) + "   Fang Lv2 slot=" + I2S(GetInventoryIndexOfItemTypeBJ(gHero[0], gPremItem[2])) + "   reach=" + I2S(GetPlayerTechCount(Player(0), gReachTech, true)))
     elseif gTestClock == 45 then
         call KillUnit(gBoss[0])
     elseif gTestClock == 50 then
@@ -1769,6 +1795,7 @@ function CDRestart takes nothing returns nothing
         set gKills[i] = 0
         set gDeaths[i] = 0
         set gIncome[i] = 0
+        call SetPlayerTechResearched(Player(i), gReachTech, 0)
         set gFirstWaveLeft[i] = 0
         set gLaneState[i] = -1
         set gLaneActive[i] = false
