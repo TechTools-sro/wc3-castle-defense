@@ -36,13 +36,14 @@ tools/run_test.sh 'Maps\Test\TechToolsCastleDefence_TEST.w3x' <outdir> 40   # Wi
 ## Versions
 
 - `MAP_VERSION` in `build.py` (now **v1.2**) is in the map name, the file name (`TechToolsCastleDefence_v1.2.w3x`) and
-  the catalogue title. **Bump it for every build that is shared or uploaded** — LAN players must have the
-  identical file. Install removes older `TechToolsCastleDefence*.w3x` files from `Maps/CustomMaps/`.
+  the catalogue title. ⚠️ **Jiří's rule: every feature = a new version (1.2, 1.3, …) AND an upload to the
+  catalogue** (LAN players must have the identical file). Bump, build, commit, upload, verify the download's
+  SHA-256, record the new entry below + in `CHANGELOG.md`. Install removes older `TechToolsCastleDefence*.w3x`.
 
 ## Published
 
-- Catalogue: **v1.1 = https://techtools.cz/tools/warcraft3/#map/16** (API `/warcraft3-api/maps/16`, uploaded as
-  `brainbot`); the old unversioned entry #3 is stale (only an admin can delete it).
+- Catalogue (uploaded as `brainbot`): **v1.2 = https://techtools.cz/tools/warcraft3/#map/17** (current),
+  v1.1 = #16, unversioned = #3 (stale; only an admin can delete old entries).
   Upload = `POST /warcraft3-api/maps` (multipart `file`, `title`, `players`, `description`, `doc=@docs/map-catalog.md`)
   with a `/shared-auth-api/login` session. A new file makes a NEW entry; only an admin can delete the old one.
   The uploader can replace the doc: `PUT /warcraft3-api/maps/:id/doc`. Keep `docs/map-catalog.md` current.

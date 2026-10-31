@@ -2,6 +2,8 @@
 
 ## v1.2 — 2026-10-31 (late): Bank income bought remotely was never counted; income on the clock; item upgrades
 
+- **Uploaded as catalogue map #17** (HTTP 201, download SHA-256 `9501a23e…` matches the build).
+
 - Attributes hero skill (learnable from level 11): **+10** Strength/Agility/Intelligence per level (was +3), also the
   automatic gain above level 110.
 - Premium upgrades did not work (Jiří: "it buys a 2nd item instead of upgrading"): buying a permanent item from a
