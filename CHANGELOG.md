@@ -2,6 +2,8 @@
 
 ## v1.5 — 2026-10-31 (late): towers 5x damage, no lifesteal on towers / Nexus
 
+- **Uploaded as catalogue map #20** (HTTP 201, download SHA-256 `546d3b00…` matches).
+
 - Tower damage ×5 (Jiří: "too weak"): lane tower ~2500 per hit, gate towers ~3500 / 4500 / 6000 / 8000.
 - Every tower and Nexus gets the classification "Mechanical" (`NO_LIFESTEAL`; the Legion Nexus `ndmg` was the only
   base without it) — WarCraft lifesteal does not work against mechanical targets. Verified: pjass + build (17 `utyp`

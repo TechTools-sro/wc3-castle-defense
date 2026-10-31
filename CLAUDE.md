@@ -43,7 +43,8 @@ tools/run_test.sh 'Maps\Test\TechToolsCastleDefence_TEST.w3x' <outdir> 40   # Wi
 
 ## Published
 
-- Catalogue (uploaded as `brainbot`): newest first — v1.4 = #19, **v1.3 = https://techtools.cz/tools/warcraft3/#map/18**,
+- Catalogue (uploaded as `brainbot`): newest first — **v1.5 = https://techtools.cz/tools/warcraft3/#map/20** (current),
+  v1.4 = #19, v1.3 = #18,
   v1.2 = #17 and v1.1 = #16 (both have the broken Bank / upgrades), unversioned = #3 (stale; only an admin can
   delete old entries).
   Upload = `POST /warcraft3-api/maps` (multipart `file`, `title`, `players`, `description`, `doc=@docs/map-catalog.md`)
