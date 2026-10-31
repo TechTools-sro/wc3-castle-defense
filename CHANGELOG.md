@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.2 — 2026-10-31 (late): Bank income bought remotely was never counted; income on the clock
+
+- Since the grove shops sell remotely, a bought item lands **on the ground at the shop** (buyer far away), so the
+  pickup handler never saw Bank purchases (income stayed +0) and remote premium items stayed in the grove. New
+  `OnItemSold` (`EVENT_PLAYER_UNIT_SELL_ITEM`, fires for neutral shops) counts Bank buys and hands every other
+  remote purchase to the buyer. The `--test` map now buys Income remotely and prints `income=` at t=40.
+  Verified: pjass + build; the in-game test is pending (his game was running).
+
+## 2026-10-31 (late) — income paid on the game clock
+
+- Bank income was paid by its own 60 s timer started at map load, so it never landed on the clock's full minutes
+  (Jiří: "8:00 ticked, no gold"). `IncomeTick` now runs from `OnTick` whenever the game clock hits a full minute
+  (1:00, 2:00, …); the separate timer is gone. Verified: pjass + build; not seen in-game yet.
+
 ## v1.1 — 2026-10-31 (late): versioned build, uploaded for LAN play
 
 - `MAP_VERSION = "1.1"` is now in the map name (`TechTools Castle Defence v1.1`, version in light blue), the file name

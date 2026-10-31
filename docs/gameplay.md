@@ -90,7 +90,8 @@ Higher level = harder.
 
 - Every cleared wave (all monsters dead) gives every player **+1 tree** (lumber, top bar).
 - The **Bank** (secret grove, gold-mine look) sells **Income +10** for **1 tree**: +10 gold every minute,
-  stacks without limit (`BANK_ITEM`, `INCOME_STEP`, `IncomeTick` every 60 s). Restart resets income and trees.
+  stacks without limit (`BANK_ITEM`, `INCOME_STEP`). Paid on every full minute of the game clock (1:00, 2:00, …;
+  `IncomeTick` from `OnTick`). Restart resets income and trees.
 
 ## Champions
 

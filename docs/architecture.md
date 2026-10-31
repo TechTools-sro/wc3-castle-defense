@@ -41,7 +41,7 @@
 | Area | Functions |
 |---|---|
 | Helpers | `Msg`, `IsPlaying`, `GiveAllGold`, `SideName`, `GrantLevelTwo`, `LaneName`, `PingLane`, `LaneArm` (lane → arm: 0-7 → 0-3, 8 → 4, 9 → 5; use it instead of `L / 2`) |
-| Shops | `KindNext` (per-player vs global step), `StockCircle` (player circle), `StockCastle` (castle), `CastleShockwave`, `AdvanceStatPrice` (apply any circle/castle buy), `BuyIncome` + `IncomeTick` (bank, 60 s), `PremiumLevel` + `TryUpgradePremium` (merge premium items, `gPremItem[i*8+L]`), `OnItemPickup`, `GrabTomeEnum`/`GrabTick` (bought items on the ground → champion), `OnHeroLevel` (refill + stats past the Attributes cap) |
+| Shops | `KindNext` (per-player vs global step), `StockCircle` (player circle), `StockCastle` (castle), `CastleShockwave`, `AdvanceStatPrice` (apply any circle/castle buy), `BuyIncome` + `IncomeTick` (bank, paid by `OnTick` on every full game-clock minute), `PremiumLevel` + `TryUpgradePremium` (merge premium items, `gPremItem[i*8+L]`), `OnItemPickup`, `OnItemSold` (neutral shops: counts Bank buys, hands remote purchases to the buyer), `GrabTomeEnum`/`GrabTick` (bought items on the ground → champion), `OnHeroLevel` (refill + stats past the Attributes cap) |
 | Lane hint | `ShowLaneHint` (creates the circle unit, its rect, label) |
 | Scoreboard | `BoardSet`, `TimeText` (m:ss), `UpdateBoard` (1 s; game time `gGameTime` counted in `OnTick`), `BoardWidth`, `CreateBoard` |
 | Setup | `SetupAlliances`, `SetupDarkness`, `MakeWallInvulnerable`, `CreateKingdom`, `CreateLaneBase` |

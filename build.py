@@ -30,7 +30,7 @@ GAME_DIR = os.environ.get("WC3_DIR", "/home/novakj/games/warcraft3")
 TEST = "--test" in sys.argv
 # VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
 # map name (game list, lobby, loading screen), the file name and the catalogue title.
-MAP_VERSION = "1.1"
+MAP_VERSION = "1.2"
 MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
@@ -323,6 +323,7 @@ globals
     real array gProtX
     real array gProtY
     integer gBankItem = 0
+    unit gBankShop = null
     integer gIncomeStep = 100
     real array gHeroX
     real array gHeroY
@@ -607,7 +608,10 @@ def build_script():
     a("    local player p = Player(PLAYER_NEUTRAL_PASSIVE)")
     for (kind, x, y) in LY.GROVE_BUILDINGS:
         uid = OB.SHOPS[kind][0] if kind in OB.SHOPS else kind
-        a(f"    call CreateUnit(p, '{uid}', {jr(x)}, {jr(y)}, 270.0)")
+        if kind == "bank":
+            a(f"    set gBankShop = CreateUnit(p, '{uid}', {jr(x)}, {jr(y)}, 270.0)")
+        else:
+            a(f"    call CreateUnit(p, '{uid}', {jr(x)}, {jr(y)}, 270.0)")
     for k, ((tid, _, _), (dx, dy)) in enumerate(zip(OB.TAVERNS, LY.HALL_TAVERNS)):
         x, y = LY.hall_point(dx, dy)
         a(f"    set gTavern[{k}] = CreateUnit(p, '{tid}', {jr(x)}, {jr(y)}, 270.0)")

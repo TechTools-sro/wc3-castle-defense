@@ -35,7 +35,7 @@ tools/run_test.sh 'Maps\Test\TechToolsCastleDefence_TEST.w3x' <outdir> 40   # Wi
 
 ## Versions
 
-- `MAP_VERSION` in `build.py` (now **v1.1**) is in the map name, the file name (`TechToolsCastleDefence_v1.1.w3x`) and
+- `MAP_VERSION` in `build.py` (now **v1.2**) is in the map name, the file name (`TechToolsCastleDefence_v1.2.w3x`) and
   the catalogue title. **Bump it for every build that is shared or uploaded** — LAN players must have the
   identical file. Install removes older `TechToolsCastleDefence*.w3x` files from `Maps/CustomMaps/`.
 

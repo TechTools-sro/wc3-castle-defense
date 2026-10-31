@@ -202,7 +202,8 @@ function AdvanceStatPrice takes integer p, item it returns nothing
     endloop
 endfunction
 
-// Bank: 1 tree buys +gIncomeStep (10) gold income per minute (paid by IncomeTick).
+// Bank: 1 tree buys +gIncomeStep (10) gold income per minute, paid by IncomeTick on every full minute of the
+// game clock (called from OnTick).
 function BuyIncome takes integer p, item it returns nothing
     call RemoveItem(it)
     set gIncome[p] = gIncome[p] + gIncomeStep
@@ -272,6 +273,27 @@ function TryUpgradePremium takes unit h, item it returns boolean
     endloop
     set o = null
     return false
+endfunction
+
+// Neutral shops (grove, castle) fire "item sold". A REMOTE purchase (buyer far from the shop) leaves the item on
+// the ground at the shop, so: a Bank buy is counted right here, anything else is handed to the buyer (that fires
+// "picked up" -> premium merge / castle upgrade / ...). An item already handled by the pickup handler is gone
+// (type 0) and is left alone - no double count.
+function OnItemSold takes nothing returns nothing
+    local item it = GetSoldItem()
+    local unit b = GetBuyingUnit()
+    local integer p = GetPlayerId(GetOwningPlayer(b))
+    if p < 8 and GetItemTypeId(it) != 0 then
+        if GetItemTypeId(it) == gBankItem then
+            call BuyIncome(p, it)
+        elseif not UnitHasItem(b, it) then
+            if not UnitAddItem(b, it) then
+                call SetItemPosition(it, GetUnitX(b), GetUnitY(b))
+            endif
+        endif
+    endif
+    set it = null
+    set b = null
 endfunction
 
 function OnItemPickup takes nothing returns nothing
@@ -842,6 +864,9 @@ function OnTick takes nothing returns nothing
     set gElapsed = gElapsed + 1
     if gStarted and not gGameOver then
         set gGameTime = gGameTime + 1     // game clock: from the end of champion select, stops at the end
+        if ModuloInteger(gGameTime, 60) == 0 then
+            call IncomeTick()             // bank income is paid on every full minute of the game clock (1:00, 2:00, ...)
+        endif
     endif
     call ForGroup(gWaveUnits, function WaveUnitTick)
     if gWaitingClear and not gGameOver and CountUnitsInGroup(gWaveUnits) == 0 then
@@ -1395,6 +1420,12 @@ function TestStep takes nothing returns nothing
         else
             call Msg("|cffff0000[TEST] castle buy: both orders REJECTED|r")
         endif
+        // Bank, bought remotely (the hero is far from the grove)
+        if IssueNeutralImmediateOrderById(Player(0), gBankShop, gBankItem) then
+            call Msg("[TEST] bank buy (remote): accepted")
+        else
+            call Msg("|cffff0000[TEST] bank buy (remote): REJECTED|r")
+        endif
     elseif gTestClock == 20 then
         call PanCameraToTimed(gNexusX[0], gNexusY[0] - 650.0, 0.0)
         call ForGroup(gFirstWave, function TestKillEnum)
@@ -1409,7 +1440,7 @@ function TestStep takes nothing returns nothing
         call KillUnit(gNexus[0])
     elseif gTestClock == 40 then
         call PanCameraToTimed(gGateX[8] + 800.0, gGateY[8], 0.0)
-        call Msg("[TEST] gate states L2=" + I2S(gGateState[8]) + " L3=" + I2S(gGateState[9]))
+        call Msg("[TEST] gate states L2=" + I2S(gGateState[8]) + " L3=" + I2S(gGateState[9]) + "   income=" + I2S(gIncome[0]))
     elseif gTestClock == 45 then
         call KillUnit(gBoss[0])
     elseif gTestClock == 50 then
@@ -1984,7 +2015,6 @@ function InitGame takes nothing returns nothing
     call TimerStart(CreateTimer(), 0.1, true, function SpaceTick)
     call TimerStart(CreateTimer(), 0.2, true, function GrabTick)
     call TimerStart(CreateTimer(), 1.0, true, function UpdateBoard)
-    call TimerStart(CreateTimer(), 60.0, true, function IncomeTick)
     call TimerStart(CreateTimer(), 1.0, true, function ProtectorTick)
     set t = CreateTrigger()
     set i = 0
@@ -2022,6 +2052,9 @@ function InitGame takes nothing returns nothing
     call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_UNIT_PICKUP_ITEM)
     call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_UNIT_USE_ITEM)
     call TriggerAddAction(t, function OnItemPickup)
+    set t = CreateTrigger()
+    call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_UNIT_SELL_ITEM)
+    call TriggerAddAction(t, function OnItemSold)
     set t = CreateTrigger()
     call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_HERO_LEVEL)
     call TriggerAddAction(t, function OnHeroLevel)
