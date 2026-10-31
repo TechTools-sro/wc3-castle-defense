@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-31 (late) — coloured map name
+
+- The map name in the game's map list, lobby and loading screen is now coloured: `TechTools` in TechTools blue,
+  `Castle Defence` in WarCraft gold (`MAP_NAME_COLORED` in `build.py`: w3i name, loading-screen title,
+  `SetMapName`, MPQ header). Verified: build; not seen in-game yet.
+
 ## 2026-10-31 (late) — grove shops sell remotely
 
 - The original `Aneu` (neutral shop buyer selection, used by the Premium Armory, Bank and Apothecary) now has a

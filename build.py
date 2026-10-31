@@ -31,6 +31,8 @@ TEST = "--test" in sys.argv
 MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else "TechToolsCastleDefence.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = "TechTools Castle Defence"
+# coloured name for the game's map list / lobby / loading screen: TechTools blue + WarCraft gold
+MAP_NAME_COLORED = "|cff2e8bffTechTools|r |cffffcc00Castle Defence|r"
 MAP_VERSION = "3.0"
 SEED = 1270
 
@@ -670,7 +672,7 @@ def build_script():
     a("endfunction")
     a("")
     a("function config takes nothing returns nothing")
-    a(f"    call SetMapName({jstr(MAP_NAME)})")
+    a(f"    call SetMapName({jstr(MAP_NAME_COLORED)})")
     a(f"    call SetMapDescription({jstr(DESCRIPTION)})")
     a("    call SetPlayers(12)")
     a("    call SetTeams(12)")
@@ -705,11 +707,11 @@ def build_w3i():
           LY.PLAY_MINX + mL, LY.PLAY_MAXY - mT, LY.PLAY_MAXX - mR, LY.PLAY_MINY + mB]
     A, B, C, D = LY.CAMCOMP
     info = {
-        "saves": 2, "editor": 6052, "name": MAP_NAME, "author": "Jiri Novak (generated with Claude)",
+        "saves": 2, "editor": 6052, "name": MAP_NAME_COLORED, "author": "Jiri Novak (generated with Claude)",
         "description": DESCRIPTION, "players_rec": "1-8 (one champion per lane)",
         "camera_bounds": [float(v) for v in cb], "camcomp": list(LY.CAMCOMP),
         "play_w": W - A - B, "play_h": W - C - D, "flags": MAP_FLAGS, "tileset": "K",
-        "ls_title": MAP_NAME, "ls_subtitle": "Pick a champion. Hold your lane. Break the Nexus.",
+        "ls_title": MAP_NAME_COLORED, "ls_subtitle": "Pick a champion. Hold your lane. Break the Nexus.",
         "ls_text": DESCRIPTION,
         "players": players,
         "forces": [{"flags": 0x0B, "mask": 0x0FF, "name": "Defenders of Lordaeron"},
@@ -811,7 +813,7 @@ def main():
     out = os.path.join(ROOT, "dist", MAP_FILE)
     # header 'max players' = HUMAN slots only (Legion TD: 8 humans + 2 computers -> 8). Writing 12 here
     # made the lobby treat the 4 invader computers as open, editable slots.
-    write_w3x(out, files, MAP_NAME, MAP_FLAGS, 8)
+    write_w3x(out, files, MAP_NAME_COLORED, MAP_FLAGS, 8)
     print(f"wrote {out} ({os.path.getsize(out) // 1024} KiB)")
     if install:
         dest_dir = os.path.join(GAME_DIR, "Maps", "CustomMaps")
