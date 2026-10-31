@@ -1,6 +1,15 @@
 # Changelog
 
+## v1.5 — 2026-10-31 (late): towers 5x damage, no lifesteal on towers / Nexus
+
+- Tower damage ×5 (Jiří: "too weak"): lane tower ~2500 per hit, gate towers ~3500 / 4500 / 6000 / 8000.
+- Every tower and Nexus gets the classification "Mechanical" (`NO_LIFESTEAL`; the Legion Nexus `ndmg` was the only
+  base without it) — WarCraft lifesteal does not work against mechanical targets. Verified: pjass + build (17 `utyp`
+  edits in w3u); lifesteal behaviour not tried in-game.
+
 ## v1.4 — 2026-10-31 (late): EPIC boss loot
+
+- **Uploaded as catalogue map #19** (HTTP 201, download SHA-256 `052906a4…` matches).
 
 - Every Nexus boss drops one EPIC crown instead of random items: lane boss +200 all stats, Level 2–5 bosses +400 /
   +600 / +800 / +1000 (`EPIC_ITEMS` in `gen/objects.py`, `DropEpic` in `gen/castle_logic.j`, items `Io01`–`Io05`

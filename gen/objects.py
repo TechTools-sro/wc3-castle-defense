@@ -69,25 +69,25 @@ GATE_LEVELS = [
     {"level": 2, "lane": 8, "arm": 4, "name": "The Dark Gate", "color": "|cffff4040", "dir": "north-east",
      "base": ("unp2", "Dark Citadel"), "turret": ("uzg1", "Dark Spire"),
      "stages": [("ngh2", "uabo"), ("ninf", "nbal"), ("ninf", "nbal")], "champion": "nrvd",
-     "nexus": (80000, 15, (650, 4, 25)), "tower": (40000, 8, (695, 1, 10)), "tint": (255, 90, 90),
+     "nexus": (80000, 15, (650, 4, 25)), "tower": (40000, 8, (3495, 1, 10)), "tint": (255, 90, 90),
      "unit_hp": 300, "unit_dmg": 0, "gold": 500, "nexus_scale": 1.2, "tower_scale": 1.5,
      "boss": (0, "Malgrath the Dark Lich", 3, 1.5, 2.4)},
     {"level": 3, "lane": 9, "arm": 5, "name": "The Frozen Gate", "color": "|cff80dfff", "dir": "north-west",
      "base": ("uaod", "Frozen Throne"), "turret": ("uzg1", "Frozen Spire"),
      "stages": [("nsoc", "ufro"), ("nbal", "ninf"), ("nbal", "ninf")], "champion": "nlrv",
-     "nexus": (150000, 20, (900, 4, 30)), "tower": (60000, 12, (895, 1, 10)), "tint": (140, 200, 255),
+     "nexus": (150000, 20, (900, 4, 30)), "tower": (60000, 12, (4495, 1, 10)), "tint": (140, 200, 255),
      "unit_hp": 500, "unit_dmg": 10, "gold": 1000, "nexus_scale": 1.6, "tower_scale": 1.7,
      "boss": (2, "Kel'Thar the Frozen Tide", 5, 2.0, 2.5)},
     {"level": 4, "lane": 10, "arm": 6, "name": "The Shadow Gate", "color": "|cffc080ff", "dir": "south-west",
      "base": ("ndmg", "Shadow Portal"), "turret": ("ntx2", "Shadow Spire"),
      "stages": [("ninf", "nerw"), ("nbal", "nhyc"), ("nbal", "nhyc")], "champion": "nina",
-     "nexus": (250000, 25, (1200, 4, 40)), "tower": (90000, 15, (1195, 1, 10)), "tint": (200, 120, 255),
+     "nexus": (250000, 25, (1200, 4, 40)), "tower": (90000, 15, (5995, 1, 10)), "tint": (200, 120, 255),
      "unit_hp": 1000, "unit_dmg": 25, "gold": 2000, "nexus_scale": 1.4, "tower_scale": 1.6,
      "boss": (1, "Azgaroth the Shadow Lord", 8, 3.0, 2.2)},
     {"level": 5, "lane": 11, "arm": 7, "name": "The Inferno Gate", "color": "|cffff9020", "dir": "far south-west",
      "base": ("ofrt", "Inferno Fortress"), "turret": ("owtw", "Inferno Tower"),
      "stages": [("nrvd", "ufro"), ("nlrv", "nbal"), ("nlrv", "nbal")], "champion": "nggr",
-     "nexus": (400000, 30, (1600, 4, 50)), "tower": (130000, 18, (1595, 1, 10)), "tint": (255, 160, 60),
+     "nexus": (400000, 30, (1600, 4, 50)), "tower": (130000, 18, (7995, 1, 10)), "tint": (255, 160, 60),
      "unit_hp": 2000, "unit_dmg": 50, "gold": 3000, "nexus_scale": 1.4, "tower_scale": 1.8,
      "boss": (1, "Infernus the World Breaker", 12, 4.0, 2.8)},
 ]
@@ -321,7 +321,9 @@ BASE_HP, BASE_ARMOR = 30000, 10      # 10x the old 3000: the Nexus is the lane's
 # Every Nexus fights back (huge attack, out of the tower's reach - see layout.tower_pos)
 NEXUS_DMG, NEXUS_COOLDOWN, NEXUS_RANGE = (450, 4, 20), 2.5, 700
 NEXUS_MISSILE = "Abilities\\Weapons\\FrostWyrmMissile\\FrostWyrmMissile.mdl"
-TURRET_HP, TURRET_ARMOR, TURRET_DMG = 25000, 4, (495, 1, 10)  # ~500 chaos per hit / 1.3 s (Jiri: 500 dmg, 25000 HP)
+TURRET_HP, TURRET_ARMOR, TURRET_DMG = 25000, 4, (2495, 1, 10)  # ~2500 chaos per hit / 1.3 s (Jiri: 5x the old 500)
+# Towers and Nexuses are "Mechanical": WarCraft lifesteal does not work against mechanical targets.
+NO_LIFESTEAL = [("utyp", S, "Mechanical")]
 BOSS_HP = [3500, 6000, 9000]
 BOSS_ARMOR = [3, 4, 5]
 BOSS_DMG = [(28, 2, 8), (38, 2, 10), (48, 2, 12)]
@@ -360,13 +362,13 @@ def custom_units():
         b = f["boss"]
         units.append((bb, base_id(d), [
             ("unam", S, bname), ("uhpm", I, BASE_HP), ("udef", I, BASE_ARMOR), ("udty", S, "fort"),
-            ("uabi", S, ""), ("utra", S, ""), ("ures", S, ""), ("uupt", S, "")] + nexus_attack(NEXUS_DMG) + [
+            ("uabi", S, ""), ("utra", S, ""), ("ures", S, ""), ("uupt", S, "")] + nexus_attack(NEXUS_DMG) + NO_LIFESTEAL + [
             ("usid", I, 1000), ("usin", I, 1000), ("ubba", I, 200), ("ubdi", I, 1), ("ubsi", I, 1)]))
         base, dice, sides = TURRET_DMG
         units.append((tb, turret_id(d), [
             ("unam", S, tname), ("uhpm", I, TURRET_HP), ("udef", I, TURRET_ARMOR), ("udty", S, "fort"),
             ("ua1b", I, base), ("ua1d", I, dice), ("ua1s", I, sides), ("ua1c", U, 1.3),
-            ("ua1r", I, 750), ("uacq", U, 800.0), ("ua1t", S, "chaos"), ("uabi", S, ""),
+            ("ua1r", I, 750), ("uacq", U, 800.0), ("ua1t", S, "chaos"), ("uabi", S, "")] + NO_LIFESTEAL + [
             ("usid", I, 1000), ("usin", I, 1000), ("usca", R, 1.25),
             ("ubba", I, 100), ("ubdi", I, 1), ("ubsi", I, 1)]))
         for k in range(3):
@@ -391,14 +393,14 @@ def custom_units():
         nhp, narm, ndmg = g["nexus"]
         units.append((g["base"][0], base_id(arm), [
             ("unam", S, g["base"][1]), ("uhpm", I, nhp), ("udef", I, narm),
-            ("udty", S, "fort"), ("uabi", S, ""), ("utra", S, ""), ("ures", S, ""), ("uupt", S, "")] + nexus_attack(ndmg) + [
+            ("udty", S, "fort"), ("uabi", S, ""), ("utra", S, ""), ("ures", S, ""), ("uupt", S, "")] + nexus_attack(ndmg) + NO_LIFESTEAL + [
             ("usid", I, 1000), ("usin", I, 1000), ("ubba", I, g["gold"]), ("ubdi", I, 1), ("ubsi", I, 1),
             ("usca", R, g["nexus_scale"]), ("uclr", I, tr), ("uclg", I, tg), ("uclb", I, tb)]))
         thp, tarm, (sb, sd, ss) = g["tower"]
         units.append((g["turret"][0], turret_id(arm), [
             ("unam", S, g["turret"][1]), ("uhpm", I, thp), ("udef", I, tarm),
             ("udty", S, "fort"), ("ua1b", I, sb), ("ua1d", I, sd), ("ua1s", I, ss), ("ua1c", U, 1.3),
-            ("ua1r", I, 800), ("uacq", U, 850.0), ("ua1t", S, "chaos"), ("uabi", S, ""), ("uaen", I, 1),
+            ("ua1r", I, 800), ("uacq", U, 850.0), ("ua1t", S, "chaos"), ("uabi", S, ""), ("uaen", I, 1)] + NO_LIFESTEAL + [
             ("usid", I, 1000), ("usin", I, 1000), ("usca", R, g["tower_scale"]), ("uclr", I, tr), ("uclg", I, tg), ("uclb", I, tb),
             ("ubba", I, g["gold"] // 2), ("ubdi", I, 1), ("ubsi", I, 1)]))
         src, bname, hpm, dmgm, bscale = g["boss"]
