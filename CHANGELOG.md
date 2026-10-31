@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-31 (evening) — docs kept in sync with the code
+
+- `docs/architecture.md`: JASS function map rebuilt from `gen/castle_logic.j` (11 newer functions were missing —
+  `LaneStage`, `WaveGold`, `ShoppingTime`, `ReleaseWaveUnit`, `CastleShockwave`, `OnTowerDestroyed`,
+  `ProtectorTick`, `IsDev`/`DevArg`/`OnDevChat`, `RemoveEnumItemCB` — and the removed `AddWaveBonuses` was still
+  listed). Verified by diffing the function names in code vs doc: none missing now.
+- `CLAUDE.md`: docs-with-every-change rule now names all five docs and the function-list check.
+
 ## 2026-10-31 — v3 "TechTools Castle Defence": first commit of the whole generator
 
 **What.** An 8-player co-op hero lane-defense map for WarCraft III TFT 1.27b, generated entirely from Python

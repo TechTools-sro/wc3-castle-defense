@@ -41,21 +41,21 @@
 | Area | Functions |
 |---|---|
 | Helpers | `Msg`, `IsPlaying`, `GiveAllGold`, `SideName`, `GrantLevelTwo`, `LaneName`, `PingLane` |
-| Shops | `KindNext` (per-player vs global price step), `StockCircle` (player circle), `StockCastle` (castle), `AdvanceStatPrice` (apply a buy), `OnItemPickup`, `GrabTomeEnum`/`GrabTick` (bought items on the ground → champion), `OnHeroLevel` (refill) |
+| Shops | `KindNext` (per-player vs global step), `StockCircle` (player circle), `StockCastle` (castle), `CastleShockwave`, `AdvanceStatPrice` (apply any circle/castle buy), `BuyIncome` + `IncomeTick` (bank, 60 s), `OnItemPickup`, `GrabTomeEnum`/`GrabTick` (bought items on the ground → champion), `OnHeroLevel` (refill + stats past the Attributes cap) |
 | Lane hint | `ShowLaneHint` (creates the circle unit, its rect, label) |
-| Scoreboard | `BoardSet`, `UpdateBoard`, `BoardWidth`, `CreateBoard` |
+| Scoreboard | `BoardSet`, `UpdateBoard` (1 s), `BoardWidth`, `CreateBoard` |
 | Setup | `SetupAlliances`, `SetupDarkness`, `MakeWallInvulnerable`, `CreateKingdom`, `CreateLaneBase` |
-| Waves | `AddWaveBonuses`, `SpawnWaveUnit`, `SpawnWave`, `OnWaveTimer`, `NextWaveDelay`, `OnFirstWave`, `WaveUnitTick` |
+| Waves | `LaneStage` (0 tower / 1 Nexus / 2 ruins), `SpawnWaveUnit`, `SpawnWave` (front/back/champions), `OnWaveTimer`, `NextWaveDelay` (10 s / 2-min break), `WaveGold` (paid on clear), `ShoppingTime` (break announcement + grove pings), `OnFirstWave`, `ReleaseWaveUnit` (charmed units leave the wave), `WaveUnitTick` |
 | Bosses | `BossFindTarget`, `BossCast`, `BossSummon`, `BossTick` |
-| Tick (1 s) | `OnTick`: steer waves, start the next countdown when all wave units are dead, boss AI |
-| Outcome | `ShowEndDialog`, `CheckVictory`, `OnCastleDestroyed`, `DropLoot`, `AnyNexusLeft`, `OnNexusDestroyed`, `OnBossSlain` |
-| Dark Gate | `OpenSharedPath` (first Nexus down), `OnSharedNexusDestroyed`, `SharedBounty` — lane 8 / arm 4 reuse the lane arrays (`gTower[8]`, `gWpX[64..]`, `gTierUnit[48..]`, `gGate[8]`), state `gSharedState` (-1 closed, 0 open, 2 destroyed) |
-| Bank | `BuyIncome`, `IncomeTick` (60 s); trees are granted in `OnTick` when a wave is cleared |
-| Revive/deaths | `OnReviveTimer`, `StartRevive`, `OnUnitDeath` (kills, deaths, first-wave tracking, Nexus/tower/boss/castle), `OnPlayerLeave` |
+| Tick (1 s) | `OnTick`: steer waves, on a cleared wave pay gold + 1 tree and start the countdown, boss AI |
+| Outcome | `ShowEndDialog`, `CheckVictory`, `OnCastleDestroyed`, `DropLoot`, `AnyNexusLeft` (any lane still spawning), `OnTowerDestroyed` (Protector + instant wave), `ProtectorTick` (leash), `OnNexusDestroyed`, `OnBossSlain` |
+| Dark Gate | `OpenSharedPath` (first Nexus down), `OnSharedNexusDestroyed`, `SharedBounty` — lane 8 / arm 4 reuse the lane arrays (`gTower[8]`, `gWpX[64..]`, `gStageUnit[24..]`, `gGate[8]`), state `gSharedState` (-1 closed, 0 open, 2 destroyed) |
+| Revive/deaths | `OnReviveTimer`, `StartRevive`, `OnUnitDeath` (kills, deaths, bounty, first-wave tracking, tower/Nexus/boss/castle), `OnPlayerLeave` |
 | Camera/commands | `OnZoomChat`, `ApplyZoom`, `SetFollow`, `SpaceTick` (0.1 s quick position), `OnFollowToggle`, `OnHelpChat` |
+| Dev cheats | `IsDev` (`DEV_NAMES`), `DevArg`, `OnDevChat` (`-addmoney`, `-addwood`/`-addtree`, `-lvl`) |
 | Quests | `AddQuest`, `CreateQuests` |
-| Test build | `TestKillEnum`, `TestStep`, `TestBuyOrder`, `TestBuyHero` (only with `gTestMode`) |
-| Round | `StartGame`, `HidePickTag`/`ShowPickTags`, `AssignHero`, `EndChampionSelect`, `AllChosen`, `OnUnitSold`, `SetupChampionSelect`, `CDRestart`, `OnEndClick` |
+| Test build | `TestKillEnum`, `TestStep` (shop buys, castle buy, tower/Nexus/boss kills, Dark Gate), `TestBuyOrder`, `TestBuyHero` (only with `gTestMode`) |
+| Round | `StartGame`, `HidePickTag`/`ShowPickTags`, `AssignHero`, `EndChampionSelect`, `AllChosen`, `OnUnitSold`, `SetupChampionSelect`, `RemoveEnumItemCB`, `CDRestart`, `OnEndClick` |
 | Entry | `InitGame` (triggers, timers, groups; called from `main`) |
 
 ### Shop data model

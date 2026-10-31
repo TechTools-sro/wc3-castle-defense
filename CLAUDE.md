@@ -61,4 +61,9 @@ tools/run_test.sh 'Maps\Test\TechToolsCastleDefence_TEST.w3x' <outdir> 40   # Wi
   `docs/architecture.md`); add `ubpx/ubpy` for anything sold in a shop.
 - Git: trunk-based on `main`, history in `CHANGELOG.md`. ⚠️ **Local-only repo on pc1 — no remote, no backup.**
   `dist/`, `ref/` (Blizzard data, never commit), `tools/pjass-src/` are ignored.
-- When behaviour changes, update `docs/gameplay.md` in the same change (it is the spec).
+- ⚠️ **Docs are part of every change** (Jiří: "keep the .md files up to date with all important details"). In the
+  same change as the code: `docs/gameplay.md` (rules + numbers + where they live), `docs/architecture.md` (new
+  functions, files, object ids, data model), `docs/wc3-127-gotchas.md` (any new engine trap),
+  `docs/map-catalog.md` (player-facing guide, also the catalogue doc), `CHANGELOG.md` (dated entry: what / why /
+  verified or NOT verified). Before finishing, diff the function list of `gen/castle_logic.j` against the JASS
+  map in `docs/architecture.md`.
