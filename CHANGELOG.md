@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.4 — 2026-10-31 (late): EPIC boss loot
+
+- Every Nexus boss drops one EPIC crown instead of random items: lane boss +200 all stats, Level 2–5 bosses +400 /
+  +600 / +800 / +1000 (`EPIC_ITEMS` in `gen/objects.py`, `DropEpic` in `gen/castle_logic.j`, items `Io01`–`Io05`
+  based on Crown of Kings, abilities `Xo01`–`Xo05` based on `AIx1`). Verified: pjass + data check + build;
+  not tried in-game.
+
 ## v1.3 — 2026-10-31 (late): Long Reach; the real cause of the Bank / upgrade bugs
 
 - **Uploaded as catalogue map #18** untested, at Jiří's choice (HTTP 201, download SHA-256 `464065fb…` matches).

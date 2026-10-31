@@ -50,7 +50,7 @@
 | Waves | `LaneStage` (0 tower / 1 Nexus / 2 ruins), `SpawnWaveUnit`, `SpawnWave` (front/back/champions), `OnWaveTimer`, `NextWaveDelay` (10 s / 2-min break), `WaveGold` (paid on clear), `ShoppingTime` (break announcement + grove pings), `OnFirstWave`, `ReleaseWaveUnit` (charmed units leave the wave), `WaveUnitTick` |
 | Bosses | `BossFindTarget`, `BossCast`, `BossSummon`, `BossTick` |
 | Tick (1 s) | `OnTick`: steer waves, on a cleared wave pay gold + 1 tree and start the countdown, boss AI |
-| Outcome | `ShowEndDialog`, `CheckVictory`, `OnCastleDestroyed`, `DropLoot`, `AnyNexusLeft` (any lane still spawning), `OnTowerDestroyed` (Protector + instant wave), `ProtectorTick` (leash), `OnNexusDestroyed`, `OnBossSlain` |
+| Outcome | `ShowEndDialog`, `CheckVictory`, `OnCastleDestroyed`, `DropLoot` (unused now), `DropEpic` (boss crown by level), `AnyNexusLeft` (any lane still spawning), `OnTowerDestroyed` (Protector + instant wave), `ProtectorTick` (leash), `OnNexusDestroyed`, `OnBossSlain` |
 | Gate levels | `OpenGateLane` (lanes 8–11 = Levels 2–5, each opened by the previous Nexus), `OnGateNexusDestroyed` (boss rises, next level opens), `OnGateBossSlain` (level cleared), `MinionBounty` (kill gold for every wave unit) — gate lanes reuse the lane arrays (`gTower[L]`, `gBoss[L]`, `gWpX[L*8..]`, `gStageUnit[arm*6..]`, `gGate[L]`) plus `gGateHpAbil/gGateDmgAbil/gGateTint*/gGateGold/gGateDir[L]`; state `gGateState[L]` (-1 closed, 0 open, 1 boss, 2 cleared) |
 | Revive/deaths | `OnReviveTimer`, `StartRevive`, `OnUnitDeath` (kills, deaths, bounty, first-wave tracking, tower/Nexus/boss/castle), `OnPlayerLeave` |
 | Camera/commands | `OnZoomChat`, `ApplyZoom`, `SetFollow`, `SpaceTick` (0.1 s quick position), `OnFollowToggle`, `OnHelpChat` |
@@ -86,6 +86,8 @@
 | `nb41`, `nb51`, `nb61`, `nb71` | unit (boss bases of the source factions) | Gate level bosses |
 | `q<arm><stage><m|r>` (e.g. `q00m`) | unit (base: the stage's model unit) | Standardized wave units (200/30 melee, 120/60 ranged, ×stage) |
 | `nc{d}0` (d 0–7) | unit (base: faction champion) | Weakened wave champion (every 10th wave) |
+| `Io01`–`Io05` | item (base `ckng`) | EPIC crowns dropped by Level 1–5 bosses (+200…+1000 all stats) |
+| `Xo01`–`Xo05` | ability (base `AIx1`) | EPIC crown all-stats bonus |
 | `Ixr1` | item (base `tst2`) | Long Reach (+150 attack range per buy) |
 | `Rcrg` | upgrade (base `Rhri`, `war3map.w3q`) | Long Reach range upgrade, 5 levels × 150 (`ratr`); every hero lists it in `upgr` |
 | `Ib01` | item (base `tst2`) | Bank: Income +10 per minute for 1 tree |

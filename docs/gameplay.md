@@ -93,6 +93,18 @@ Higher level = harder.
   stacks without limit (`BANK_ITEM`, `INCOME_STEP`). Paid on every full minute of the game clock (1:00, 2:00, …;
   `IncomeTick` from `OnTick`). Restart resets income and trees.
 
+## EPIC boss loot (`EPIC_ITEMS`, `DropEpic`)
+
+Every Nexus boss drops one EPIC crown at its ruins (purple ping + "EPIC DROP" message), replacing the old random items:
+
+| Boss | Item | Bonus |
+|---|---|---|
+| Lane boss (Level 1) | Champion's Crown | +200 Str/Agi/Int |
+| Level 2 boss | Dark Crown | +400 |
+| Level 3 boss | Frozen Crown | +600 |
+| Level 4 boss | Shadow Crown | +800 |
+| Level 5 boss | Inferno Crown | +1000 |
+
 ## Champions
 
 - Spells on **Q W E R** for cast and learn, tooltips retagged `[Q]` (`gen/hotkeys.py`).

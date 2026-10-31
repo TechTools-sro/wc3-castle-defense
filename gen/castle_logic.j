@@ -999,6 +999,15 @@ function DropLoot takes integer level, real x, real y returns nothing
     endif
 endfunction
 
+// EPIC boss loot: a crown with a huge all-stats bonus, by level (1 = lane boss, 2-5 = gate bosses).
+function DropEpic takes integer lvl, real x, real y returns nothing
+    call CreateItem(gEpicItem[lvl], x, y)
+    call DestroyEffect(AddSpecialEffect("Abilities\\Spells\\Human\\HolyBolt\\HolyBoltSpecialArt.mdl", x, y))
+    call DestroyEffect(AddSpecialEffect("Abilities\\Spells\\Items\\ResourceItems\\ResourceEffectTarget.mdl", x, y))
+    call PingMinimapEx(x, y, 5.0, 163, 53, 238, true)
+    call Msg("|cffa335eeEPIC DROP:|r |cffffcc00" + gEpicName[lvl] + "|r")
+endfunction
+
 // Any lane still sending waves? (tower/Nexus standing, or Nexus down but its boss alive, or the Dark Gate open)
 function AnyNexusLeft takes nothing returns boolean
     local integer L = 0
@@ -1122,7 +1131,7 @@ function OnGateBossSlain takes integer L returns nothing
     local integer d = LaneArm(L)
     set gGateState[L] = 2
     set gBoss[L] = null
-    call DropLoot(5, gNexusX[L] + 120.0, gNexusY[L])
+    call DropEpic(L - 6, gNexusX[L], gNexusY[L])
     call StartSound(bj_questCompletedSound)
     call Msg(gDirColor[d] + gBossName[d] + "|r is slain - " + gDirColor[d] + "LEVEL " + I2S(L - 6) + "|r cleared!   |cffffcc00+" + I2S(gGateGold[L]) + " gold|r")
     call GiveAllGold(gGateGold[L])
@@ -1182,8 +1191,7 @@ function OnBossSlain takes integer L returns nothing
     local integer d = LaneArm(L)
     set gLaneState[L] = 2
     set gBoss[L] = null
-    call DropLoot(5, gNexusX[L] + 120.0, gNexusY[L])
-    call DropLoot(4, gNexusX[L] - 120.0, gNexusY[L])
+    call DropEpic(1, gNexusX[L], gNexusY[L])
     call GiveAllGold(250)
     call StartSound(bj_questCompletedSound)
     call Msg(gDirColor[d] + gBossName[d] + "|r of " + gPlayerColorCode[L] + GetPlayerName(Player(L)) + "|r's lane has been slain!   |cffffcc00+250 gold|r")

@@ -176,6 +176,16 @@ PREMIUM_KEYS = "QWERASDF"
 REACH_ITEM, REACH_TECH = "Ixr1", "Rcrg"
 REACH_STEP, REACH_LEVELS, REACH_PRICE = 150, 5, 1500
 
+# EPIC boss loot: every Nexus boss drops one crown, +all stats by level (lane bosses = Level 1, gate Levels 2-5).
+#   (level, item id, ability id, name, all-stats bonus, icon)
+EPIC_ITEMS = [
+    (1, "Io01", "Xo01", "Champion's Crown", 200, "BTNHelmutPurple"),
+    (2, "Io02", "Xo02", "Dark Crown", 400, "BTNHelmOfValor"),
+    (3, "Io03", "Xo03", "Frozen Crown", 600, "BTNCirclet"),
+    (4, "Io04", "Xo04", "Shadow Crown", 800, "BTNCrownOfKings"),
+    (5, "Io05", "Xo05", "Inferno Crown", 1000, "BTNHeartOfAszune"),
+]
+
 # Bank (secret grove): trade trees (lumber, +1 per cleared wave) for passive income.
 BANK_ITEM = "Ib01"
 INCOME_STEP = 10             # gold per minute per bought income (1 tree -> +10 gold/min)
@@ -537,6 +547,12 @@ def custom_items():
             # item (an ability id as item base crashed 1.27 right after loading) -> a powered-down tome.
             ibase = "tst2"
             out.append((ibase, stat_item_id(si, k), mods))
+    for (lvl, iid, aid, name, bonus, icon) in EPIC_ITEMS:
+        out.append(("ckng", iid, [
+            ("unam", S, name), ("iico", S, CB + icon + ".blp"), ("iabi", S, aid),
+            ("utip", S, f"|cffa335eeEPIC|r |cffffcc00{name}|r"),
+            ("utub", S, f"+{bonus} Strength, Agility and Intelligence.|n|n|cffa335eeDropped by a Level {lvl} boss.|r"),
+            ("ides", S, f"+{bonus} all stats"), ("igol", I, 10000), ("ilev", I, 10), ("ipaw", I, 0)]))
     out.append(("tst2", REACH_ITEM, [
         ("unam", S, "Long Reach"), ("iico", S, CB + "BTNImprovedBows.blp"), ("uhot", S, "Z"),
         ("utip", S, "|cffffcc00Long Reach|r (|cffffcc00Z|r)"),
@@ -580,6 +596,8 @@ def custom_abilities():
     out.append(("Aneu", CASTLE_SHOP_ABIL, [("aran", U, 1, 0, 3000.0), ("Neu1", U, 1, 1, 3000.0)]))
     out.append(("Aall", CASTLE_SHARE_ABIL, [("aran", U, 1, 0, 3000.0), ("Neu1", U, 1, 1, 3000.0)]))
     out.append(attribute_ability())
+    for (_lvl, _iid, aid, _name, bonus, _icon) in EPIC_ITEMS:      # epic crown: +all stats (green)
+        out.append(("AIx1", aid, [("Iagi", I, 1, 1, bonus), ("Iint", I, 1, 2, bonus), ("Istr", I, 1, 3, bonus)]))
     for g in GATE_LEVELS:        # per gate level: bonus HP (and damage) for its wave units and Protector
         out.append(("AIlf", gate_hp_abil(g["lane"]), [("Ilif", I, 1, 1, g["unit_hp"])]))
         if g["unit_dmg"]:

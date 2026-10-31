@@ -30,7 +30,7 @@ GAME_DIR = os.environ.get("WC3_DIR", "/home/novakj/games/warcraft3")
 TEST = "--test" in sys.argv
 # VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
 # map name (game list, lobby, loading screen), the file name and the catalogue title.
-MAP_VERSION = "1.3"
+MAP_VERSION = "1.4"
 MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
@@ -323,6 +323,8 @@ globals
     real array gProtX
     real array gProtY
     integer gBankItem = 0
+    integer array gEpicItem
+    string array gEpicName
     integer gReachItem = 0
     integer gReachTech = 0
     integer gReachMax = 5
@@ -518,6 +520,9 @@ def build_script():
     a(f"    set gPremCount = {len(OB.PREMIUM_DEF)}")
     a(f"    set gPremMax = {OB.PREMIUM_LEVELS}")
     a(f"    set gPremPrice = {OB.PREMIUM_PRICE}")
+    for (lvl, iid, _aid, name, bonus, _icon) in OB.EPIC_ITEMS:
+        a(f"    set gEpicItem[{lvl}] = '{iid}'")
+        a(f"    set gEpicName[{lvl}] = {jstr(f'{name} (+{bonus} all stats)')}")
     a(f"    set gBankItem = '{OB.BANK_ITEM}'")
     a(f"    set gIncomeStep = {OB.INCOME_STEP}")
     a(f"    set gReachItem = '{OB.REACH_ITEM}'")
@@ -795,7 +800,7 @@ def misc_constants(game):
 
 REQUIRED_SCRIPT_DATA = ["set gBankItem = ", "set gIncomeStep = ", "set gPremItem[1] = ", "set gPremCount = ",
                         "set gShopFxCount = ", "set gDevCount = ", "set gAttrPerLevel = ", "set gReachItem = ",
-                        "set gGateState[11] = ", "set gStageUnit[0] = ", "set gStatItem[0] = ", "set gHeroPool[0] = "]
+                        "set gGateState[11] = ", "set gStageUnit[0] = ", "set gEpicItem[5] = ", "set gStatItem[0] = ", "set gHeroPool[0] = "]
 
 
 def check_script_data(script):

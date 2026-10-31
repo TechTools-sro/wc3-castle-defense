@@ -42,6 +42,11 @@ ruins, then fight through the four shared **gate levels** (2–5). **Win** when 
   mana regeneration — buy the same item again to upgrade it, up to Lv 5; **Long Reach** 1500 gold = +150 attack
   range, up to 5×, so melee champions can hit from a distance), **Bank** (1 tree = +10 gold income every minute), Apothecary (potions, scrolls).
 
+## EPIC loot
+
+Every Nexus boss drops an EPIC crown: +200 all stats from a lane boss, +400 / +600 / +800 / +1000 from the Level 2–5
+bosses.
+
 ## Champions
 
 - Spells on **Q W E R**; every level-up refills HP and mana; clearing your first wave gives level 2.
