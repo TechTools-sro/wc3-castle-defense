@@ -49,7 +49,7 @@
 | Bosses | `BossFindTarget`, `BossCast`, `BossSummon`, `BossTick` |
 | Tick (1 s) | `OnTick`: steer waves, on a cleared wave pay gold + 1 tree and start the countdown, boss AI |
 | Outcome | `ShowEndDialog`, `CheckVictory`, `OnCastleDestroyed`, `DropLoot`, `AnyNexusLeft` (any lane still spawning), `OnTowerDestroyed` (Protector + instant wave), `ProtectorTick` (leash), `OnNexusDestroyed`, `OnBossSlain` |
-| Gate levels | `OpenGateLane` (L = 8: Level 2 on the first Nexus, 9 = Level 3 on the Dark Citadel), `OnGateNexusDestroyed`, `SharedBounty` — gate lanes reuse the lane arrays (`gTower[L]`, `gWpX[L*8..]`, `gStageUnit[arm*6..]`, `gGate[L]`), state `gGateState[L]` (-1 closed, 0 open, 2 destroyed) |
+| Gate levels | `OpenGateLane` (L = 8: Level 2 on the first Nexus, 9 = Level 3 on the Dark Citadel), `OnGateNexusDestroyed`, `MinionBounty` (kill gold for every wave unit) — gate lanes reuse the lane arrays (`gTower[L]`, `gWpX[L*8..]`, `gStageUnit[arm*6..]`, `gGate[L]`), state `gGateState[L]` (-1 closed, 0 open, 2 destroyed) |
 | Revive/deaths | `OnReviveTimer`, `StartRevive`, `OnUnitDeath` (kills, deaths, bounty, first-wave tracking, tower/Nexus/boss/castle), `OnPlayerLeave` |
 | Camera/commands | `OnZoomChat`, `ApplyZoom`, `SetFollow`, `SpaceTick` (0.1 s quick position), `OnFollowToggle`, `OnHelpChat` |
 | Dev cheats | `IsDev` (`DEV_NAMES`), `DevArg` (number after a command), `OnDevChat` (`-addmoney`, `-addwood`/`-addtree`, `-lvl`) |
@@ -83,7 +83,7 @@
 | `ns40`, `nt40` | unit (bases `unp2`, `uzg1`) | Level 2: Dark Citadel, Dark Spire |
 | `ns50`, `nt50` | unit (bases `uaod`, `uzg1`) | Level 3: Frozen Throne, Frozen Spire |
 | `nc{d}0` (d 0–5) | unit (base: faction champion) | Weakened wave champion (every 10th wave) |
-| `Ib01` | item (base `tst2`) | Bank: Income +100 for 1 tree |
+| `Ib01` | item (base `tst2`) | Bank: Income +10 per minute for 1 tree |
 | `Ih Im Id Ir Is Ia Ii Il` + `00`–`39` | item (base `tst2`) | Circle shop kinds × price steps |
 | `Iy Ik Ie` + `00`–`39`, `Ic00`, `Iw00` | item (base `tst2`) | Castle shop: health/armor/regen steps, repair, shockwave (1 tree each) |
 | `Ip01`–`Ip08` | item | Premium items Lv 1 (sold) |

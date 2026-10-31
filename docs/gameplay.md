@@ -53,6 +53,9 @@ Standardized: the **lane stage picks the unit types**, the wave number only adds
   `WAVE_CHAMP_*`), announced one wave before. Constants `WAVE_*` in `gen/objects.py`.
 - Rosters: `FACTIONS[d]["stages"]` / `SHARED["stages"]` in `gen/objects.py` (3 × (front, back) unit ids per faction).
 - Dark Gate units: its own stages (stronger pairs), +300 HP each (`AIl2`), red tint.
+- **Minion kill gold = the wave number** (wave 1 → 1 gold, wave 5 → 5), ×2 on Level 2, ×3 on Level 3, to the
+  killer (`MinionBounty`; wave unit types have built-in bounty 0 via `NO_BOUNTY`). Towers, Nexus, bosses and
+  Protectors keep their normal bounty.
 - Gold per wave to every player: `50 + 50*wave` → 100, 150, 200, … (no cap), paid when the wave is **cleared** (with the tree).
 - **Tower destroyed** (`OnTowerDestroyed`, also the Dark Spire): a **Protector** (the faction champion, 1.5× size,
   +450 HP, gold tint) appears between the ruins and the Nexus and stays leashed there (`ProtectorTick`), and that
@@ -68,7 +71,7 @@ Standardized: the **lane stage picks the unit types**, the wave number only adds
 | Tower | Dark Spire: 40 000 HP, armor 8, ~700 chaos / 1.3 s, range 800 | Frozen Spire: 60 000 HP, armor 12, ~900 chaos / 1.3 s |
 | Nexus | Dark Citadel: 80 000 HP, armor 15, 650 + 4d25 missile / 2.5 s, range 700 | Frozen Throne: 150 000 HP, armor 20, 900 + 4d30 missile / 2.5 s |
 | Waves | own roster (stage 0 / 1), +300 HP, red tint | own roster, +500 HP and more damage, ice-blue tint |
-| Kill bonus | +(15 + wave) gold to the killer | +(30 + wave) gold |
+| Kill gold | 2 × wave per minion | 3 × wave per minion |
 | Nexus down | +500 gold to all, opens Level 3 | +1000 gold to all |
 
 - Lane 8 / arm 4 and lane 9 / arm 5 in the script (`OpenGateLane`, `OnGateNexusDestroyed`, `gGateState`), both
@@ -78,7 +81,7 @@ Standardized: the **lane stage picks the unit types**, the wave number only adds
 ## Trees and the Bank
 
 - Every cleared wave (all monsters dead) gives every player **+1 tree** (lumber, top bar).
-- The **Bank** (secret grove, gold-mine look) sells **Income +100** for **1 tree**: +100 gold every minute,
+- The **Bank** (secret grove, gold-mine look) sells **Income +10** for **1 tree**: +10 gold every minute,
   stacks without limit (`BANK_ITEM`, `INCOME_STEP`, `IncomeTick` every 60 s). Restart resets income and trees.
 
 ## Champions

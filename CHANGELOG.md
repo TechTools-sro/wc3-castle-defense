@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-31 (late) — economy: smaller income, kill gold = wave
+
+- Bank: 1 tree now buys **+10 gold/min** (was +100), `INCOME_STEP`.
+- Minion kill gold = **wave number** (×2 Level 2, ×3 Level 3) paid by `MinionBounty` (replaces `SharedBounty`);
+  all wave unit types get built-in bounty 0 (`NO_BOUNTY`, `wave_unit_types()`), towers/Nexus/bosses/Protectors keep
+  theirs. Verified: pjass + build; not tried in-game yet.
+
 ## 2026-10-31 (late) — in-game self-test of the current build
 
 Ran the `--test` map in Wine (`tools/run_test.sh`, 115 s, **no crash**, no new BlizzardError folder). Seen on the

@@ -20,11 +20,13 @@ and the Frozen Throne have fallen. **Lose** when the Castle of Lordaeron in the 
    stands, basic units come out of it. Tower down → a **Protector** guards the Nexus,
    the next wave comes at once and stronger units come out of the Nexus. Nexus down → its boss rises and the
    strongest units come out of the ruins until the boss dies. ⚠️ The Nexus has 30 000 HP and a huge attack.
-5. **Wave size:** front line (melee) = 4 + wave, back line (ranged) = +1 every 2 waves. Every 10th wave adds
+5. **Kill gold:** a minion pays as much gold as the wave number (wave 5 → 5 gold), double on Level 2, triple on
+   Level 3.
+6. **Wave size:** front line (melee) = 4 + wave, back line (ranged) = +1 every 2 waves. Every 10th wave adds
    weakened champions (1 at wave 10, 2 at wave 20, ...).
-6. **Level 2 — the Dark Gate (NE):** opens when the first player destroys a Nexus. A shared lane with a stronger
+7. **Level 2 — the Dark Gate (NE):** opens when the first player destroys a Nexus. A shared lane with a stronger
    tower and Nexus; its monsters pay extra gold per kill.
-7. **Level 3 — the Frozen Gate (NW):** opens when the Dark Citadel falls. The strongest tower, Nexus and monsters,
+8. **Level 3 — the Frozen Gate (NW):** opens when the Dark Citadel falls. The strongest tower, Nexus and monsters,
    the most gold per kill. Win = every boss dead + the Dark Citadel and the Frozen Throne destroyed.
 
 ## Shops
@@ -35,7 +37,7 @@ and the Frozen Throne have fallen. **Lose** when the Castle of Lordaeron in the 
   Repair +2000 HP, Shockwave (damages every monster near the castle).
 - **Secret grove** (narrow passage at the SE corner of the plaza): Fountain of Power (fast HP + mana),
   **Premium Armory** (1000 gold: lifesteal, attack speed, critical strike, bash, evasion, boots, regeneration,
-  mana regeneration — buy the same item again to upgrade it, up to Lv 5), **Bank** (1 tree = +100 gold income every minute), Apothecary (potions, scrolls).
+  mana regeneration — buy the same item again to upgrade it, up to Lv 5), **Bank** (1 tree = +10 gold income every minute), Apothecary (potions, scrolls).
 
 ## Champions
 

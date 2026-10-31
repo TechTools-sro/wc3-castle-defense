@@ -202,7 +202,7 @@ function AdvanceStatPrice takes integer p, item it returns nothing
     endloop
 endfunction
 
-// Bank: 1 tree buys +100 gold income per minute (paid by IncomeTick).
+// Bank: 1 tree buys +gIncomeStep (10) gold income per minute (paid by IncomeTick).
 function BuyIncome takes integer p, item it returns nothing
     call RemoveItem(it)
     set gIncome[p] = gIncome[p] + gIncomeStep
@@ -1044,12 +1044,18 @@ function OnGateNexusDestroyed takes integer L returns nothing
     call CheckVictory()
 endfunction
 
-// Gate monsters pay the killer extra gold (floating +N, only the killer sees it): Level 2 +15, Level 3 +30 (+ wave).
-function SharedBounty takes unit u, integer kid returns nothing
-    local integer g = 15 + gWave
+// Minion kill gold (wave units only; their built-in bounty is 0): gold = wave number on the player lanes,
+// x2 on Level 2 (Dark Gate), x3 on Level 3 (Frozen Gate). Floating +N only the killer sees.
+function MinionBounty takes unit u, integer kid returns nothing
+    local integer g = gWave
     local texttag tt = CreateTextTag()
-    if GetUnitUserData(u) / 16 == 9 then
-        set g = 30 + gWave
+    if GetUnitUserData(u) / 16 == 8 then
+        set g = 2 * gWave
+    elseif GetUnitUserData(u) / 16 == 9 then
+        set g = 3 * gWave
+    endif
+    if g < 1 then
+        set g = 1
     endif
     call SetPlayerState(Player(kid), PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(Player(kid), PLAYER_STATE_RESOURCE_GOLD) + g)
     call SetTextTagText(tt, "|cffffcc00+" + I2S(g) + "|r", 0.024)
@@ -1148,8 +1154,8 @@ function OnUnitDeath takes nothing returns nothing
         set d = oid - 8
         if kid >= 0 and kid < 8 then
             set gKills[kid] = gKills[kid] + 1
-            if GetUnitUserData(u) >= 128 and GetUnitUserData(u) < 160 then
-                call SharedBounty(u, kid)
+            if GetUnitUserData(u) > 0 and GetUnitUserData(u) < 160 then
+                call MinionBounty(u, kid)
             endif
         endif
         if u == gNexus[8] then

@@ -141,7 +141,7 @@ PREMIUM_KEYS = "QWERASDF"
 
 # Bank (secret grove): trade trees (lumber, +1 per cleared wave) for passive income.
 BANK_ITEM = "Ib01"
-INCOME_STEP = 100            # gold per minute per bought income
+INCOME_STEP = 10             # gold per minute per bought income (1 tree -> +10 gold/min)
 INCOME_TREE_COST = 1
 
 SHOPS = {
@@ -370,7 +370,7 @@ def custom_units():
     for d, f in enumerate(FACTIONS + [SHARED, LEVEL3]):
         units.append((f["champion"], wave_champion_id(d), [
             ("uhpm", I, WAVE_CHAMP_HP), ("udef", I, WAVE_CHAMP_ARMOR), ("ua1b", I, WAVE_CHAMP_DMG[0]),
-            ("ua1d", I, WAVE_CHAMP_DMG[1]), ("ua1s", I, WAVE_CHAMP_DMG[2]), ("usca", R, WAVE_CHAMP_SCALE)]))
+            ("ua1d", I, WAVE_CHAMP_DMG[1]), ("ua1s", I, WAVE_CHAMP_DMG[2]), ("usca", R, WAVE_CHAMP_SCALE)] + NO_BOUNTY))
     return units
 
 
@@ -427,7 +427,17 @@ def original_unit_mods():
     return [(h, [("ugol", I, 0), ("ulum", I, 0), ("ufoo", I, 0), ("usst", I, 0),
                  ("usma", I, 1), ("usrg", I, 1), ("ureq", S, ""),
                  ("ua1g", S, _hero_targets_with_air(h)),
-                 ("uhab", S, _ref_slk("Units_UnitAbilities.slk")[h]["heroAbilList"] + "," + ATTR_ABIL)]) for h in ALL_HEROES]
+                 ("uhab", S, _ref_slk("Units_UnitAbilities.slk")[h]["heroAbilList"] + "," + ATTR_ABIL)]) for h in ALL_HEROES] + \
+        [(u, list(NO_BOUNTY)) for u in wave_unit_types()]
+
+
+# Minion kill gold is paid by the script (MinionBounty: gold = wave number, x2 Level 2, x3 Level 3), so every
+# unit type that marches in a wave gives no built-in bounty.
+NO_BOUNTY = [("ubba", I, 0), ("ubdi", I, 0), ("ubsi", I, 0)]
+
+
+def wave_unit_types():
+    return sorted({u for f in FACTIONS + [SHARED, LEVEL3] for pair in f["stages"] for u in pair})
 
 
 def original_item_mods():
