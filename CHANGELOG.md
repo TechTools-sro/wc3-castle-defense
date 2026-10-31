@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-31 (late) — in-game self-test of the current build
+
+Ran the `--test` map in Wine (`tools/run_test.sh`, 115 s, **no crash**, no new BlizzardError folder). Seen on the
+screenshots: champion bought from the Hall of Mercenaries; circle buys applied (+100 Health) and **all 8 circle
+icons render** (the Str/Agi/Int BLP fix works); restart → champion select; first wave cleared → level 2 and
+"+100 gold +1 tree"; tower kill → Protector + instant wave; **castle buy through the castle shop accepted**
+(neutral order) → "+1000 castle max HP", title "Castle 9000 / 9000"; Nexus kill → boss + **LEVEL 2** opens;
+Dark Spire → Protector; Dark Citadel destroyed (+500) → **LEVEL 3** opens; Frozen Spire / Frozen Throne
+destroyed (+1000); victory dialog "VICTORY in 0:52!" (game clock). Not covered by the script: a human clicking
+the castle shop, premium merges, bank purchase, dev cheats, -break/-wave, unlimited levels, melee vs flyers.
+
 ## 2026-10-31 (late) — Level 3, bigger map, stronger towers
 
 - **Level 3 — the Frozen Gate (NW):** second shared lane, opens when the Dark Citadel (Level 2) falls. Corridor
