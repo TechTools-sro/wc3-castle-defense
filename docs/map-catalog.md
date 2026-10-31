@@ -52,4 +52,4 @@ has fallen. **Lose** when the Castle of Lordaeron in the middle falls.
 
 ## Scoreboard
 
-Top right: wave, castle HP (current / max) and per player level, kills and deaths.
+Top right: game time, wave, castle HP (current / max) and per player level, kills and deaths.

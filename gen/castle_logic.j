@@ -301,7 +301,26 @@ function BoardSet takes integer row, integer col, string s returns nothing
     set it = null
 endfunction
 
-// Compact scoreboard: the title carries wave + castle HP; one row per player = name, level, kills, deaths.
+// Game time as m:ss (h:mm:ss after an hour).
+function TimeText takes integer s returns string
+    local integer h = s / 3600
+    local integer m = ModuloInteger(s / 60, 60)
+    local integer sec = ModuloInteger(s, 60)
+    local string out = I2S(m)
+    if h > 0 then
+        set out = I2S(h) + ":"
+        if m < 10 then
+            set out = out + "0"
+        endif
+        set out = out + I2S(m)
+    endif
+    if sec < 10 then
+        return out + ":0" + I2S(sec)
+    endif
+    return out + ":" + I2S(sec)
+endfunction
+
+// Compact scoreboard: the title carries game time + wave + castle HP; one row per player = name, level, kills, deaths.
 function UpdateBoard takes nothing returns nothing
     local integer i
     local string castle
@@ -314,7 +333,7 @@ function UpdateBoard takes nothing returns nothing
     else
         set castle = "|cffff0000Fallen|r"
     endif
-    call MultiboardSetTitleText(gBoard, "Wave |cffffcc00" + I2S(gWave) + "|r    Castle |cffffcc00" + castle + "|r")
+    call MultiboardSetTitleText(gBoard, "|cff4fc3ff" + TimeText(gGameTime) + "|r    Wave |cffffcc00" + I2S(gWave) + "|r    Castle |cffffcc00" + castle + "|r")
     set i = 0
     loop
         exitwhen i >= 8
@@ -740,6 +759,9 @@ endfunction
 function OnTick takes nothing returns nothing
     local integer L = 0
     set gElapsed = gElapsed + 1
+    if gStarted and not gGameOver then
+        set gGameTime = gGameTime + 1     // game clock: from the end of champion select, stops at the end
+    endif
     call ForGroup(gWaveUnits, function WaveUnitTick)
     if gWaitingClear and not gGameOver and CountUnitsInGroup(gWaveUnits) == 0 then
         set gWaitingClear = false
@@ -787,9 +809,9 @@ function ShowEndDialog takes boolean won returns nothing
     call PauseTimer(gWaveTimer)
     call DialogClear(gEndDialog)
     if won then
-        call DialogSetMessage(gEndDialog, "VICTORY!  Play again?")
+        call DialogSetMessage(gEndDialog, "VICTORY in " + TimeText(gGameTime) + "!  Play again?")
     else
-        call DialogSetMessage(gEndDialog, "The castle has fallen!  Play again?")
+        call DialogSetMessage(gEndDialog, "The castle has fallen after " + TimeText(gGameTime) + "!  Play again?")
     endif
     set gEndRestart = DialogAddButton(gEndDialog, "Play again", 0)
     set gEndQuit = DialogAddButton(gEndDialog, "Finish game", 0)
@@ -1283,6 +1305,7 @@ function StartGame takes nothing returns nothing
         return
     endif
     set gStarted = true
+    set gGameTime = 0
     loop
         exitwhen i >= 8
         set gLaneActive[i] = IsPlaying(i)

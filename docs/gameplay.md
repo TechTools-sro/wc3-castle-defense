@@ -140,7 +140,8 @@ and an allied shop-sharing (`Xcs2`, `Aall`) buyer ability — the `Aall`-only ve
 
 ## UI and commands
 
-- **Scoreboard** (top right, 1 s refresh): title `Wave N    Castle HP / max HP` (max includes Castle Health upgrades); columns Player · Lv · Kills · Deaths.
+- **Scoreboard** (top right, 1 s refresh): title `m:ss    Wave N    Castle HP / max HP` (game time from the end of champion select, stops at the end;
+  max HP includes Castle Health upgrades). The end dialog shows the time ("VICTORY in 23:45!").; columns Player · Lv · Kills · Deaths.
 - **-help** (only to the asker): gold `Commands`, then light-blue command + grey description per line:
   `-zoom 250` zoom out · `-cam` camera follows your hero · `Space` jump to your hero.
 - **-zoom N**: 250 = distance 2500 (also accepts the raw distance); `-zoom` alone = normal. Remembered.

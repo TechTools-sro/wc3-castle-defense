@@ -384,6 +384,7 @@ globals
     player gKingdom = null
     integer gWave = 0
     integer gElapsed = 0
+    integer gGameTime = 0
     integer gBossTier = 0
     boolean gStarted = false
     boolean gSelecting = false

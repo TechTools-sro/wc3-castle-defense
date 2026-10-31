@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-31 (late) — game clock
+
+- Scoreboard title now starts with the game time (`m:ss`, `h:mm:ss` after an hour), counted from the end of champion
+  select and frozen at the end of the round; the end dialog says "VICTORY in 23:45!" / "...fallen after 23:45!".
+  `TimeText` + `gGameTime` in `gen/castle_logic.j`. Verified: pjass + build; not seen in-game yet.
+
 ## 2026-10-31 (evening) — docs kept in sync with the code
 
 - `docs/architecture.md`: JASS function map rebuilt from `gen/castle_logic.j` (11 newer functions were missing —

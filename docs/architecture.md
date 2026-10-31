@@ -43,7 +43,7 @@
 | Helpers | `Msg`, `IsPlaying`, `GiveAllGold`, `SideName`, `GrantLevelTwo`, `LaneName`, `PingLane` |
 | Shops | `KindNext` (per-player vs global step), `StockCircle` (player circle), `StockCastle` (castle), `CastleShockwave`, `AdvanceStatPrice` (apply any circle/castle buy), `BuyIncome` + `IncomeTick` (bank, 60 s), `OnItemPickup`, `GrabTomeEnum`/`GrabTick` (bought items on the ground → champion), `OnHeroLevel` (refill + stats past the Attributes cap) |
 | Lane hint | `ShowLaneHint` (creates the circle unit, its rect, label) |
-| Scoreboard | `BoardSet`, `UpdateBoard` (1 s), `BoardWidth`, `CreateBoard` |
+| Scoreboard | `BoardSet`, `TimeText` (m:ss), `UpdateBoard` (1 s; game time `gGameTime` counted in `OnTick`), `BoardWidth`, `CreateBoard` |
 | Setup | `SetupAlliances`, `SetupDarkness`, `MakeWallInvulnerable`, `CreateKingdom`, `CreateLaneBase` |
 | Waves | `LaneStage` (0 tower / 1 Nexus / 2 ruins), `SpawnWaveUnit`, `SpawnWave` (front/back/champions), `OnWaveTimer`, `NextWaveDelay` (10 s / 2-min break), `WaveGold` (paid on clear), `ShoppingTime` (break announcement + grove pings), `OnFirstWave`, `ReleaseWaveUnit` (charmed units leave the wave), `WaveUnitTick` |
 | Bosses | `BossFindTarget`, `BossCast`, `BossSummon`, `BossTick` |
