@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.1 — 2026-10-31 (late): versioned build, uploaded for LAN play
+
+- `MAP_VERSION = "1.1"` is now in the map name (`TechTools Castle Defence v1.1`, version in light blue), the file name
+  (`TechToolsCastleDefence_v1.1.w3x`) and the catalogue title; install removes older `TechToolsCastleDefence*.w3x`.
+- Uploaded to the TechTools catalogue as **map #16** (HTTP 201; the download's SHA-256 `cf1ba302…` matches the
+  build; preview 200) so Jiří's friend can download the identical file. Entry #3 (pre-versioning) is stale.
+
 ## 2026-10-31 (late) — coloured map name
 
 - The map name in the game's map list, lobby and loading screen is now coloured: `TechTools` in TechTools blue,

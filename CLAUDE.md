@@ -33,9 +33,16 @@ tools/run_test.sh 'Maps\Test\TechToolsCastleDefence_TEST.w3x' <outdir> 40   # Wi
 - Crash triage: `~/.wine/drive_c/users/novakj/AppData/Local/Temp/BlizzardError/<date>/Crash.txt` only says
   ACCESS_VIOLATION — bisect by building variants (drop one object group / one script feature at a time).
 
+## Versions
+
+- `MAP_VERSION` in `build.py` (now **v1.1**) is in the map name, the file name (`TechToolsCastleDefence_v1.1.w3x`) and
+  the catalogue title. **Bump it for every build that is shared or uploaded** — LAN players must have the
+  identical file. Install removes older `TechToolsCastleDefence*.w3x` files from `Maps/CustomMaps/`.
+
 ## Published
 
-- Catalogue entry: https://techtools.cz/tools/warcraft3/#map/3 (API `/warcraft3-api/maps/3`, uploaded as `brainbot`).
+- Catalogue: **v1.1 = https://techtools.cz/tools/warcraft3/#map/16** (API `/warcraft3-api/maps/16`, uploaded as
+  `brainbot`); the old unversioned entry #3 is stale (only an admin can delete it).
   Upload = `POST /warcraft3-api/maps` (multipart `file`, `title`, `players`, `description`, `doc=@docs/map-catalog.md`)
   with a `/shared-auth-api/login` session. A new file makes a NEW entry; only an admin can delete the old one.
   The uploader can replace the doc: `PUT /warcraft3-api/maps/:id/doc`. Keep `docs/map-catalog.md` current.

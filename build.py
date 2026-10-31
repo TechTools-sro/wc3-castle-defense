@@ -28,12 +28,14 @@ from mpq import write_w3x, GameData       # noqa: E402
 
 GAME_DIR = os.environ.get("WC3_DIR", "/home/novakj/games/warcraft3")
 TEST = "--test" in sys.argv
-MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else "TechToolsCastleDefence.w3x"
+# VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
+# map name (game list, lobby, loading screen), the file name and the catalogue title.
+MAP_VERSION = "1.1"
+MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
-MAP_NAME = "TechTools Castle Defence"
-# coloured name for the game's map list / lobby / loading screen: TechTools blue + WarCraft gold
-MAP_NAME_COLORED = "|cff2e8bffTechTools|r |cffffcc00Castle Defence|r"
-MAP_VERSION = "3.0"
+MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
+# coloured name for the game's map list / lobby / loading screen: TechTools blue + WarCraft gold + version
+MAP_NAME_COLORED = f"|cff2e8bffTechTools|r |cffffcc00Castle Defence|r |cff4fc3ffv{MAP_VERSION}|r"
 SEED = 1270
 
 # Hidden developer cheats (-addmoney, -addwood/-addtree, -lvl) work only for these player names.
@@ -825,7 +827,10 @@ def main():
         tmp = dest + ".tmp"
         shutil.copy2(out, tmp)
         os.replace(tmp, dest)
-        for old in OLD_MAP_FILES:
+        # older builds of THIS map (other versions / the unversioned name) go away, so the list shows one version
+        olds = OLD_MAP_FILES + [f for f in os.listdir(dest_dir)
+                                if f.startswith("TechToolsCastleDefence") and f.endswith(".w3x") and f != MAP_FILE]
+        for old in olds:
             if os.path.exists(os.path.join(dest_dir, old)):
                 os.remove(os.path.join(dest_dir, old))
                 print(f"removed old {old}")
