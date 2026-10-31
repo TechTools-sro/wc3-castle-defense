@@ -7,8 +7,7 @@ fixed computer players.
 ## Goal
 
 Pick a champion, hold **your own lane**, destroy your lane's tower and Nexus, kill the boss that rises from the
-ruins, and destroy the **Dark Citadel** behind the Dark Gate. **Win** when every boss is dead and the Dark Citadel
-and the Frozen Throne have fallen. **Lose** when the Castle of Lordaeron in the middle falls.
+ruins, then fight through the four shared **gate levels** (2–5). **Win** when every boss is dead. **Lose** when the Castle of Lordaeron in the middle falls.
 
 ## How a round goes
 
@@ -20,14 +19,16 @@ and the Frozen Throne have fallen. **Lose** when the Castle of Lordaeron in the 
    stands, basic units come out of it. Tower down → a **Protector** guards the Nexus,
    the next wave comes at once and stronger units come out of the Nexus. Nexus down → its boss rises and the
    strongest units come out of the ruins until the boss dies. ⚠️ The Nexus has 30 000 HP and a huge attack.
-5. **Kill gold:** a minion pays as much gold as the wave number (wave 5 → 5 gold), double on Level 2, triple on
+5. **Monsters:** melee 200 HP / 30 damage, ranged 120 HP / 60 damage; ×2 after your tower falls, ×3 in the boss
+   stage. **Kill gold:** a minion pays as much gold as the wave number (wave 5 → 5 gold), double on Level 2, triple on
    Level 3.
 6. **Wave size:** front line (melee) = 4 + wave, back line (ranged) = +1 every 2 waves. Every 10th wave adds
    weakened champions (1 at wave 10, 2 at wave 20, ...).
 7. **Level 2 — the Dark Gate (NE):** opens when the first player destroys a Nexus. A shared lane with a stronger
    tower and Nexus; its monsters pay extra gold per kill.
-8. **Level 3 — the Frozen Gate (NW):** opens when the Dark Citadel falls. The strongest tower, Nexus and monsters,
-   the most gold per kill. Win = every boss dead + the Dark Citadel and the Frozen Throne destroyed.
+8. **Level 3 — the Frozen Gate (NW)**, **Level 4 — the Shadow Gate (SW)** and **Level 5 — the Inferno Gate (far
+   SW)** follow, each opening when the previous gate's Nexus falls and each harder (tower, Nexus, monsters, boss),
+   with more gold per kill (×2 … ×5). Every gate Nexus raises a boss. Win = every lane boss and all gate bosses dead.
 
 ## Shops
 

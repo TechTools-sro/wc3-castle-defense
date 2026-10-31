@@ -97,9 +97,13 @@ def ground_texture(x, y, kind, idx):
         return T["Klgb"] if r < 1300 else T["Ksmb"]
     if kind == "grove":
         return T["Kfsl"] if n > 0.5 else T["Kfst"]
-    if kind == "shared":
+    if kind == "shared":                                  # gate levels 2-5 (idx 0-3)
         if idx == 1:                                      # Level 3, the Frozen Gate: ice
             return T["Idki"] if n > 0.45 else T["Ibkb"]
+        if idx == 2:                                      # Level 4, the Shadow Gate: dark squares
+            return T["Ksqt"] if n > 0.45 else T["Kdkt"]
+        if idx == 3:                                      # Level 5, the Inferno Gate: scorched ground
+            return T["Dlvc"] if n > 0.6 else T["Kdrt"]
         return T["Dlvc"] if n > 0.45 else T["Kdtr"]       # Level 2, the Dark Gate: violet ruins + dark trim
     if kind == "hall":
         hx, hy = LY.HALL_CENTRE
@@ -263,7 +267,7 @@ def build_minimap():
             elif kind == "base":
                 c = base_col[idx]
             elif kind == "shared":
-                c = (60, 120, 170) if idx == 1 else (125, 30, 40)
+                c = [(125, 30, 40), (60, 120, 170), (100, 50, 150), (190, 100, 30)][idx]
             else:
                 c = (88, 72, 58) if LY.road_distance(x, y) < 230 else (60, 50, 44)
             px[pxl, py] = c
@@ -286,6 +290,13 @@ globals
     real array gWpY
     integer gWpCount = 0
     integer array gGateState
+    string array gGateDir
+    integer array gGateGold
+    integer array gGateHpAbil
+    integer array gGateDmgAbil
+    integer array gGateTintR
+    integer array gGateTintG
+    integer array gGateTintB
     integer array gStageUnit
     integer gFrontBase = 4
     integer gBackDiv = 2
@@ -477,13 +488,10 @@ def build_script():
         lx, ly = LY.lane_label(lane)
         a(f"    set gLaneLabelX[{lane}] = {jr(lx)}")
         a(f"    set gLaneLabelY[{lane}] = {jr(ly)}")
-    # gate lanes: lane 8 / arm 4 = LEVEL 2 Dark Gate (NE), lane 9 / arm 5 = LEVEL 3 Frozen Gate (NW).
-    # Both are owned by the Scourge computer (Player 9).
-    gates = [(8, 4, OB.SHARED, LY.SHARED_WAYPOINTS, LY.SHARED_TOWER, LY.SHARED_NEXUS, LY.SHARED_TOWER_SPAWN,
-              LY.SHARED_NEXUS_SPAWN, LY.SHARED_GATE),
-             (9, 5, OB.LEVEL3, LY.LEVEL3_WAYPOINTS, LY.LEVEL3_TOWER, LY.LEVEL3_NEXUS, LY.LEVEL3_TOWER_SPAWN,
-              LY.LEVEL3_NEXUS_SPAWN, LY.LEVEL3_GATE)]
-    for (lane, arm, f, wps, tower, nexus, tspawn, nspawn, gate) in gates:
+    # gate lanes 8-11 = Levels 2-5 (arms 4-7), all owned by the Scourge computer (Player 9)
+    for g in OB.GATE_LEVELS:
+        lane, arm, f = g["lane"], g["arm"], g
+        wps, tower, nexus, tspawn, nspawn, gate = LY.GATE_GEOMETRY[lane]
         for k, (x, y) in enumerate(wps):
             a(f"    set gWpX[{lane * 8 + k}] = {jr(x)}")
             a(f"    set gWpY[{lane * 8 + k}] = {jr(y)}")
@@ -496,6 +504,14 @@ def build_script():
         a(f"    set gGateY[{lane}] = {jr(gy)}")
         a(f"    set gGateFace[{lane}] = {jr(gf)}")
         a(f"    set gGateState[{lane}] = -1")
+        a(f"    set gGateDir[{lane}] = {jstr(g['dir'])}")
+        a(f"    set gGateGold[{lane}] = {g['gold']}")
+        a(f"    set gGateHpAbil[{lane}] = '{OB.gate_hp_abil(lane)}'")
+        a(f"    set gGateDmgAbil[{lane}] = {repr(OB.gate_dmg_abil(lane)) if g['unit_dmg'] else 0}")
+        r_, g_, b_ = g["tint"]
+        a(f"    set gGateTintR[{lane}] = {r_}")
+        a(f"    set gGateTintG[{lane}] = {g_}")
+        a(f"    set gGateTintB[{lane}] = {b_}")
         a(f"    set gInvader[{arm}] = Player(8)")
         a(f"    set gDirColor[{arm}] = {jstr(f['color'])}")
         a(f"    set gFactionName[{arm}] = {jstr(f['name'])}")
@@ -505,16 +521,27 @@ def build_script():
         a(f"    set gBaseType[{arm}] = '{OB.base_id(arm)}'")
         a(f"    set gTurretType[{arm}] = '{OB.turret_id(arm)}'")
         a(f"    set gChampion[{arm}] = '{f['champion']}'")
+        # gate boss: own unit type, spells/summons copied from its source faction's boss
+        src, bname = g["boss"][0], g["boss"][1]
+        sb = OB.FACTIONS[src]["boss"]
+        a(f"    set gBossType[{arm * 3 + 1}] = '{OB.boss_id(arm, 1)}'")
+        a(f"    set gBossName[{arm}] = {jstr(bname)}")
+        a(f"    set gBossOrd1[{arm}] = {jstr(sb['cast1'][0])}")
+        a(f"    set gBossKind1[{arm}] = {sb['cast1'][1]}")
+        a(f"    set gBossOrd2[{arm}] = {jstr(sb['cast2'][0])}")
+        a(f"    set gBossKind2[{arm}] = {sb['cast2'][1]}")
+        a(f"    set gBossSummon[{arm}] = '{sb['summon'][0]}'")
+        a(f"    set gBossSummonCount[{arm}] = {sb['summon'][1] + g['level'] // 2}")
     # stage rosters: gStageUnit[arm*6 + stage*2 + 0 front / 1 back]; arm 4 = the Dark Gate
-    for d, f in enumerate(OB.FACTIONS + [OB.SHARED, OB.LEVEL3]):
-        for st, (front, back) in enumerate(f["stages"]):
-            a(f"    set gStageUnit[{d * 6 + st * 2}] = '{front}'")
-            a(f"    set gStageUnit[{d * 6 + st * 2 + 1}] = '{back}'")
+    for d, f in enumerate(OB.FACTIONS + OB.GATE_LEVELS):      # standardized copies (q<arm><stage><m|r>)
+        for st in range(len(f["stages"])):
+            a(f"    set gStageUnit[{d * 6 + st * 2}] = '{OB.wave_unit_id(d, st, False)}'")
+            a(f"    set gStageUnit[{d * 6 + st * 2 + 1}] = '{OB.wave_unit_id(d, st, True)}'")
     a(f"    set gFrontBase = {OB.WAVE_FRONT_BASE}")
     a(f"    set gBackDiv = {OB.WAVE_BACK_DIV}")
     a(f"    set gFrontMax = {OB.WAVE_FRONT_MAX}")
     a(f"    set gBackMax = {OB.WAVE_BACK_MAX}")
-    for d in range(6):
+    for d in range(4 + len(OB.GATE_LEVELS)):
         a(f"    set gWaveChamp[{d}] = '{OB.wave_champion_id(d)}'")
     a(f"    set gChampEvery = {OB.WAVE_CHAMP_EVERY}")
     for d, f in enumerate(OB.FACTIONS):

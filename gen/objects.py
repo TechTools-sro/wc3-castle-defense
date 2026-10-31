@@ -61,30 +61,61 @@ FACTIONS = [
     },
 ]
 
-# The Dark Gate (shared NE lane, arm index 4 in the script): stronger tower + Nexus, waves two tiers up.
-SHARED = {"name": "The Dark Gate", "color": "|cffff4040",
-          "base": ("unp2", "Dark Citadel"), "turret": ("uzg1", "Dark Spire"),
-          "tiers": [("nska", "ugho"), ("nskm", "nsko"), ("ucry", "nsog"),
-                    ("ngh2", "uabo"), ("ufro", "nerw"), ("ninf", "nbal")],
-          "stages": [("ngh2", "uabo"), ("ninf", "nbal"), ("ninf", "nbal")],
-          "champion": "nrvd"}
-# LEVEL 3 — the Frozen Gate (second shared lane, NW, arm 5): opens when the Dark Citadel falls; strongest of all.
-LEVEL3 = {"name": "The Frozen Gate", "color": "|cff80dfff",
-          "base": ("uaod", "Frozen Throne"), "turret": ("uzg1", "Frozen Spire"),
-          "stages": [("nsoc", "ufro"), ("nbal", "ninf"), ("nbal", "ninf")],
-          "champion": "nlrv"}
-LEVEL3_BASE_HP, LEVEL3_BASE_ARMOR, LEVEL3_NEXUS_DMG = 150000, 20, (900, 4, 30)
-LEVEL3_TURRET_HP, LEVEL3_TURRET_ARMOR, LEVEL3_TURRET_DMG = 60000, 12, (895, 1, 10)   # strongest tower
-LEVEL3_TINT = (140, 200, 255)
-SHARED_BASE_HP, SHARED_BASE_ARMOR = 80000, 15     # 10x the old 8000
-SHARED_NEXUS_DMG = (650, 4, 25)
-SHARED_TURRET_HP, SHARED_TURRET_ARMOR, SHARED_TURRET_DMG = 40000, 8, (695, 1, 10)    # stronger than a lane tower
-SHARED_TINT = (255, 90, 90)
+# Gate levels 2-5 (shared lanes 8-11 = arms 4-7). Each opens when the previous level's Nexus falls (Level 2: the
+# first player Nexus). Higher level = harder: tower, Nexus, wave bonus HP/damage, boss, gold.
+#   nexus/tower = (HP, armor, (dmg base, dice, sides)); unit_hp/unit_dmg = bonus on every wave unit (and Protector);
+#   boss = (source faction index for model + spells, name, HP multiplier, damage multiplier, scale)
+GATE_LEVELS = [
+    {"level": 2, "lane": 8, "arm": 4, "name": "The Dark Gate", "color": "|cffff4040", "dir": "north-east",
+     "base": ("unp2", "Dark Citadel"), "turret": ("uzg1", "Dark Spire"),
+     "stages": [("ngh2", "uabo"), ("ninf", "nbal"), ("ninf", "nbal")], "champion": "nrvd",
+     "nexus": (80000, 15, (650, 4, 25)), "tower": (40000, 8, (695, 1, 10)), "tint": (255, 90, 90),
+     "unit_hp": 300, "unit_dmg": 0, "gold": 500, "nexus_scale": 1.2, "tower_scale": 1.5,
+     "boss": (0, "Malgrath the Dark Lich", 3, 1.5, 2.4)},
+    {"level": 3, "lane": 9, "arm": 5, "name": "The Frozen Gate", "color": "|cff80dfff", "dir": "north-west",
+     "base": ("uaod", "Frozen Throne"), "turret": ("uzg1", "Frozen Spire"),
+     "stages": [("nsoc", "ufro"), ("nbal", "ninf"), ("nbal", "ninf")], "champion": "nlrv",
+     "nexus": (150000, 20, (900, 4, 30)), "tower": (60000, 12, (895, 1, 10)), "tint": (140, 200, 255),
+     "unit_hp": 500, "unit_dmg": 10, "gold": 1000, "nexus_scale": 1.6, "tower_scale": 1.7,
+     "boss": (2, "Kel'Thar the Frozen Tide", 5, 2.0, 2.5)},
+    {"level": 4, "lane": 10, "arm": 6, "name": "The Shadow Gate", "color": "|cffc080ff", "dir": "south-west",
+     "base": ("ndmg", "Shadow Portal"), "turret": ("ntx2", "Shadow Spire"),
+     "stages": [("ninf", "nerw"), ("nbal", "nhyc"), ("nbal", "nhyc")], "champion": "nina",
+     "nexus": (250000, 25, (1200, 4, 40)), "tower": (90000, 15, (1195, 1, 10)), "tint": (200, 120, 255),
+     "unit_hp": 1000, "unit_dmg": 25, "gold": 2000, "nexus_scale": 1.4, "tower_scale": 1.6,
+     "boss": (1, "Azgaroth the Shadow Lord", 8, 3.0, 2.2)},
+    {"level": 5, "lane": 11, "arm": 7, "name": "The Inferno Gate", "color": "|cffff9020", "dir": "far south-west",
+     "base": ("ofrt", "Inferno Fortress"), "turret": ("owtw", "Inferno Tower"),
+     "stages": [("nrvd", "ufro"), ("nlrv", "nbal"), ("nlrv", "nbal")], "champion": "nggr",
+     "nexus": (400000, 30, (1600, 4, 50)), "tower": (130000, 18, (1595, 1, 10)), "tint": (255, 160, 60),
+     "unit_hp": 2000, "unit_dmg": 50, "gold": 3000, "nexus_scale": 1.4, "tower_scale": 1.8,
+     "boss": (1, "Infernus the World Breaker", 12, 4.0, 2.8)},
+]
+GATE_ARMS = [g["arm"] for g in GATE_LEVELS]
+
+# Standardized wave units: every faction's stage units are copies with the same stats (built-in bounty 0, the
+# script pays kill gold). Stage 1 (tower down) x2, stage 2 (Nexus down / boss alive) x3.
+WAVE_MELEE_HP, WAVE_MELEE_DMG = 200, 30
+WAVE_RANGED_HP, WAVE_RANGED_DMG = 120, 60
+WAVE_STAGE_MULT = [1, 2, 3]
+
+
+def wave_unit_id(arm, stage, ranged):      # q<arm><stage><m|r>, e.g. q00m = Scourge stage-0 melee
+    return f"q{arm}{stage}{'r' if ranged else 'm'}"
+
+
+def gate_hp_abil(lane):
+    return f"Xv{lane:02d}"
+
+
+def gate_dmg_abil(lane):
+    return f"Xz{lane:02d}"
+
 
 # Wave size (same for every lane and stage): front line = melee, back line = ranged.
 WAVE_FRONT_BASE = 4          # front = 4 + wave  (wave 1 -> 5, +1 per wave)
 WAVE_BACK_DIV = 2            # back  = wave / 2  (+1 every 2 waves)
-WAVE_FRONT_MAX, WAVE_BACK_MAX = 30, 15     # per lane, keeps 8 lanes playable late
+WAVE_FRONT_MAX, WAVE_BACK_MAX = 30, 15     # per lane, keeps the lanes playable late
 # Champions join every 10th wave: wave 10 -> 1, wave 20 -> 2, ... per lane, as weakened copies (nc{d}0).
 WAVE_CHAMP_EVERY = 10
 WAVE_CHAMP_HP, WAVE_CHAMP_ARMOR, WAVE_CHAMP_DMG, WAVE_CHAMP_SCALE = 800, 2, (30, 1, 8), 1.0
@@ -262,7 +293,7 @@ def nexus_attack(dmg):
             ("ua1g", S, "ground,air,structure,debris,item,ward"), ("uwu1", I, 1)]
 
 
-def wave_champion_id(d):     # weakened faction champion for waves (d = 4: Dark Gate, 5: Frozen Gate)
+def wave_champion_id(d):     # weakened faction champion for waves (d 4-7: gate levels 2-5)
     return f"nc{d}0"
 
 
@@ -322,34 +353,6 @@ def custom_units():
             ("ua1r", I, 750), ("uacq", U, 800.0), ("ua1t", S, "chaos"), ("uabi", S, ""),
             ("usid", I, 1000), ("usin", I, 1000), ("usca", R, 1.25),
             ("ubba", I, 100), ("ubdi", I, 1), ("ubsi", I, 1)]))
-        if d == 0:     # once, next to the factions: the Dark Gate's tower + Nexus (ids ns40 / nt40)
-            tr, tg, tb = SHARED_TINT
-            units.append((SHARED["base"][0], base_id(4), [
-                ("unam", S, SHARED["base"][1]), ("uhpm", I, SHARED_BASE_HP), ("udef", I, SHARED_BASE_ARMOR),
-                ("udty", S, "fort"), ("uabi", S, ""), ("utra", S, ""), ("ures", S, ""), ("uupt", S, "")] + nexus_attack(SHARED_NEXUS_DMG) + [
-                ("usid", I, 1000), ("usin", I, 1000), ("ubba", I, 500), ("ubdi", I, 1), ("ubsi", I, 1),
-                ("usca", R, 1.2), ("uclr", I, tr), ("uclg", I, tg), ("uclb", I, tb)]))
-            sb, sd, ss = SHARED_TURRET_DMG
-            units.append((SHARED["turret"][0], turret_id(4), [
-                ("unam", S, SHARED["turret"][1]), ("uhpm", I, SHARED_TURRET_HP), ("udef", I, SHARED_TURRET_ARMOR),
-                ("udty", S, "fort"), ("ua1b", I, sb), ("ua1d", I, sd), ("ua1s", I, ss), ("ua1c", U, 1.3),
-                ("ua1r", I, 800), ("uacq", U, 850.0), ("ua1t", S, "chaos"), ("uabi", S, ""),
-                ("usid", I, 1000), ("usin", I, 1000), ("usca", R, 1.5), ("uclr", I, tr), ("uclg", I, tg), ("uclb", I, tb),
-                ("ubba", I, 200), ("ubdi", I, 1), ("ubsi", I, 1)]))
-        if d == 0:     # once: the Frozen Gate's (Level 3) tower + Nexus (ids ns50 / nt50)
-            tr, tg, tb = LEVEL3_TINT
-            units.append((LEVEL3["base"][0], base_id(5), [
-                ("unam", S, LEVEL3["base"][1]), ("uhpm", I, LEVEL3_BASE_HP), ("udef", I, LEVEL3_BASE_ARMOR),
-                ("udty", S, "fort"), ("uabi", S, ""), ("utra", S, ""), ("ures", S, ""), ("uupt", S, "")] + nexus_attack(LEVEL3_NEXUS_DMG) + [
-                ("usid", I, 1000), ("usin", I, 1000), ("ubba", I, 1000), ("ubdi", I, 1), ("ubsi", I, 1),
-                ("usca", R, 1.6), ("uclr", I, tr), ("uclg", I, tg), ("uclb", I, tb)]))
-            sb, sd, ss = LEVEL3_TURRET_DMG
-            units.append((LEVEL3["turret"][0], turret_id(5), [
-                ("unam", S, LEVEL3["turret"][1]), ("uhpm", I, LEVEL3_TURRET_HP), ("udef", I, LEVEL3_TURRET_ARMOR),
-                ("udty", S, "fort"), ("ua1b", I, sb), ("ua1d", I, sd), ("ua1s", I, ss), ("ua1c", U, 1.3),
-                ("ua1r", I, 800), ("uacq", U, 850.0), ("ua1t", S, "chaos"), ("uabi", S, ""),
-                ("usid", I, 1000), ("usin", I, 1000), ("usca", R, 1.7), ("uclr", I, tr), ("uclg", I, tg), ("uclb", I, tb),
-                ("ubba", I, 300), ("ubdi", I, 1), ("ubsi", I, 1)]))
         for k in range(3):
             base, dice, sides = BOSS_DMG[k]
             mods = [
@@ -366,8 +369,49 @@ def custom_units():
                 if key in b:
                     mods.append((fid, S, b[key]))
             units.append((b["base"], boss_id(d, k), mods))
+    # gate levels: tower + Nexus + boss per level
+    for g in GATE_LEVELS:
+        arm, (tr, tg, tb) = g["arm"], g["tint"]
+        nhp, narm, ndmg = g["nexus"]
+        units.append((g["base"][0], base_id(arm), [
+            ("unam", S, g["base"][1]), ("uhpm", I, nhp), ("udef", I, narm),
+            ("udty", S, "fort"), ("uabi", S, ""), ("utra", S, ""), ("ures", S, ""), ("uupt", S, "")] + nexus_attack(ndmg) + [
+            ("usid", I, 1000), ("usin", I, 1000), ("ubba", I, g["gold"]), ("ubdi", I, 1), ("ubsi", I, 1),
+            ("usca", R, g["nexus_scale"]), ("uclr", I, tr), ("uclg", I, tg), ("uclb", I, tb)]))
+        thp, tarm, (sb, sd, ss) = g["tower"]
+        units.append((g["turret"][0], turret_id(arm), [
+            ("unam", S, g["turret"][1]), ("uhpm", I, thp), ("udef", I, tarm),
+            ("udty", S, "fort"), ("ua1b", I, sb), ("ua1d", I, sd), ("ua1s", I, ss), ("ua1c", U, 1.3),
+            ("ua1r", I, 800), ("uacq", U, 850.0), ("ua1t", S, "chaos"), ("uabi", S, ""), ("uaen", I, 1),
+            ("usid", I, 1000), ("usin", I, 1000), ("usca", R, g["tower_scale"]), ("uclr", I, tr), ("uclg", I, tg), ("uclb", I, tb),
+            ("ubba", I, g["gold"] // 2), ("ubdi", I, 1), ("ubsi", I, 1)]))
+        src, bname, hpm, dmgm, bscale = g["boss"]
+        b = FACTIONS[src]["boss"]
+        base, dice, sides = BOSS_DMG[1]
+        mods = [
+            ("unam", S, bname), ("uhpm", I, BOSS_HP[1] * hpm), ("udef", I, BOSS_ARMOR[1] + 2 * g["level"]),
+            ("udty", S, "hero"), ("uhpr", U, 2.0 * hpm), ("uhrt", S, "always"),
+            ("umpm", I, 2000), ("umpi", I, 2000), ("umpr", U, 8.0),
+            ("ua1b", I, int(base * dmgm)), ("ua1d", I, dice), ("ua1s", I, sides), ("ua1c", U, 1.6),
+            ("ua1r", I, b["range"]), ("uacq", U, 700.0), ("ua1t", S, "chaos"),
+            ("uabi", S, b["abils"]), ("usca", R, bscale), ("ussc", R, 3.0),
+            ("ucol", U, 40.0), ("umvs", I, 240), ("ulev", I, 10 + g["level"]), ("usid", I, 1000), ("usin", I, 1000),
+            ("ubba", I, g["gold"]), ("ubdi", I, 1), ("ubsi", I, 1),
+            ("uclr", I, tr), ("uclg", I, tg), ("uclb", I, tb)]
+        for key, fid in (("model", "umdl"), ("icon", "uico"), ("missile", "ua1m"), ("sound", "usnd")):
+            if key in b:
+                mods.append((fid, S, b[key]))
+        units.append((b["base"], boss_id(arm, 1), mods))
+    # standardized wave units (q<arm><stage><m|r>)
+    for arm, f in enumerate(FACTIONS + GATE_LEVELS):
+        for st, pair in enumerate(f["stages"]):
+            for ranged, model_unit in enumerate(pair):
+                hp, dmg = (WAVE_RANGED_HP, WAVE_RANGED_DMG) if ranged else (WAVE_MELEE_HP, WAVE_MELEE_DMG)
+                m = WAVE_STAGE_MULT[st]
+                units.append((model_unit, wave_unit_id(arm, st, ranged), [
+                    ("uhpm", I, hp * m), ("ua1b", I, dmg * m - 1), ("ua1d", I, 1), ("ua1s", I, 1)] + NO_BOUNTY))
     # weakened wave champions (every 10th wave): half damage, about half HP, smaller model
-    for d, f in enumerate(FACTIONS + [SHARED, LEVEL3]):
+    for d, f in enumerate(FACTIONS + GATE_LEVELS):
         units.append((f["champion"], wave_champion_id(d), [
             ("uhpm", I, WAVE_CHAMP_HP), ("udef", I, WAVE_CHAMP_ARMOR), ("ua1b", I, WAVE_CHAMP_DMG[0]),
             ("ua1d", I, WAVE_CHAMP_DMG[1]), ("ua1s", I, WAVE_CHAMP_DMG[2]), ("usca", R, WAVE_CHAMP_SCALE)] + NO_BOUNTY))
@@ -427,17 +471,12 @@ def original_unit_mods():
     return [(h, [("ugol", I, 0), ("ulum", I, 0), ("ufoo", I, 0), ("usst", I, 0),
                  ("usma", I, 1), ("usrg", I, 1), ("ureq", S, ""),
                  ("ua1g", S, _hero_targets_with_air(h)),
-                 ("uhab", S, _ref_slk("Units_UnitAbilities.slk")[h]["heroAbilList"] + "," + ATTR_ABIL)]) for h in ALL_HEROES] + \
-        [(u, list(NO_BOUNTY)) for u in wave_unit_types()]
+                 ("uhab", S, _ref_slk("Units_UnitAbilities.slk")[h]["heroAbilList"] + "," + ATTR_ABIL)]) for h in ALL_HEROES]
 
 
-# Minion kill gold is paid by the script (MinionBounty: gold = wave number, x2 Level 2, x3 Level 3), so every
-# unit type that marches in a wave gives no built-in bounty.
+# Minion kill gold is paid by the script (MinionBounty: gold = wave number x level), so the wave unit types
+# (custom q*** copies and the nc*0 champions) give no built-in bounty.
 NO_BOUNTY = [("ubba", I, 0), ("ubdi", I, 0), ("ubsi", I, 0)]
-
-
-def wave_unit_types():
-    return sorted({u for f in FACTIONS + [SHARED, LEVEL3] for pair in f["stages"] for u in pair})
 
 
 def original_item_mods():
@@ -510,6 +549,10 @@ def custom_abilities():
     out.append(("Aneu", CASTLE_SHOP_ABIL, [("aran", U, 1, 0, 3000.0), ("Neu1", U, 1, 1, 3000.0)]))
     out.append(("Aall", CASTLE_SHARE_ABIL, [("aran", U, 1, 0, 3000.0), ("Neu1", U, 1, 1, 3000.0)]))
     out.append(attribute_ability())
+    for g in GATE_LEVELS:        # per gate level: bonus HP (and damage) for its wave units and Protector
+        out.append(("AIlf", gate_hp_abil(g["lane"]), [("Ilif", I, 1, 1, g["unit_hp"])]))
+        if g["unit_dmg"]:
+            out.append(("AIat", gate_dmg_abil(g["lane"]), [("Iatt", I, 1, 1, g["unit_dmg"])]))
     vt = {"U": U, "I": I}
     for i, (_n, _b, _i, abase, fields, vals, _e) in enumerate(PREMIUM_DEF):
         for L in range(1, PREMIUM_LEVELS + 1):

@@ -49,7 +49,7 @@
 | Bosses | `BossFindTarget`, `BossCast`, `BossSummon`, `BossTick` |
 | Tick (1 s) | `OnTick`: steer waves, on a cleared wave pay gold + 1 tree and start the countdown, boss AI |
 | Outcome | `ShowEndDialog`, `CheckVictory`, `OnCastleDestroyed`, `DropLoot`, `AnyNexusLeft` (any lane still spawning), `OnTowerDestroyed` (Protector + instant wave), `ProtectorTick` (leash), `OnNexusDestroyed`, `OnBossSlain` |
-| Gate levels | `OpenGateLane` (L = 8: Level 2 on the first Nexus, 9 = Level 3 on the Dark Citadel), `OnGateNexusDestroyed`, `MinionBounty` (kill gold for every wave unit) — gate lanes reuse the lane arrays (`gTower[L]`, `gWpX[L*8..]`, `gStageUnit[arm*6..]`, `gGate[L]`), state `gGateState[L]` (-1 closed, 0 open, 2 destroyed) |
+| Gate levels | `OpenGateLane` (lanes 8–11 = Levels 2–5, each opened by the previous Nexus), `OnGateNexusDestroyed` (boss rises, next level opens), `OnGateBossSlain` (level cleared), `MinionBounty` (kill gold for every wave unit) — gate lanes reuse the lane arrays (`gTower[L]`, `gBoss[L]`, `gWpX[L*8..]`, `gStageUnit[arm*6..]`, `gGate[L]`) plus `gGateHpAbil/gGateDmgAbil/gGateTint*/gGateGold/gGateDir[L]`; state `gGateState[L]` (-1 closed, 0 open, 1 boss, 2 cleared) |
 | Revive/deaths | `OnReviveTimer`, `StartRevive`, `OnUnitDeath` (kills, deaths, bounty, first-wave tracking, tower/Nexus/boss/castle), `OnPlayerLeave` |
 | Camera/commands | `OnZoomChat`, `ApplyZoom`, `SetFollow`, `SpaceTick` (0.1 s quick position), `OnFollowToggle`, `OnHelpChat` |
 | Dev cheats | `IsDev` (`DEV_NAMES`), `DevArg` (number after a command), `OnDevChat` (`-addmoney`, `-addwood`/`-addtree`, `-lvl`) |
@@ -80,9 +80,10 @@
 | `tvh0 tvo0 tvu0 tve0 tvn0` | unit | The 5 taverns |
 | `shpa`, `shpb`, `shpc` | unit (base `ngme`) | Premium Armory, Apothecary, Bank (gold-mine model) |
 | `ns{d}0`, `nt{d}0`, `nb{d}{k}` | unit | Nexus, tower, boss of arm d (k = player-count tier 0–2) |
-| `ns40`, `nt40` | unit (bases `unp2`, `uzg1`) | Level 2: Dark Citadel, Dark Spire |
-| `ns50`, `nt50` | unit (bases `uaod`, `uzg1`) | Level 3: Frozen Throne, Frozen Spire |
-| `nc{d}0` (d 0–5) | unit (base: faction champion) | Weakened wave champion (every 10th wave) |
+| `ns40`–`ns70`, `nt40`–`nt70` | unit | Gate levels 2–5: Nexus, tower (arm 4–7, from `GATE_LEVELS`) |
+| `nb41`, `nb51`, `nb61`, `nb71` | unit (boss bases of the source factions) | Gate level bosses |
+| `q<arm><stage><m|r>` (e.g. `q00m`) | unit (base: the stage's model unit) | Standardized wave units (200/30 melee, 120/60 ranged, ×stage) |
+| `nc{d}0` (d 0–7) | unit (base: faction champion) | Weakened wave champion (every 10th wave) |
 | `Ib01` | item (base `tst2`) | Bank: Income +10 per minute for 1 tree |
 | `Ih Im Id Ir Is Ia Ii Il` + `00`–`39` | item (base `tst2`) | Circle shop kinds × price steps |
 | `Iy Ik Ie` + `00`–`39`, `Ic00`, `Iw00` | item (base `tst2`) | Castle shop: health/armor/regen steps, repair, shockwave (1 tree each) |
@@ -91,6 +92,7 @@
 | `Xh Xm Xd Xa Xs Xg Xi Xl` + `00`–`39` | ability | Hero bonus abilities (bases `AIlf AImb AIat AId1 AIs1 AIa1 AIi1 AIx1`) |
 | `Xk Xy Xr` + `00`–`39` | ability | Castle armor / max-HP / regen abilities (`AId1`, `AIlf`, `Arel`) |
 | `Xp01`–`Xp08`, `Xu<i><L>` | ability | Premium item abilities Lv 1 / Lv 2–5 |
+| `Xv08`–`Xv11`, `Xz09`–`Xz11` | ability (`AIlf`, `AIat`) | Gate level bonus HP / damage for its wave units and Protector |
 | `Xatt` | hero ability (base `Aamk`) | Attributes: 100 levels, +3 all stats per level, learnable from hero level 11 |
 | `Xcsh`, `Xcs2` | ability (bases `Aneu`, `Aall`) | Castle shop buyer selection, 3000 radius |
 | `BTNCDStr/Agi/Int.blp` | imported icon | `ReplaceableTextures\CommandButtons\` (+ `CommandButtonsDisabled\DISBTN…`) |
@@ -102,5 +104,7 @@ Map 112×112 tiles (playable ±6400 x, -6656..6144 y). Plaza `|x|,|y| ≤ 1536`;
 `v ∈ [1536, 4992)`; base rooms `v ∈ [4992, 5888]`;
 tower `(±704, 3600)` (mid-lane), Nexus `(±704, 5440)`; hall at `(-3200, 3200)`; grove SE (`GROVE_RECTS`);
 Dark Gate NE (`SHARED_RECTS`: corner room 1280–1920, leg to x 3840, leg up to y 3840, base room x 2944–4096 / y 3840–4864);
-Frozen Gate NW (`LEVEL3_RECTS`: corner room x -2048..-1280, leg west to x -5120 under the Hall, leg north at x -5120..-4480, base room x -5248..-4352 / y 3968–4864).
-Wave units carry `userdata = lane*16 + waypoint` (gate units: 128–159).
+Shadow Gate SW (`LEVEL4_RECTS`, point mirror of the Dark Gate); Inferno Gate far SW (`LEVEL5_RECTS`: leg west out of the
+L4 base room x -5376..-4096, chamber x -6272..-5376 / y -4864..-3840; its waves walk out through the L4 corridor);
+all gate geometry per lane in `GATE_GEOMETRY`. Frozen Gate NW (`LEVEL3_RECTS`: corner room x -2048..-1280, leg west to x -5120 under the Hall, leg north at x -5120..-4480, base room x -5248..-4352 / y 3968–4864).
+Wave units carry `userdata = lane*16 + waypoint` (gate units: 128–191).

@@ -30,9 +30,9 @@ Invader of arm `d` = Player(8 + d): 0 North **The Scourge**, 1 East **The Burnin
    entrance and every grove building (`ShoppingTime`). Bosses don't hold the waves.
 4. **Push.** Each lane has its own tower (in front) and Nexus (behind). Tower destroyed → waves come out of the
    Nexus, stronger. **Nexus destroyed → that lane's boss rises** (+150 gold to all). Boss slain → +250 gold to all.
-5. **Levels.** Level 1 = the player lanes. **Level 2 — the Dark Gate** (NE) opens when the first player destroys
-   his Nexus; **Level 3 — the Frozen Gate** (NW) opens when the Dark Citadel falls (see below).
-6. **Win** when every active lane's boss is dead **and the Dark Citadel and the Frozen Throne are destroyed**. **Lose** when the castle dies. End dialog: *Play again*
+5. **Levels.** Level 1 = the player lanes; Levels 2–5 are shared gate lanes, each harder, opening one after the
+   other (see below).
+6. **Win** when every active lane's boss is dead **and all four gate levels are cleared** (their bosses dead). **Lose** when the castle dies. End dialog: *Play again*
    (full reset → champion select, fresh castle, prices reset, taverns restocked) or *Finish game*.
 
 Only active lanes (player present) have monsters, a base and an open gate; empty lanes stay gated.
@@ -51,10 +51,11 @@ Standardized: the **lane stage picks the unit types**, the wave number only adds
 - **Front line** (melee) = `4 + wave` (wave 1 → 5, +1 per wave, max 30). **Back line** (ranged) = `wave / 2`
   (+1 every 2 waves, max 15). Every 10th wave adds **wave/10 weakened champions** per lane (800 HP, armor 2, 30+1d8, normal size; `nc{d}0`,
   `WAVE_CHAMP_*`), announced one wave before. Constants `WAVE_*` in `gen/objects.py`.
-- Rosters: `FACTIONS[d]["stages"]` / `SHARED["stages"]` in `gen/objects.py` (3 × (front, back) unit ids per faction).
-- Dark Gate units: its own stages (stronger pairs), +300 HP each (`AIl2`), red tint.
-- **Minion kill gold = the wave number** (wave 1 → 1 gold, wave 5 → 5), ×2 on Level 2, ×3 on Level 3, to the
-  killer (`MinionBounty`; wave unit types have built-in bounty 0 via `NO_BOUNTY`). Towers, Nexus, bosses and
+- **Standardized unit stats** (`WAVE_*` in `gen/objects.py`): melee 200 HP / 30 damage, ranged 120 HP / 60 damage;
+  stage 1 ×2, stage 2 ×3. Each faction/stage only changes the model (`stages` = model units; the spawned types are
+  custom copies `q<arm><stage><m|r>`). Gate levels add their bonus HP/damage on top.
+- **Minion kill gold = the wave number** (wave 1 → 1 gold, wave 5 → 5), × the level on the gate lanes (×2 … ×5), to
+  the killer (`MinionBounty`; wave unit types have built-in bounty 0 via `NO_BOUNTY`). Towers, Nexus, bosses and
   Protectors keep their normal bounty.
 - Gold per wave to every player: `50 + 50*wave` → 100, 150, 200, … (no cap), paid when the wave is **cleared** (with the tree).
 - **Tower destroyed** (`OnTowerDestroyed`, also the Dark Spire): a **Protector** (the faction champion, 1.5× size,
@@ -62,21 +63,28 @@ Standardized: the **lane stage picks the unit types**, the wave number only adds
   lane's next wave spawns **at once** (already stage 1).
 - Monsters attack-move along the lane waypoints (`WaveUnitTick`, 1 s) to the castle.
 
-## Levels 2 and 3 — the gate lanes (shared by everyone)
+## Levels 2–5 — the gate lanes (shared by everyone, `GATE_LEVELS` in `gen/objects.py`)
 
-| | Level 2 — the Dark Gate | Level 3 — the Frozen Gate |
-|---|---|---|
-| Where | NE: corner room → leg east → leg north → base (`SHARED_RECTS`) | NW, around the Hall: corner room → leg west → leg north → base (`LEVEL3_RECTS`) |
-| Opens | when the first player destroys his Nexus | when the Dark Citadel falls |
-| Tower | Dark Spire: 40 000 HP, armor 8, ~700 chaos / 1.3 s, range 800 | Frozen Spire: 60 000 HP, armor 12, ~900 chaos / 1.3 s |
-| Nexus | Dark Citadel: 80 000 HP, armor 15, 650 + 4d25 missile / 2.5 s, range 700 | Frozen Throne: 150 000 HP, armor 20, 900 + 4d30 missile / 2.5 s |
-| Waves | own roster (stage 0 / 1), +300 HP, red tint | own roster, +500 HP and more damage, ice-blue tint |
-| Kill gold | 2 × wave per minion | 3 × wave per minion |
-| Nexus down | +500 gold to all, opens Level 3 | +1000 gold to all |
+Each level opens when the previous level's Nexus falls (Level 2: the first player Nexus). A gate Nexus that falls
+raises the level's **boss** from its ruins; waves keep coming from the ruins until the boss dies (= level cleared).
+Higher level = harder.
 
-- Lane 8 / arm 4 and lane 9 / arm 5 in the script (`OpenGateLane`, `OnGateNexusDestroyed`, `gGateState`), both
-  owned by the Scourge computer (Player 9). Tower in the north leg far in front of the Nexus (no range overlap);
-  tower down → Protector + instant stronger wave, like a lane. A restart closes both gates again.
+| | L2 Dark Gate | L3 Frozen Gate | L4 Shadow Gate | L5 Inferno Gate |
+|---|---|---|---|---|
+| Where | NE | NW, around the Hall | SW (mirror of L2) | far SW, a chamber behind the L4 base |
+| Tower HP / dmg | 40 000 / ~700 | 60 000 / ~900 | 90 000 / ~1200 | 130 000 / ~1600 |
+| Nexus HP / attack | 80 000 / 650+4d25 | 150 000 / 900+4d30 | 250 000 / 1200+4d40 | 400 000 / 1600+4d50 |
+| Wave bonus HP / dmg | +300 / — | +500 / +10 | +1000 / +25 | +2000 / +50 |
+| Boss (×lane boss HP) | Malgrath the Dark Lich ×3 | Kel'Thar the Frozen Tide ×5 | Azgaroth the Shadow Lord ×8 | Infernus the World Breaker ×12 |
+| Kill gold per minion | 2 × wave | 3 × wave | 4 × wave | 5 × wave |
+| Nexus down / boss slain | +500 / +500 | +1000 / +1000 | +2000 / +2000 | +3000 / +3000 |
+
+- Lanes 8–11 / arms 4–7 in the script (`OpenGateLane`, `OnGateNexusDestroyed`, `OnGateBossSlain`, `gGateState`:
+  -1 closed, 0 open, 1 boss alive, 2 cleared), all owned by the Scourge computer (Player 9). Geometry per lane in
+  `GATE_GEOMETRY` (`gen/layout.py`). Tower in the leg far in front of the Nexus (no range overlap).
+- Tower down → a **Protector** (the level's champion, 1.8× size, +level HP/damage, level colour) + instant wave.
+- Bosses copy their spells/summons from a lane boss (L2 Lich, L3 Tidelord, L4/L5 Pit Lord), armor +2 per level.
+- A restart closes all gates again. **Victory needs all four levels cleared** plus every lane boss.
 
 ## Trees and the Bank
 

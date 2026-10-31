@@ -64,12 +64,10 @@ def classify(x, y):
     for (x0, y0, x1, y1) in GROVE_RECTS:
         if x0 <= x <= x1 and y0 <= y <= y1:
             return ("grove", -1)
-    for (x0, y0, x1, y1) in SHARED_RECTS:
-        if x0 <= x <= x1 and y0 <= y <= y1:
-            return ("shared", 0)
-    for (x0, y0, x1, y1) in LEVEL3_RECTS:
-        if x0 <= x <= x1 and y0 <= y <= y1:
-            return ("shared", 1)
+    for idx, rects in enumerate((SHARED_RECTS, LEVEL3_RECTS, LEVEL4_RECTS, LEVEL5_RECTS)):
+        for (x0, y0, x1, y1) in rects:
+            if x0 <= x <= x1 and y0 <= y <= y1:
+                return ("shared", idx)        # idx 0..3 = gate Level 2..5
     for d in range(4):
         u, v = to_arm(d, x, y)
         au = abs(u)
@@ -232,3 +230,42 @@ LEVEL3_TOWER_SPAWN = (LEVEL3_U, 2660)
 LEVEL3_NEXUS_SPAWN = (LEVEL3_U, 4100)
 LEVEL3_GATE = ("ITg3", -2112, 1728, 0.0)     # spans y 1408..2048 = the west leg
 LEVEL3_WAYPOINTS = [LEVEL3_TOWER_SPAWN, (LEVEL3_U, 2300), (LEVEL3_U, 1728), (-3200, 1728), (-1700, 1650), (0, 0)]
+
+
+# --------------------------------------------------------------------------
+# LEVEL 4 — the Shadow Gate (lane 10, SW): the point mirror of the Dark Gate. Opens when the Frozen Throne falls.
+LEVEL4_RECTS = [
+    (-1920, -1920, -1280, -1280),   # corner room (overlaps the plaza's SW corner -> the opening)
+    (-3840, -1920, -1920, -1280),   # leg west
+    (-3840, -3840, -3200, -1920),   # leg south
+    (-4096, -4864, -2944, -3840),   # base room
+]
+LEVEL4_U = -3520
+LEVEL4_TOWER = (LEVEL4_U, -2900)
+LEVEL4_NEXUS = (LEVEL4_U, -4544)
+LEVEL4_TOWER_SPAWN = (LEVEL4_U, -2660)
+LEVEL4_NEXUS_SPAWN = (LEVEL4_U, -4290)
+LEVEL4_GATE = ("ITg3", -1984, -1600, 0.0)    # spans y -1920..-1280
+LEVEL4_WAYPOINTS = [LEVEL4_TOWER_SPAWN, (LEVEL4_U, -2400), (LEVEL4_U, -1600), (-2300, -1600), (-1450, -1450), (0, 0)]
+
+# LEVEL 5 — the Inferno Gate (lane 11): a deeper chamber BEHIND the Level 4 base, in the far SW corner. Its monsters
+# march out through the (fallen) Level 4 base and corridor. Opens when the Shadow Portal falls.
+LEVEL5_RECTS = [
+    (-5376, -4672, -4096, -4032),   # leg west out of the Level 4 base room
+    (-6272, -4864, -5376, -3840),   # the inferno chamber
+]
+LEVEL5_Y = -4352
+LEVEL5_TOWER = (-4650, LEVEL5_Y)
+LEVEL5_NEXUS = (-5824, LEVEL5_Y)
+LEVEL5_TOWER_SPAWN = (-4400, LEVEL5_Y)
+LEVEL5_NEXUS_SPAWN = (-5300, LEVEL5_Y)
+LEVEL5_GATE = ("ITg3", -4160, LEVEL5_Y, 0.0)  # spans y -4672..-4032 (the leg)
+LEVEL5_WAYPOINTS = [LEVEL5_TOWER_SPAWN, (LEVEL4_U, LEVEL5_Y), (LEVEL4_U, -1600), (-2300, -1600), (-1450, -1450), (0, 0)]
+
+# lane -> (waypoints, tower, Nexus, tower spawn, Nexus spawn, gate) for the four gate lanes
+GATE_GEOMETRY = {
+    8: (SHARED_WAYPOINTS, SHARED_TOWER, SHARED_NEXUS, SHARED_TOWER_SPAWN, SHARED_NEXUS_SPAWN, SHARED_GATE),
+    9: (LEVEL3_WAYPOINTS, LEVEL3_TOWER, LEVEL3_NEXUS, LEVEL3_TOWER_SPAWN, LEVEL3_NEXUS_SPAWN, LEVEL3_GATE),
+    10: (LEVEL4_WAYPOINTS, LEVEL4_TOWER, LEVEL4_NEXUS, LEVEL4_TOWER_SPAWN, LEVEL4_NEXUS_SPAWN, LEVEL4_GATE),
+    11: (LEVEL5_WAYPOINTS, LEVEL5_TOWER, LEVEL5_NEXUS, LEVEL5_TOWER_SPAWN, LEVEL5_NEXUS_SPAWN, LEVEL5_GATE),
+}

@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-31 (late) — Levels 4 and 5, gate bosses, standardized wave units
+
+- **Levels 4 (Shadow Gate, SW) and 5 (Inferno Gate, far SW chamber behind the L4 base)**; all gate levels now come
+  from one table `GATE_LEVELS` (`gen/objects.py`) + `GATE_GEOMETRY` (`gen/layout.py`) and scale up per level
+  (tower 40k→130k, Nexus 80k→400k with attacks 650→1600, wave bonus HP +300→+2000 / dmg →+50, gold ×2→×5,
+  Nexus/boss gold 500→3000). Gate code generalized to lanes 8–11.
+- **Gate bosses:** a gate Nexus that falls raises a boss (×3/×5/×8/×12 lane-boss HP, spells copied from a lane boss);
+  the level is cleared when it dies (`OnGateBossSlain`); waves continue from the ruins meanwhile; victory needs all
+  four levels cleared. **Gate Protectors** get the level's bonus HP/damage, 1.8× size and colour.
+- **Standardized wave units:** melee 200 HP / 30 dmg, ranged 120 HP / 60 dmg (Jiri's numbers), ×2 / ×3 by stage;
+  spawned as custom copies `q<arm><stage><m|r>` of each faction's stage models.
+  Verified: pjass + base-id check + build; the self-test now walks through all gate levels and bosses, but it was
+  not run (his game was running).
+
 ## 2026-10-31 (late) — income on the scoreboard
 
 - New scoreboard column **Income** (`+N`, bank gold per minute) after Deaths (`CreateBoard` / `UpdateBoard`).
