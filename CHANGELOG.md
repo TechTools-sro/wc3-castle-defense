@@ -2,6 +2,8 @@
 
 ## v1.3 — 2026-10-31 (late): Long Reach; the real cause of the Bank / upgrade bugs
 
+- **Uploaded as catalogue map #18** untested, at Jiří's choice (HTTP 201, download SHA-256 `464065fb…` matches).
+
 - **Root cause found:** the Level 3 refactor (`ae99bb3`) replaced a region of `build.py` that also held the
   `InitData` lines for the Bank item, income step, premium items, dev names, shop-break pings and Attributes. The map
   built and ran, but `gBankItem` / `gPremItem` were 0, so Bank buys and premium upgrades did nothing (v1.1, v1.2 are

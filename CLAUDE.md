@@ -43,8 +43,9 @@ tools/run_test.sh 'Maps\Test\TechToolsCastleDefence_TEST.w3x' <outdir> 40   # Wi
 
 ## Published
 
-- Catalogue (uploaded as `brainbot`): **v1.2 = https://techtools.cz/tools/warcraft3/#map/17** (current),
-  v1.1 = #16, unversioned = #3 (stale; only an admin can delete old entries).
+- Catalogue (uploaded as `brainbot`): **v1.3 = https://techtools.cz/tools/warcraft3/#map/18** (current),
+  v1.2 = #17 and v1.1 = #16 (both have the broken Bank / upgrades), unversioned = #3 (stale; only an admin can
+  delete old entries).
   Upload = `POST /warcraft3-api/maps` (multipart `file`, `title`, `players`, `description`, `doc=@docs/map-catalog.md`)
   with a `/shared-auth-api/login` session. A new file makes a NEW entry; only an admin can delete the old one.
   The uploader can replace the doc: `PUT /warcraft3-api/maps/:id/doc`. Keep `docs/map-catalog.md` current.
