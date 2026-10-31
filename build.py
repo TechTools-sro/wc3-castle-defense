@@ -324,6 +324,7 @@ globals
     real array gProtY
     integer gBankItem = 0
     unit gBankShop = null
+    unit gArmoryShop = null
     integer gIncomeStep = 100
     real array gHeroX
     real array gHeroY
@@ -610,6 +611,8 @@ def build_script():
         uid = OB.SHOPS[kind][0] if kind in OB.SHOPS else kind
         if kind == "bank":
             a(f"    set gBankShop = CreateUnit(p, '{uid}', {jr(x)}, {jr(y)}, 270.0)")
+        elif kind == "armory":
+            a(f"    set gArmoryShop = CreateUnit(p, '{uid}', {jr(x)}, {jr(y)}, 270.0)")
         else:
             a(f"    call CreateUnit(p, '{uid}', {jr(x)}, {jr(y)}, 270.0)")
     for k, ((tid, _, _), (dx, dy)) in enumerate(zip(OB.TAVERNS, LY.HALL_TAVERNS)):

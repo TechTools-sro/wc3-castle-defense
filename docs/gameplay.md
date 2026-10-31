@@ -98,8 +98,8 @@ Higher level = harder.
 - Spells on **Q W E R** for cast and learn, tooltips retagged `[Q]` (`gen/hotkeys.py`).
 - Every hero can attack **air** units, melee heroes too (`ua1g` += air, `original_unit_mods`).
 - **Hero level is practically unlimited** (`MAX_HERO_LEVEL` = 1000 via `war3mapMisc.txt`). Spells are maxed at
-  level 10; from level 11 each skill point goes into **Attributes** (`Xatt`, learn key T): +3 Str/Agi/Int per
-  level, 100 levels (hero level 110). Above that every level-up adds +3 to all three automatically.
+  level 10; from level 11 each skill point goes into **Attributes** (`Xatt`, learn key T): +10 Str/Agi/Int per
+  level, 100 levels (hero level 110). Above that every level-up adds +10 to all three automatically.
 - **Level 2** when the player's first wave is cleared (or at wave 2 for everyone). Every level-up refills HP + mana.
 - Death → revive on the Champion's Circle after `4 + 2*level` s, max 24 s (`StartRevive`). Deaths counted.
 

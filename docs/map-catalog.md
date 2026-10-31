@@ -45,7 +45,7 @@ ruins, then fight through the four shared **gate levels** (2–5). **Win** when 
 
 - Spells on **Q W E R**; every level-up refills HP and mana; clearing your first wave gives level 2.
 - Hero level is practically unlimited. After level 10 (spells maxed) skill points go into **Attributes**
-  (learn key T): +3 Strength, Agility and Intelligence per level.
+  (learn key T): +10 Strength, Agility and Intelligence per level.
 - All heroes, melee too, can attack flying units.
 
 ## Commands

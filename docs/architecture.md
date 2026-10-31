@@ -93,7 +93,7 @@
 | `Xk Xy Xr` + `00`–`39` | ability | Castle armor / max-HP / regen abilities (`AId1`, `AIlf`, `Arel`) |
 | `Xp01`–`Xp08`, `Xu<i><L>` | ability | Premium item abilities Lv 1 / Lv 2–5 |
 | `Xv08`–`Xv11`, `Xz09`–`Xz11` | ability (`AIlf`, `AIat`) | Gate level bonus HP / damage for its wave units and Protector |
-| `Xatt` | hero ability (base `Aamk`) | Attributes: 100 levels, +3 all stats per level, learnable from hero level 11 |
+| `Xatt` | hero ability (base `Aamk`) | Attributes: 100 levels, +10 all stats per level, learnable from hero level 11 |
 | `Xcsh`, `Xcs2` | ability (bases `Aneu`, `Aall`) | Castle shop buyer selection, 3000 radius |
 | `BTNCDStr/Agi/Int.blp` | imported icon | `ReplaceableTextures\CommandButtons\` (+ `CommandButtonsDisabled\DISBTN…`) |
 

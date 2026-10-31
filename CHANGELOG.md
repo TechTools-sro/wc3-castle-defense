@@ -1,6 +1,11 @@
 # Changelog
 
-## v1.2 — 2026-10-31 (late): Bank income bought remotely was never counted; income on the clock
+## v1.2 — 2026-10-31 (late): Bank income bought remotely was never counted; income on the clock; item upgrades
+
+- Attributes hero skill (learnable from level 11): **+10** Strength/Agility/Intelligence per level (was +3), also the
+  automatic gain above level 110.
+- Premium upgrades did not work (Jiří: "it buys a 2nd item instead of upgrading"): buying a permanent item from a
+  neutral shop fires no "picked up" event, so `TryUpgradePremium` never ran. `OnItemSold` now calls it directly.
 
 - Since the grove shops sell remotely, a bought item lands **on the ground at the shop** (buyer far away), so the
   pickup handler never saw Bank purchases (income stayed +0) and remote premium items stayed in the grove. New

@@ -21,8 +21,9 @@
 - Research/upgrades are queued with a progress bar, never instant → use power-up items + abilities.
 - Items without `ubpx/ubpy` share their base item's button position, so the shop reshuffles them after
   every restock. Give every sold item an explicit slot.
-- A **remote** purchase from a neutral shop (buyer far away, large `Aneu` radius) leaves the item on the ground at
-  the shop — no "picked up" event. Catch `EVENT_PLAYER_UNIT_SELL_ITEM` (it does fire for neutral shops) and hand the
+- Buying a **permanent** item from a neutral shop fires **no** "picked up" event (power-ups fire "used", which is why
+  tomes and castle upgrades worked) — premium-item merges never ran. A **remote** purchase from a neutral shop (buyer
+  far away, large `Aneu` radius) even leaves the item on the ground at the shop. Catch `EVENT_PLAYER_UNIT_SELL_ITEM` (it does fire for neutral shops) and hand the
   item to `GetBuyingUnit()` (`OnItemSold`). This silently broke the Bank once shops became remote.
 - A player buys from an allied player's shop through `Aall` (Shop Sharing); its `Neu1`/`aran` set the radius.
 - Tavern heroes: `usst` = 0 or they unlock only after 120–135 s; `ureq` = "" or the Altar (`TALT`) requirement

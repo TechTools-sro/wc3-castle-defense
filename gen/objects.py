@@ -422,7 +422,7 @@ def custom_units():
 # (3+3+3+1 points); from level 11 every skill point goes into "Attributes" (+3 Str/Agi/Int per level).
 MAX_HERO_LEVEL = 1000
 ATTR_ABIL = "Xatt"            # custom hero ability based on 'Aamk' (Attribute Bonus)
-ATTR_PER_LEVEL = 3
+ATTR_PER_LEVEL = 10           # Jiri: +10 Str/Agi/Int per Attributes level
 ATTR_LEVELS = 100             # learnable at hero levels 11..110; above that the script adds the stats itself
 ATTR_REQ_LEVEL = 11
 

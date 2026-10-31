@@ -275,10 +275,10 @@ function TryUpgradePremium takes unit h, item it returns boolean
     return false
 endfunction
 
-// Neutral shops (grove, castle) fire "item sold". A REMOTE purchase (buyer far from the shop) leaves the item on
-// the ground at the shop, so: a Bank buy is counted right here, anything else is handed to the buyer (that fires
-// "picked up" -> premium merge / castle upgrade / ...). An item already handled by the pickup handler is gone
-// (type 0) and is left alone - no double count.
+// Neutral shops (grove, castle) fire "item sold". WarCraft does NOT fire "picked up" for a permanent item bought
+// from a neutral shop, and a REMOTE purchase leaves the item on the ground at the shop. So here: a Bank buy is
+// counted, anything else is handed to the buyer if needed and a premium item is merged (upgrade). An item that the
+// pickup handler already handled is gone (type 0) and is left alone - no double count.
 function OnItemSold takes nothing returns nothing
     local item it = GetSoldItem()
     local unit b = GetBuyingUnit()
@@ -286,9 +286,14 @@ function OnItemSold takes nothing returns nothing
     if p < 8 and GetItemTypeId(it) != 0 then
         if GetItemTypeId(it) == gBankItem then
             call BuyIncome(p, it)
-        elseif not UnitHasItem(b, it) then
-            if not UnitAddItem(b, it) then
-                call SetItemPosition(it, GetUnitX(b), GetUnitY(b))
+        else
+            if not UnitHasItem(b, it) then
+                if not UnitAddItem(b, it) then
+                    call SetItemPosition(it, GetUnitX(b), GetUnitY(b))
+                endif
+            endif
+            if GetItemTypeId(it) != 0 and b == gHero[p] then
+                call TryUpgradePremium(b, it)
             endif
         endif
     endif
@@ -1426,6 +1431,10 @@ function TestStep takes nothing returns nothing
         else
             call Msg("|cffff0000[TEST] bank buy (remote): REJECTED|r")
         endif
+        // premium item bought twice remotely -> must merge into Lv 2
+        call SetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD) + 3000)
+        call IssueNeutralImmediateOrderById(Player(0), gArmoryShop, gPremItem[1])
+        call IssueNeutralImmediateOrderById(Player(0), gArmoryShop, gPremItem[1])
     elseif gTestClock == 20 then
         call PanCameraToTimed(gNexusX[0], gNexusY[0] - 650.0, 0.0)
         call ForGroup(gFirstWave, function TestKillEnum)
@@ -1440,7 +1449,7 @@ function TestStep takes nothing returns nothing
         call KillUnit(gNexus[0])
     elseif gTestClock == 40 then
         call PanCameraToTimed(gGateX[8] + 800.0, gGateY[8], 0.0)
-        call Msg("[TEST] gate states L2=" + I2S(gGateState[8]) + " L3=" + I2S(gGateState[9]) + "   income=" + I2S(gIncome[0]))
+        call Msg("[TEST] gate states L2=" + I2S(gGateState[8]) + " L3=" + I2S(gGateState[9]) + "   income=" + I2S(gIncome[0]) + "   Fang Lv2 held=" + I2S(R2I(I2R(GetInventoryIndexOfItemTypeBJ(gHero[0], gPremItem[2])))))
     elseif gTestClock == 45 then
         call KillUnit(gBoss[0])
     elseif gTestClock == 50 then
