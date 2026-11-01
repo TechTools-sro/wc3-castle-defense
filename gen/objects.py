@@ -120,26 +120,30 @@ WAVE_FRONT_MAX, WAVE_BACK_MAX = 30, 15     # per lane, keeps the lanes playable 
 WAVE_CHAMP_EVERY = 10
 WAVE_CHAMP_HP, WAVE_CHAMP_ARMOR, WAVE_CHAMP_DMG, WAVE_CHAMP_SCALE = 800, 2, (30, 1, 8), 1.0
 
-# Champion select (v2.0, Jiri): ONE hall, 6 champions, every one hits several enemies per attack.
-# Any number of players may pick the same champion.
-#   CHAMPIONS: hero -> (attack kind, shop button (x, y), tavern tooltip)
-#   cleave = melee + hidden passive CLEAVE_ABIL; splash = missile splash (CHAMP_SPLASH); bounce = jumps (CHAMP_BOUNCE)
-CHAMPIONS = {
-    "Hmkg": ("cleave", (0, 0), "|cffffcc00Cleave|r: every hit also strikes the enemies around him."),
-    "Otch": ("cleave", (1, 0), "|cffffcc00Cleave|r: every hit also strikes the enemies around him."),
-    "Nplh": ("cleave", (2, 0), "|cffffcc00Cleave|r: every hit also strikes the enemies around him."),
-    "Hamg": ("splash", (0, 1), "|cffffcc00Splash|r: every shot explodes on an area."),
-    "Ulic": ("splash", (1, 1), "|cffffcc00Splash|r: every shot explodes on an area."),
-    "Ofar": ("bounce", (2, 1), "|cffffcc00Bounce|r: every shot jumps to 4 enemies."),
-}
-TAVERNS = [("tvc0", "Hall of Champions", list(CHAMPIONS))]
-ALL_HEROES = [h for (_, _, hs) in TAVERNS for h in hs]
-CLEAVE_ABIL = "Xclv"           # unit ability based on the hero skill 'ANca' (Cleaving Attack), made non-hero
-CLEAVE_PART, CLEAVE_AREA = 0.5, 250.0
-SPLASH_TARGETS = "ground,air,structure,enemy"
-CHAMP_SPLASH = [("ua1w", S, "msplash"), ("ua1f", I, 100), ("ua1h", I, 200), ("ua1q", I, 300),
-                ("uhd1", U, 0.6), ("uqd1", U, 0.3), ("ua1p", S, SPLASH_TARGETS)]
-CHAMP_BOUNCE = [("ua1w", S, "mbounce"), ("utc1", I, 4), ("udl1", U, 0.2), ("ua1f", I, 450), ("ua1p", S, SPLASH_TARGETS)]
+# Champion select (v2.6, Jiri): ONE champion - the Dryad, a spear thrower (custom hero DRYAD_ID on the Priestess of
+# the Moon, Dryad model + spear missile). Every player plays her. Her 3 skills are passive "level holders" (AEev
+# copies with 0 % evasion); the map script does the effects (gen/castle_logic.j: OnDamaged, OnHeroSkill):
+#   Q Extra Spear  : +1 spear per level at another enemy near the target, full damage (+ fire bonus)
+#   W Swift Throw  : +SWIFT_STEP attack speed per level (hidden item-bonus copies of AIsx, one per level)
+#   E Fire Spears  : +FIRE_PCT % of every hit as extra fire damage per level; level 1 adds a hidden fire orb (missile)
+DRYAD_ID = "Edry"
+DRYAD_SKILLS = [      # (id, name, key, icon, tip(level), research text)
+    ("Xesp", "Extra Spear", "Q", "BTNScatterRockets",
+     lambda L: f"+{L} extra spear{'s' if L > 1 else ''} per throw, full damage",
+     "Each level: +1 extra spear at another enemy, full damage."),
+    ("Xswt", "Swift Throw", "W", "BTNBerserkForTrolls",
+     lambda L: f"+{20 * L}% attack speed", "Each level: +20% attack speed."),
+    ("Xfsp", "Fire Spears", "E", "BTNSearingArrows",
+     lambda L: f"+{20 * L}% fire damage on every hit", "Each level: +20% fire damage on every hit."),
+]
+DRYAD_SKILL_LEVELS = 5
+SWIFT_STEP = 0.20
+SWIFT_ABILS = [f"Xsw{L}" for L in range(1, DRYAD_SKILL_LEVELS + 1)]     # AIsx copies, +20 % each (they stack)
+FIRE_PCT = 20
+FIRE_ORB = "Xfor"            # AIfb copy with 0 bonus damage: only turns the spears into fire missiles
+SPEAR_RANGE = 600.0          # extra spears hit enemies within this distance of the main target
+TAVERNS = [("tvc0", "Hall of Champions", [DRYAD_ID])]
+ALL_HEROES = [DRYAD_ID]
 
 # Premium Armory (secret grove): 8 simple, special items for 1000 gold each. Each = a real base item (class/model)
 # + one custom ability cloned from a real item ability with a stronger value.
@@ -203,7 +207,7 @@ INCOME_STEP = 10             # gold per minute per bought income (1 tree -> +10 
 INCOME_TREE_COST = 1
 
 SHOPS = {
-    "armory": ("shpa", "Premium Armory", [p[0] for p in PREMIUM] + [REACH_ITEM]),
+    "armory": ("shpa", "Premium Armory", [p[0] for p in PREMIUM]),     # Long Reach not sold since v2.6 (no melee champion)
     "bank": ("shpc", "Bank", [BANK_ITEM]),
     "apothecary": ("shpb", "Apothecary", ["phea", "pman", "pres", "pnvl",
                                           "bspd", "prvt", "rlif", "rwiz", "stel"]),
@@ -375,6 +379,7 @@ def custom_units():
         ("utub", S, "Your lane. Buy +2 Strength / Agility / Intelligence for your champion here - instant; every buy costs 10% more.")]))
     for (tid, name, heroes) in TAVERNS:
         units.append(("ntav", tid, [("unam", S, name), ("useu", S, ",".join(heroes))]))
+    units.append(dryad_hero())
     for (sid, name, items) in SHOPS.values():
         mods = [("unam", S, name), ("usei", S, ",".join(items))]
         if sid == SHOPS["bank"][0]:      # looks like a gold mine
@@ -507,35 +512,45 @@ def _hero_targets_with_air(h):
 
 
 def original_unit_mods():
-    """Edits to standard units: tavern heroes are free, cost no food and are in stock at once;
-    every hero (melee too) can attack air units; every champion hits several enemies (CHAMPIONS)."""
+    """Edits to standard units: none since v2.6 (the only champion is the custom Dryad, see dryad_hero)."""
+    return []
+
+
+def dryad_hero():
+    """The one champion: a free tavern hero (Priestess of the Moon base) that looks like a Dryad and throws spears."""
+    base = "Emoo"
+    ua = _ref_slk("Units_UnitAbilities.slk")[base]
+    return (base, DRYAD_ID, [
+        ("unam", S, "Dryad"), ("upro", S, "Sylvara,Elunna,Ashwen,Thalia,Myrael,Keira"),
+        ("umdl", S, "units\\nightelf\\Dryad\\Dryad.mdl"), ("uico", S, CB + "BTNDryad.blp"),
+        ("ua1m", S, "Abilities\\Weapons\\Dryadmissile\\Dryadmissile.mdl"), ("usnd", S, "Dryad"),
+        ("usca", R, 1.25), ("ussc", R, 1.4),
+        ("ugol", I, 0), ("ulum", I, 0), ("ufoo", I, 0), ("usst", I, 0), ("usma", I, 8), ("usrg", I, 1), ("ureq", S, ""),
+        ("ua1g", S, _hero_targets_with_air(base)),
+        ("uabi", S, ua["abilList"]),
+        ("uhab", S, ",".join(sk[0] for sk in DRYAD_SKILLS) + "," + ATTR_ABIL),
+        ("upgr", S, _hero_upgrades_with_reach(base, False)),
+        ("ubpx", I, 0), ("ubpy", I, 0), ("utip", S, "|cffffcc00Dryad|r"),
+        ("utub", S, "Throws spears. |cffffcc00Q|r Extra Spear, |cffffcc00W|r Swift Throw, |cffffcc00E|r Fire Spears.")])
+
+
+def dryad_abilities():
+    """Her 3 learnable skills (passive AEev level holders, effects in the script) + the hidden helpers."""
     out = []
-    for h in ALL_HEROES:
-        kind, (bx, by), tip = CHAMPIONS[h]
-        ua = _ref_slk("Units_UnitAbilities.slk")[h]
-        # ureq "" : tavern (neutral) heroes require an Altar ('TALT') in melee - nobody has one here
-        mods = [("ugol", I, 0), ("ulum", I, 0), ("ufoo", I, 0), ("usst", I, 0),
-                ("usma", I, 8), ("usrg", I, 1), ("ureq", S, ""),
-                ("ua1g", S, _hero_targets_with_air(h)),
-                ("uhab", S, ua["heroAbilList"] + "," + ATTR_ABIL),
-                ("upgr", S, _hero_upgrades_with_reach(h, kind == "cleave")),
-                ("ubpx", I, bx), ("ubpy", I, by), ("utub", S, tip)]
-        if kind == "cleave":
-            mods.append(("uabi", S, ua["abilList"] + "," + CLEAVE_ABIL))
-        elif kind == "splash":
-            mods += CHAMP_SPLASH
-        else:
-            mods += CHAMP_BOUNCE
-        out.append((h, mods))
+    for i, (aid, name, key, icon, tip, research) in enumerate(DRYAD_SKILLS):
+        mods = [("aher", I, 0, 0, 1), ("alev", I, 0, 0, DRYAD_SKILL_LEVELS), ("arlv", I, 0, 0, 1), ("alsk", I, 0, 0, 2),
+                ("aart", S, 0, 0, CB + icon + ".blp"), ("arar", S, 0, 0, CB + icon + ".blp"),
+                ("ahky", S, 0, 0, key), ("arhk", S, 0, 0, key),
+                ("abpx", I, 0, 0, i), ("abpy", I, 0, 0, 2), ("arpx", I, 0, 0, i), ("arpy", I, 0, 0, 0),
+                ("aret", S, 0, 0, f"|cffffcc00[{key}]|r Learn {name} - Level %d"), ("arut", S, 0, 0, research)]
+        for L in range(1, DRYAD_SKILL_LEVELS + 1):
+            mods += [("Eev1", U, L, 1, 0.0), ("atp1", S, L, 0, f"|cffffcc00[{key}]|r {name} - Level {L}"),
+                     ("aub1", S, L, 0, tip(L))]
+        out.append(("AEev", aid, mods))
+    for aid in SWIFT_ABILS:
+        out.append(("AIsx", aid, [("Isx1", U, 1, 1, SWIFT_STEP)]))
+    out.append(("AIfb", FIRE_ORB, [("Idam", U, 1, 1, 0.0), ("aare", U, 1, 0, 0.0)]))
     return out
-
-
-def cleave_ability():
-    """Hidden passive cleave for the melee champions: a non-hero, 1-level copy of Cleaving Attack."""
-    return ("ANca", CLEAVE_ABIL, [("aher", I, 0, 0, 0), ("alev", I, 0, 0, 1), ("nca1", U, 1, 1, CLEAVE_PART),
-                                  ("aare", U, 1, 0, CLEAVE_AREA), ("abpx", I, 0, 0, 1), ("abpy", I, 0, 0, 1),
-                                  ("atp1", S, 1, 0, "Cleave"),
-                                  ("aub1", S, 1, 0, f"Every hit also deals {int(CLEAVE_PART * 100)}% damage to enemies around.")])
 
 
 def _hero_upgrades_with_reach(h, melee):
@@ -649,7 +664,7 @@ def custom_abilities():
     out.append(("Aneu", CASTLE_SHOP_ABIL, [("aran", U, 1, 0, 3000.0), ("Neu1", U, 1, 1, 3000.0)]))
     out.append(("Aall", CASTLE_SHARE_ABIL, [("aran", U, 1, 0, 3000.0), ("Neu1", U, 1, 1, 3000.0)]))
     out.append(attribute_ability())
-    out.append(cleave_ability())
+    out += dryad_abilities()
     for (_lvl, _iid, aid, _name, bonus, _icon) in EPIC_ITEMS:      # epic crown: +all stats (green)
         out.append(("AIx1", aid, [("Iagi", I, 1, 1, bonus), ("Iint", I, 1, 2, bonus), ("Istr", I, 1, 3, bonus)]))
     for g in GATE_LEVELS:        # per gate level: bonus HP (and damage) for its wave units and Protector

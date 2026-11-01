@@ -50,6 +50,7 @@
 | Setup | `SetupAlliances`, `SetupDarkness`, `MakeWallInvulnerable`, `CreateKingdom`, `CreateLaneBase` |
 | Waves | `LaneStage` (0 tower / 1 Nexus / 2 ruins), `SpawnWaveUnit`, `SpawnWave` (front/back/champions), `OnWaveTimer`, `NextWaveDelay` (10 s / 2-min break), `WaveGold` (paid on clear), `ShoppingTime` (break announcement + grove pings), `OnFirstWave`, `ReleaseWaveUnit` (charmed units leave the wave), `WaveUnitTick` |
 | Bosses | `BossFindTarget`, `BossCast`, `BossSummon`, `BossTick` |
+| Dryad skills | `OnDamaged` (Extra Spear + Fire Spears on every hit by a champion), `DmgRebuild` / `OnEnterMap` (per-unit damage registration of enemies, rebuilt past 3000), `OnHeroSkill` (Swift Throw / fire orb on learn) |
 | Tick (1 s) | `OnTick`: steer waves, on a cleared wave pay gold + 1 tree and start the countdown, boss AI |
 | Outcome | `ShowEndDialog`, `CheckVictory`, `OnCastleDestroyed`, `DropLoot` (unused now), `DropEpic` (boss crown by level), `AnyNexusLeft` (any lane still spawning), `OnTowerDestroyed` (Protector + instant wave), `ProtectorTick` (leash), `OnNexusDestroyed`, `OnBossSlain` |
 | Gate levels | `OpenGateLane` (lanes 8–11 = Levels 2–5, each opened by the previous Nexus), `OnGateNexusDestroyed` (boss rises, next level opens), `OnGateBossSlain` (level cleared), `MinionBounty` (kill gold for every wave unit) — gate lanes reuse the lane arrays (`gTower[L]`, `gBoss[L]`, `gWpX[L*8..]`, `gStageUnit[arm*6..]`, `gGate[L]`) plus `gGateHpAbil/gGateDmgAbil/gGateTint*/gGateGold/gGateDir[L]`; state `gGateState[L]` (-1 closed, 0 open, 1 boss, 2 cleared) |
@@ -89,7 +90,7 @@
 | `nc{d}0` (d 0–7) | unit (base: faction champion) | Weakened wave champion (every 10th wave) |
 | `Io01`–`Io05` | item (base `ckng`) | EPIC crowns dropped by Level 1–5 bosses (+200…+1000 all stats) |
 | `Xo01`–`Xo05` | ability (base `AIx1`) | EPIC crown all-stats bonus |
-| `Ixr1` | item (base `tst2`) | Long Reach (+150 attack range, once, melee champions only) |
+| `Ixr1` | item (base `tst2`) | Long Reach (+150 attack range, once, melee only) — not sold since v2.6 |
 | `Rcrg` | upgrade (base `Rhri`, `war3map.w3q`) | Long Reach range upgrade, 1 level, +150 (`ratr`); only the melee champions list it in `upgr` |
 | `Ib01` | item (base `tst2`) | Bank: Income +10 per minute for 1 tree |
 | `Ih Im Id Ir Is Ia Ii Il Ix` + `00`–`39` | item (base `tst2`) | Circle shop kinds × price steps (`Ix` = Experience) |
@@ -100,7 +101,10 @@
 | `Xk Xy Xr` + `00`–`39` | ability | Castle armor / max-HP / regen abilities (`AId1`, `AIlf`, `Arel`) |
 | `Xp01`–`Xp08`, `Xu<i><L>` | ability | Premium item abilities Lv 1 / Lv 2–5 |
 | `Xv08`–`Xv11`, `Xz09`–`Xz11` | ability (`AIlf`, `AIat`) | Gate level bonus HP / damage for its wave units and Protector |
-| `Xclv` | ability (base `ANca`, non-hero, 1 level) | Cleave for the melee champions: 50 % damage within 250 |
+| `Edry` | hero (base `Emoo`) | The Dryad — the only champion (Dryad model, spear missile) |
+| `Xesp` `Xswt` `Xfsp` | hero ability (base `AEev`, 5 levels, 0 % evasion) | Dryad skills Extra Spear / Swift Throw / Fire Spears (level holders; effects in the script) |
+| `Xsw1`–`Xsw5` | ability (base `AIsx`) | Hidden +20 % attack speed each, added on Swift Throw learn |
+| `Xfor` | ability (base `AIfb`, 0 damage) | Hidden fire orb: fire missile once Fire Spears is learned |
 | `Xatt` | hero ability (base `Aamk`) | Attributes: 100 levels, +10 all stats per level, learnable from hero level 11 |
 | `Xcsh`, `Xcs2` | ability (bases `Aneu`, `Aall`) | Castle shop buyer selection, 3000 radius |
 | `BTNCDStr/Agi/Int.blp` | imported icon | `ReplaceableTextures\CommandButtons\` (+ `CommandButtonsDisabled\DISBTN…`) |

@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.6 — 2026-11-01: the Dryad is the only champion
+
+- **Uploaded as catalogue map #31** (HTTP 201, download SHA-256 `3d8aacea…` matches).
+
+- Jiří: remove all champions; add a spear-throwing deer (the Dryad) with 3 spells: one more spear per throw, attack
+  speed, fire spears that raise on-hit damage. New custom hero `Edry` (Priestess of the Moon base, Dryad model, spear
+  missile, `dryad_hero()` in `gen/objects.py`) is the only hero in the Hall of Champions. Skills (5 levels each,
+  passive `AEev` level holders): **Q Extra Spear** +1 spear per level at another enemy within 600, full damage;
+  **W Swift Throw** +20 % attack speed per level (hidden `AIsx` copies on learn); **E Fire Spears** +20 % of every hit
+  as fire damage per level (+ fire missile via a hidden orb). New script damage system: enemies are registered on a
+  damage trigger as they enter the map (`OnDamaged`, `DmgRebuild`, `OnEnterMap`, `OnHeroSkill`). The 6 v2.0 champions
+  and the cleave ability are gone; Long Reach is no longer sold (no melee champion). Verified: pjass + build + data /
+  base / icon checks; **not tried in-game** (the game was running).
+
 ## v2.5 — 2026-11-01: circle buys while dead raise the price
 
 - **Uploaded as catalogue map #30** (HTTP 201, download SHA-256 `d5c2553a…` matches).

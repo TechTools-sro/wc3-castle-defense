@@ -30,7 +30,7 @@ GAME_DIR = os.environ.get("WC3_DIR", "/home/novakj/games/warcraft3")
 TEST = "--test" in sys.argv
 # VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
 # map name (game list, lobby, loading screen), the file name and the catalogue title.
-MAP_VERSION = "2.5"
+MAP_VERSION = "2.6"
 MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
@@ -330,6 +330,17 @@ globals
     integer array gPotHp
     integer array gPotMp
     integer gPotCount = 0
+    trigger gDmgTrig = null
+    integer gDmgRegs = 0
+    boolean gDmgLock = false
+    group gDmgGroup = CreateGroup()
+    integer gSpearAbil = 0
+    integer gSwiftSkill = 0
+    integer gFireSkill = 0
+    integer gFireOrb = 0
+    integer array gSwiftAbil
+    integer gFirePct = 20
+    real gSpearRange = 600.0
     integer gReachTech = 0
     integer gReachMax = 5
     integer gReachStep = 150
@@ -542,6 +553,14 @@ def build_script():
         a(f"    set gPotHp[{i}] = {hp}")
         a(f"    set gPotMp[{i}] = {mp}")
     a(f"    set gPotCount = {len(OB.POTIONS)}")
+    a(f"    set gSpearAbil = '{OB.DRYAD_SKILLS[0][0]}'")
+    a(f"    set gSwiftSkill = '{OB.DRYAD_SKILLS[1][0]}'")
+    a(f"    set gFireSkill = '{OB.DRYAD_SKILLS[2][0]}'")
+    a(f"    set gFireOrb = '{OB.FIRE_ORB}'")
+    for lv, aid in enumerate(OB.SWIFT_ABILS, start=1):     # (not "L": that is the script's line list here)
+        a(f"    set gSwiftAbil[{lv}] = '{aid}'")
+    a(f"    set gFirePct = {OB.FIRE_PCT}")
+    a(f"    set gSpearRange = {jr(OB.SPEAR_RANGE)}")
     # gate lanes 8-11 = Levels 2-5 (arms 4-7), all owned by the Scourge computer (Player 9)
     for g in OB.GATE_LEVELS:
         lane, arm, f = g["lane"], g["arm"], g
@@ -814,7 +833,7 @@ def misc_constants(game):
 REQUIRED_SCRIPT_DATA = ["set gBankItem = ", "set gIncomeStep = ", "set gPremItem[1] = ", "set gPremCount = ",
                         "set gShopFxCount = ", "set gDevCount = ", "set gAttrPerLevel = ", "set gReachItem = ",
                         "set gGateState[11] = ", "set gStageUnit[0] = ", "set gEpicItem[5] = ", "set gStatItem[0] = ", "set gHeroPool[0] = ",
-                        "set gPotCount = "]
+                        "set gPotCount = ", "set gSpearAbil = ", "set gSwiftAbil[5] = "]
 
 
 def check_script_data(script):
@@ -893,7 +912,7 @@ def main():
         "war3mapMap.blp": WF.write_blp_paletted(build_minimap()),
         "war3map.w3u": WF.write_w3u(OB.custom_units(), OB.original_unit_mods()),
         "war3map.w3t": WF.write_w3u(OB.custom_items(), OB.original_item_mods()),
-        "war3map.w3a": WF.write_w3a(OB.original_ability_mods() + HK.hero_hotkey_mods(os.path.join(ROOT, "ref"), OB.ALL_HEROES),
+        "war3map.w3a": WF.write_w3a(OB.original_ability_mods() + HK.hero_hotkey_mods(os.path.join(ROOT, "ref"), []),
                                     OB.custom_abilities()),
         "war3map.w3q": WF.write_w3a([], OB.custom_upgrades()),
         "war3mapPreview.tga": SP.preview_tga(art),

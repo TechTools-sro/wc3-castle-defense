@@ -16,17 +16,23 @@ Invader of arm `d` = Player(8 + d): 0 North **The Scourge**, 1 East **The Burnin
 
 ## Round flow
 
-1. **Champion select** (45 s, `SELECT_TIME`). Camera on the Hall of Champions: **one** tavern with **6 champions**
-   (`CHAMPIONS` / `TAVERNS` in `gen/objects.py`). Click a hero — free; several players may pick the same champion
-   (stock 8). An invisible helper unit does the buying (no walking). A big gold **"Select a Champion"**
-   floats over the hall for players who haven't picked. Time out → random hero (untaken first).
-   Every champion hits several enemies per attack (`original_unit_mods`; the tavern tooltip says which):
+1. **Champion select** (45 s, `SELECT_TIME`). Camera on the Hall of Champions: **one** tavern, **one champion — the
+   Dryad** (`DRYAD_ID` = `Edry`, custom hero on the Priestess of the Moon with the Dryad model and spear missile,
+   `dryad_hero()` in `gen/objects.py`). Every player plays her (stock 8). An invisible helper unit does the buying
+   (no walking). A big gold **"Select a Champion"** floats over the hall for players who haven't picked. Time out →
+   she is picked for you.
 
-   | Champion | Attack |
-   |---|---|
-   | Mountain King, Tauren Chieftain, Pit Lord | melee **cleave**: 50 % damage to enemies within 250 (`Xclv`, a non-hero copy of `ANca`) |
-   | Archmage, Lich | **splash** missile: full 100, 60 % to 200, 30 % to 300 (`CHAMP_SPLASH`, `msplash`) |
-   | Far Seer | **bounce** missile: jumps to 4 enemies within 450, −20 % per jump (`CHAMP_BOUNCE`, `mbounce`) |
+   | Key | Skill (5 levels, `DRYAD_SKILLS`) | Per level | How |
+   |---|---|---|---|
+   | Q | Extra Spear (`Xesp`) | +1 spear at another enemy within 600 of the target, full damage (+ fire bonus) | `OnDamaged` |
+   | W | Swift Throw (`Xswt`) | +20 % attack speed | `OnHeroSkill` adds hidden `Xsw1`–`Xsw5` (AIsx copies) |
+   | E | Fire Spears (`Xfsp`) | +20 % of every hit as extra fire damage | `OnDamaged`; level 1 adds the fire orb `Xfor` (missile look) |
+   | T | Attributes (`Xatt`) | +10 all stats, from hero level 11 | |
+
+   The 3 skills are passive `AEev` copies with 0 % evasion (level holders only). 1.27 has no generic damage event:
+   every enemy unit (players 8–11) is registered on `gDmgTrig` when it enters the map (`OnEnterMap`), and
+   `DmgRebuild` starts a fresh trigger past 3000 registrations (`OnTick`). Extra damage is chaos/universal (no
+   second armour reduction); `gDmgLock` stops it from re-triggering.
 2. **Start.** Hero appears on the player's **Champion's Circle** (lane entrance), lane hint (coloured circle,
    floating "Name's lane", minimap ping). One message: "Defend your lane! -help = commands".
    Starting gold **1000** (`SetupChampionSelect`).
@@ -185,10 +191,8 @@ anywhere on the map (`Aneu` radius 20 000). Bought items go straight into his in
   | Troll Heart | +15 HP/s | +10 | +55 |
   | Arcane Mask | +150 % mana regen | +50 % | +350 % |
 
-- **Long Reach** (key Z, row 3, **1500 gold**): **+150 attack range, once, melee champions only** (Mountain King,
-  Tauren Chieftain, Pit Lord). Instant via the custom range upgrade `Rcrg`, 1 level (`REACH_*`, `TryReach`); a ranged
-  champion (`UNIT_TYPE_MELEE_ATTACKER` false) or a second buy is refunded, and only melee champions list `Rcrg` in
-  `upgr` — ranged champions must never outrange the towers (the old 5 × +150 let them). Reset on restart.
+- **Long Reach** — **not sold since v2.6** (the only champion, the Dryad, is ranged). The code stays (`REACH_*`,
+  `TryReach`: +150 attack range once, melee champions only, ranged buyers refunded) for a future melee champion.
 - **Apothecary** (`SHOPS["apothecary"]`, stock 8, restock 10 s): potions heal a **percent** of max, fixed price, and
   **stack** in the inventory (one slot, more charges) — `POTIONS`, script `PotionIndex` / `StackPotion` (on buy and
   pickup) / `DrinkPotion` (on use; the native fixed heal of `AIh1`/`AIm1`/`AIre` is zeroed):

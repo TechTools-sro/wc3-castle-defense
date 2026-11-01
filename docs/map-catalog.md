@@ -11,8 +11,8 @@ ruins, then fight through the four shared **gate levels** (2–5). **Win** when 
 
 ## How a round goes
 
-1. **Champion select (45 s):** click a hero in the Hall of Champions — 6 champions, free, several players may pick
-   the same one. No walking needed.
+1. **Champion select (45 s):** click the **Dryad** in the Hall of Champions — everyone plays her, free. No walking
+   needed.
 2. **Your lane:** your champion spawns and revives on your Champion's Circle at your lane entrance.
 3. **Waves:** the next wave comes 10 s after every monster is dead; after every 5th wave there is a **2-minute
    shopping break**. Each cleared wave pays every player `50 + 50 × wave` gold and **1 tree**.
@@ -41,8 +41,7 @@ ruins, then fight through the four shared **gate levels** (2–5). **Win** when 
 - **Secret grove** (narrow passage at the SE corner of the plaza; its shops sell to your champion anywhere on the
   map — just select the shop): Fountain of Power (fast HP + mana),
   **Premium Armory** (1000 gold: lifesteal, attack speed, critical strike, bash, evasion, boots, regeneration,
-  mana regeneration — buy the same item again to upgrade it, up to Lv 5; **Long Reach** 1500 gold = +150 attack
-  range once, melee champions only), **Bank** (1 tree = +10 gold income every minute), **Apothecary** (potions heal % of max and stack in one slot: Healing 50 % HP and Mana 50 % mana for 100 gold, Restoration full HP + mana for 250, Invulnerability 200; staff of teleportation).
+  mana regeneration — buy the same item again to upgrade it, up to Lv 5), **Bank** (1 tree = +10 gold income every minute), **Apothecary** (potions heal % of max and stack in one slot: Healing 50 % HP and Mana 50 % mana for 100 gold, Restoration full HP + mana for 250, Invulnerability 200; staff of teleportation).
 
 ## EPIC loot
 
@@ -55,8 +54,8 @@ bosses.
 - Hero level is practically unlimited. After level 10 (spells maxed) skill points go into **Attributes**
   (learn key T): +10 Strength, Agility and Intelligence per level.
 - All heroes, melee too, can attack flying units.
-- Every champion hits several enemies: **cleave** (Mountain King, Tauren Chieftain, Pit Lord), **splash**
-  (Archmage, Lich), **bounce** to 4 enemies (Far Seer).
+- The **Dryad** throws spears. **Q Extra Spear**: +1 spear per level at another enemy, full damage. **W Swift
+  Throw**: +20 % attack speed per level. **E Fire Spears**: +20 % fire damage on every hit per level. 5 levels each.
 
 ## Commands
 

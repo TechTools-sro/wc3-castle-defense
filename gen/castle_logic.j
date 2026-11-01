@@ -1055,9 +1055,117 @@ endfunction
 //---------------------------------------------------------------------------
 // Periodic tick (1 s)
 //---------------------------------------------------------------------------
+//---------------------------------------------------------------------------
+// The Dryad's skills (v2.6). WarCraft 1.27 has no "any unit damaged" event, so every enemy unit (players 8-11) is
+// registered on gDmgTrig when it enters the map; DmgRebuild starts a fresh trigger when too many dead units piled up.
+//   Extra Spear (gSpearAbil): +1 spear per level at another enemy within gSpearRange of the target, full damage
+//   Fire Spears (gFireSkill): +gFirePct % of every hit as extra fire damage per level
+// Swift Throw adds hidden attack-speed abilities on learn (OnHeroSkill). gDmgLock stops our own damage re-triggering.
+//---------------------------------------------------------------------------
+function OnDamaged takes nothing returns nothing
+    local unit src = GetEventDamageSource()
+    local unit tgt = GetTriggerUnit()
+    local real dmg = GetEventDamage()
+    local integer p
+    local integer n
+    local integer f
+    local integer o
+    local real hit
+    local unit u
+    if gDmgLock or src == null or dmg <= 0.0 then
+        set src = null
+        set tgt = null
+        return
+    endif
+    set p = GetPlayerId(GetOwningPlayer(src))
+    if p >= 8 or src != gHero[p] then
+        set src = null
+        set tgt = null
+        return
+    endif
+    set n = GetUnitAbilityLevel(src, gSpearAbil)
+    set f = GetUnitAbilityLevel(src, gFireSkill)
+    set hit = dmg * (1.0 + I2R(gFirePct * f) / 100.0)
+    set gDmgLock = true
+    if f > 0 then
+        call UnitDamageTarget(src, tgt, hit - dmg, true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
+    endif
+    if n > 0 then
+        call GroupEnumUnitsInRange(gDmgGroup, GetUnitX(tgt), GetUnitY(tgt), gSpearRange, null)
+        loop
+            set u = FirstOfGroup(gDmgGroup)
+            exitwhen u == null or n <= 0
+            call GroupRemoveUnit(gDmgGroup, u)
+            set o = GetPlayerId(GetOwningPlayer(u))
+            if u != tgt and o >= 8 and o <= 11 and GetWidgetLife(u) > 0.405 then
+                call UnitDamageTarget(src, u, hit, true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
+                if f > 0 then
+                    call DestroyEffect(AddSpecialEffectTarget("Abilities\\Weapons\\FireBallMissile\\FireBallMissile.mdl", u, "chest"))
+                else
+                    call DestroyEffect(AddSpecialEffectTarget("Abilities\\Weapons\\Dryadmissile\\Dryadmissile.mdl", u, "chest"))
+                endif
+                set n = n - 1
+            endif
+        endloop
+        call GroupClear(gDmgGroup)
+    endif
+    set gDmgLock = false
+    set src = null
+    set tgt = null
+    set u = null
+endfunction
+
+function DmgRebuild takes nothing returns nothing
+    local group g = CreateGroup()
+    local rect r = GetWorldBounds()
+    local unit u
+    local integer o
+    if gDmgTrig != null then
+        call DestroyTrigger(gDmgTrig)
+    endif
+    set gDmgTrig = CreateTrigger()
+    call TriggerAddAction(gDmgTrig, function OnDamaged)
+    set gDmgRegs = 0
+    call GroupEnumUnitsInRect(g, r, null)
+    loop
+        set u = FirstOfGroup(g)
+        exitwhen u == null
+        call GroupRemoveUnit(g, u)
+        set o = GetPlayerId(GetOwningPlayer(u))
+        if o >= 8 and o <= 11 and GetWidgetLife(u) > 0.405 then
+            call TriggerRegisterUnitEvent(gDmgTrig, u, EVENT_UNIT_DAMAGED)
+            set gDmgRegs = gDmgRegs + 1
+        endif
+    endloop
+    call DestroyGroup(g)
+    call RemoveRect(r)
+    set g = null
+    set r = null
+endfunction
+
+function OnEnterMap takes nothing returns nothing
+    local integer o = GetPlayerId(GetOwningPlayer(GetTriggerUnit()))
+    if o >= 8 and o <= 11 and gDmgTrig != null then
+        call TriggerRegisterUnitEvent(gDmgTrig, GetTriggerUnit(), EVENT_UNIT_DAMAGED)
+        set gDmgRegs = gDmgRegs + 1
+    endif
+endfunction
+
+function OnHeroSkill takes nothing returns nothing
+    local integer L = GetLearnedSkillLevel()
+    if GetLearnedSkill() == gSwiftSkill and L >= 1 and L <= 5 then
+        call UnitAddAbility(GetTriggerUnit(), gSwiftAbil[L])
+    elseif GetLearnedSkill() == gFireSkill and L == 1 then
+        call UnitAddAbility(GetTriggerUnit(), gFireOrb)
+    endif
+endfunction
+
 function OnTick takes nothing returns nothing
     local integer L = 0
     set gElapsed = gElapsed + 1
+    if gDmgRegs > 3000 then
+        call DmgRebuild()
+    endif
     if gStarted and not gGameOver then
         set gGameTime = gGameTime + 1     // game clock: from the end of champion select, stops at the end
         if ModuloInteger(gGameTime, 60) == 0 then
@@ -2159,6 +2267,8 @@ endfunction
 function InitGame takes nothing returns nothing
     local trigger t
     local integer i = 0
+    local region rg
+    local rect rr
     call InitData()
     set gKingdom = Player(14)
     set gWaveUnits = CreateGroup()
@@ -2264,6 +2374,17 @@ function InitGame takes nothing returns nothing
     set t = CreateTrigger()
     call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_HERO_LEVEL)
     call TriggerAddAction(t, function OnHeroLevel)
+    set t = CreateTrigger()
+    call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_HERO_SKILL)
+    call TriggerAddAction(t, function OnHeroSkill)
+    set rg = CreateRegion()
+    set rr = GetWorldBounds()
+    call RegionAddRect(rg, rr)
+    call RemoveRect(rr)
+    set t = CreateTrigger()
+    call TriggerRegisterEnterRegion(t, rg, null)
+    call TriggerAddAction(t, function OnEnterMap)
+    call DmgRebuild()
     call CreateQuests()
     call TimerStart(CreateTimer(), 0.5, false, function SetupChampionSelect)
     set t = null
