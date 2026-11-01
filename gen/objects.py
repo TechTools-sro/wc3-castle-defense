@@ -193,7 +193,7 @@ EPIC_ITEMS = [
     (1, "Io01", "Xo01", "Champion's Crown", 200, "BTNHelmutPurple"),
     (2, "Io02", "Xo02", "Dark Crown", 400, "BTNHelmOfValor"),
     (3, "Io03", "Xo03", "Frozen Crown", 600, "BTNCirclet"),
-    (4, "Io04", "Xo04", "Shadow Crown", 800, "BTNCrownOfKings"),
+    (4, "Io04", "Xo04", "Shadow Crown", 800, "BTNHoodOfCunning"),
     (5, "Io05", "Xo05", "Inferno Crown", 1000, "BTNHeartOfAszune"),
 ]
 

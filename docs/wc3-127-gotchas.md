@@ -63,6 +63,8 @@
 - Paletted BLP1 = 156-byte header + 256 BGRA palette (alpha byte 0) + per mip [indices][alpha]. The first mip
   offset is exactly 1180. A writer that said 1184 still "worked" for the minimap/loading screen (4-pixel shift),
   but command-button icons with a mip chain became **solid green** (the last mip pointed past the end of the file).
+- An icon path that does not exist also shows as a **solid green** square (Shadow Crown → `BTNCrownOfKings`, which
+  1.27 does not have; Crown of Kings uses `BTNHelmutPurple`). `build.py:check_icons` now fails the build.
 - `war3mapUnits.doo` is ignored (units come from the script). Custom unit ids start lowercase (uppercase = hero).
 
 ## Loading screen

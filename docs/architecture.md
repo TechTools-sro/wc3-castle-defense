@@ -12,7 +12,8 @@
 4. **Data check** `check_script_data`: `InitData` must contain every block in `REQUIRED_SCRIPT_DATA` (Bank, premium,
    dev names, shop pings, gates, rosters, …) — fails the build otherwise.
    **Object check** `check_object_bases`: every custom unit/item/ability must have a real base of its kind
-   (checked against `ref/*.slk`) — fails the build otherwise.
+   (checked against `ref/*.slk`) — fails the build otherwise. **Icon check** `check_icons`: every unit/item icon
+   path (`uico`/`iico`) must exist in the game MPQs or the map.
 5. **Object data**: `war3map.w3u` (units), `war3map.w3t` (items), `war3map.w3a` (abilities: original edits +
    QWER hotkeys + custom), `war3map.w3q` (upgrades: Long Reach), all via `gen/w3files.py`.
 6. **Info + art + constants**: `war3mapMisc.txt` (full [Misc] gameplay constants with `MaxHeroLevel` edited), `war3map.w3i`, minimap `war3mapMap.blp` + `war3map.mmp`, `war3mapPreview.tga`

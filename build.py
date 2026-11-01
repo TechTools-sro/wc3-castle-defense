@@ -30,7 +30,7 @@ GAME_DIR = os.environ.get("WC3_DIR", "/home/novakj/games/warcraft3")
 TEST = "--test" in sys.argv
 # VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
 # map name (game list, lobby, loading screen), the file name and the catalogue title.
-MAP_VERSION = "2.3"
+MAP_VERSION = "2.4"
 MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
@@ -823,6 +823,26 @@ def check_script_data(script):
         sys.exit("InitData is missing: " + ", ".join(missing))
 
 
+def check_icons(game, files):
+    """Every icon path in our object data must exist in the game MPQs or in the map itself. A missing one shows as
+    a plain GREEN square in game (Shadow Crown pointed at a non-existent BTNCrownOfKings, 2026-11-01)."""
+    paths = set()
+    for tables in ((OB.custom_units(), OB.original_unit_mods()), (OB.custom_items(), OB.original_item_mods())):
+        for objs in tables:
+            for obj in objs:
+                for m in obj[-1]:
+                    if m[0] in ("iico", "uico") and m[-1]:
+                        paths.add(m[-1])
+    missing = []
+    for p in sorted(paths):
+        if p in files:
+            continue
+        if not game.read(p):            # GameData.read returns None for a missing file
+            missing.append(p)
+    if missing:
+        sys.exit("Icons not found in the game or the map: " + ", ".join(missing))
+
+
 def check_object_bases():
     """Every custom object must be based on a REAL object of its kind. An item based on an ability id built fine
     and then crashed the game right after the loading screen (2026-10-31), so this fails the build instead."""
@@ -881,6 +901,7 @@ def main():
     game = GameData(GAME_DIR)
     files.update(IC.stat_icons(game))                          # Str / Agi / Int shop icons
     files["war3mapMisc.txt"] = misc_constants(game)            # gameplay constants: hero max level
+    check_icons(game, files)
     out = os.path.join(ROOT, "dist", MAP_FILE)
     # header 'max players' = HUMAN slots only (Legion TD: 8 humans + 2 computers -> 8). Writing 12 here
     # made the lobby treat the 4 invader computers as open, editable slots.

@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.4 — 2026-11-01: Shadow Crown icon
+
+- **Uploaded as catalogue map #29** (HTTP 201, download SHA-256 `054c3457…` matches).
+
+- Jiří (screenshot): the Shadow Crown (Level 4 EPIC drop) showed a green square. Its icon `BTNCrownOfKings` does not
+  exist in 1.27 → now `BTNHoodOfCunning` (`EPIC_ITEMS`). New `check_icons()` in `build.py` fails the build when any
+  unit/item icon is missing from the game MPQs and the map (verified: it rejects the old path, passes the new one).
+  Not tried in-game.
+
 ## v2.3 — 2026-11-01: tower HP ÷ 6
 
 - **Uploaded as catalogue map #28** (HTTP 201, download SHA-256 `870ae576…` matches).
