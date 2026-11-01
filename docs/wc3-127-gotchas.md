@@ -33,6 +33,13 @@
   inventory slots** (1 potion order = 2 slots; a merge sweep then deleted it; 1 premium buy counted as 2 levels).
   `OnItemSold` only queues the item; `PendingTick` (0.2 s) hands over what is still on the ground and not owned
   (`IsItemOwned`). Merges (`MergePremium`, `MergePotions`) run in the 0.2 s `GrabTick` sweep and skip `ib == ia`.
+- A neutral shop **refuses a normal item when the buyer's inventory is full** (6 items), even one that would stack;
+  a **power-up** is still sold (verified in-game, v3.4) → potions are sold as power-up tokens (`GivePotion`).
+- A neutral shop sells to the player's **closest unit with an inventory** — in the self-test, extra heroes of the
+  same player took the purchases (so test champions belong to an empty slot, player 2). With the champion dead and no
+  other inventory unit the order is refused (nothing paid). Right after `ReviveHero` shop orders are refused for ~1 s.
+- The Preload file writer (`PreloadGenEnd("TestResults\\x.txt")`) writes under
+  `<game>/CustomMapData/` (`CustomMapData/TestResults/cd_test.txt`), not the game root.
 - A player buys from an allied player's shop through `Aall` (Shop Sharing); its `Neu1`/`aran` set the radius.
 - Tavern heroes: `usst` = 0 or they unlock only after 120–135 s; `ureq` = "" or the Altar (`TALT`) requirement
   greys out the neutral tavern; a scripted tavern buy needs ~2 s after the buyer unit is placed.

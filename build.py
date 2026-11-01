@@ -30,7 +30,7 @@ GAME_DIR = os.environ.get("WC3_DIR", "/home/novakj/games/warcraft3")
 TEST = "--test" in sys.argv
 # VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
 # map name (game list, lobby, loading screen), the file name and the catalogue title.
-MAP_VERSION = "3.3"
+MAP_VERSION = "3.4"
 MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
@@ -303,7 +303,8 @@ globals
     integer array gGateTintB
     integer array gStageUnit
     integer gFrontBase = 4
-    integer gBackDiv = 2
+    integer gBackPer = 1
+    integer gFrontPer = 2
     integer gFrontMax = 30
     integer gBackMax = 15
     integer array gWaveChamp
@@ -330,6 +331,8 @@ globals
     integer array gPotHp
     integer array gPotMp
     integer gPotCount = 0
+    integer array gPotToken
+    integer array gPotPrice
     trigger gDmgTrig = null
     integer gDmgRegs = 0
     boolean gDmgLock = false
@@ -338,7 +341,22 @@ globals
     integer gSwiftSkill = 0
     integer gFireSkill = 0
     integer array gSwiftAbil
-    integer gFirePct = 20
+    integer array gChampType
+    integer array gChampCleave
+    integer gChampN = 0
+    integer array gSkAbil
+    integer array gSkKind
+    integer array gSkPct
+    real array gSkRad
+    string array gSkFx
+    integer gSkN = 0
+    real gCleaveRad = 250.0
+    unit array gAtkTarget
+    integer array gHitCount
+    integer array gTestAoe
+    integer array gTestBonus
+    integer array gTestEv
+    integer array gTestPrim
     real gSpearRange = 600.0
     integer gSpearDummy = 0
     integer gFireDummy = 0
@@ -443,6 +461,13 @@ globals
     integer gTestFireHits = 0
     integer gTestLvl = 0
     integer gTestNext = 0
+    unit array gTestChamp
+    boolean gTestHold = false
+    integer gTestEdgeT = 0
+    integer gTestGold = 0
+    integer gTestKills = 0
+    integer gTestSpawned = 0
+    boolean gTestDeadOrder = false
     player gKingdom = null
     integer gWave = 0
     integer gElapsed = 0
@@ -561,8 +586,10 @@ def build_script():
     a(f"    set gReachMax = {OB.REACH_LEVELS}")
     a(f"    set gReachStep = {OB.REACH_STEP}")
     a(f"    set gReachPrice = {OB.REACH_PRICE}")
-    for i, (iid, _n, _e, _g, hp, mp, *_r) in enumerate(OB.POTIONS):
+    for i, (iid, _n, _e, gold, hp, mp, *_r) in enumerate(OB.POTIONS):
         a(f"    set gPotItem[{i}] = '{iid}'")
+        a(f"    set gPotToken[{i}] = '{OB.POTION_TOKENS[i]}'")
+        a(f"    set gPotPrice[{i}] = {gold}")
         a(f"    set gPotHp[{i}] = {hp}")
         a(f"    set gPotMp[{i}] = {mp}")
     a(f"    set gPotCount = {len(OB.POTIONS)}")
@@ -571,7 +598,18 @@ def build_script():
     a(f"    set gFireSkill = '{OB.DRYAD_SKILLS[2][0]}'")
     for lv, aid in enumerate(OB.SWIFT_ABILS, start=1):     # (not "L": that is the script's line list here)
         a(f"    set gSwiftAbil[{lv}] = '{aid}'")
-    a(f"    set gFirePct = {OB.FIRE_PCT}")
+    for c, (h, cleave, _skills) in enumerate(OB.ALL_CHAMPIONS):
+        a(f"    set gChampType[{c}] = '{h}'")
+        a(f"    set gChampCleave[{c}] = {cleave}")
+    a(f"    set gChampN = {len(OB.ALL_CHAMPIONS)}")
+    for k, (aid, _n, _key, _icon, kind, pct, rad, fx) in enumerate(OB.ALL_SKILLS):
+        a(f"    set gSkAbil[{k}] = '{aid}'")
+        a(f"    set gSkKind[{k}] = {OB.SKILL_KIND[kind]}")
+        a(f"    set gSkPct[{k}] = {pct}")
+        a(f"    set gSkRad[{k}] = {jr(rad)}")
+        a(f"    set gSkFx[{k}] = {jstr(OB.FX[fx])}")
+    a(f"    set gSkN = {len(OB.ALL_SKILLS)}")
+    a(f"    set gCleaveRad = {jr(OB.CLEAVE_RAD)}")
     a(f"    set gSpearRange = {jr(OB.SPEAR_RANGE)}")
     a(f"    set gSpearDummy = '{OB.SPEAR_DUMMY}'")
     a(f"    set gFireDummy = '{OB.FIRE_DUMMY}'")
@@ -625,7 +663,8 @@ def build_script():
             a(f"    set gStageUnit[{d * 6 + st * 2}] = '{OB.wave_unit_id(d, st, False)}'")
             a(f"    set gStageUnit[{d * 6 + st * 2 + 1}] = '{OB.wave_unit_id(d, st, True)}'")
     a(f"    set gFrontBase = {OB.WAVE_FRONT_BASE}")
-    a(f"    set gBackDiv = {OB.WAVE_BACK_DIV}")
+    a(f"    set gFrontPer = {OB.WAVE_FRONT_PER}")
+    a(f"    set gBackPer = {OB.WAVE_BACK_PER}")
     a(f"    set gFrontMax = {OB.WAVE_FRONT_MAX}")
     a(f"    set gBackMax = {OB.WAVE_BACK_MAX}")
     for d in range(4 + len(OB.GATE_LEVELS)):
@@ -850,7 +889,8 @@ def misc_constants(game):
 REQUIRED_SCRIPT_DATA = ["set gBankItem = ", "set gIncomeStep = ", "set gPremItem[1] = ", "set gPremCount = ",
                         "set gShopFxCount = ", "set gDevCount = ", "set gAttrPerLevel = ", "set gReachItem = ",
                         "set gGateState[11] = ", "set gStageUnit[0] = ", "set gEpicItem[5] = ", "set gStatItem[0] = ", "set gHeroPool[0] = ",
-                        "set gPotCount = ", "set gSpearAbil = ", "set gSwiftAbil[5] = ", "set gSpearDummy = "]
+                        "set gPotCount = ", "set gSpearAbil = ", "set gSwiftAbil[5] = ", "set gSpearDummy = ",
+                        "set gChampN = ", "set gSkN = "]
 
 
 def check_script_data(script):

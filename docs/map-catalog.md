@@ -11,8 +11,8 @@ ruins, then fight through the four shared **gate levels** (2–5). **Win** when 
 
 ## How a round goes
 
-1. **Champion select (45 s):** click the **Dryad** in the Hall of Champions — everyone plays her, free. No walking
-   needed.
+1. **Champion select (45 s):** click a champion in the Hall of Champions — 7 champions, free, several players may
+   pick the same one. No walking needed.
 2. **Your lane:** your champion spawns and revives on your Champion's Circle at your lane entrance.
 3. **Waves:** the next wave comes 10 s after every monster is dead; after every 5th wave there is a **2-minute
    shopping break**. Each cleared wave pays every player `50 + 50 × wave` gold and **1 tree**.
@@ -23,7 +23,7 @@ ruins, then fight through the four shared **gate levels** (2–5). **Win** when 
 5. **Monsters:** melee 200 HP / 30 damage, ranged 120 HP / 60 damage; ×2 after your tower falls, ×3 in the boss
    stage. **Kill gold:** a minion pays as much gold as the wave number (wave 5 → 5 gold), double on Level 2, triple on
    Level 3.
-6. **Wave size:** front line (melee) = 4 + wave, back line (ranged) = +1 every 2 waves. Every 10th wave adds
+6. **Wave size:** front line (melee) = 4 + 2 per wave, back line (ranged) = +1 per wave (max 40 + 20 per lane). Every 10th wave adds
    weakened champions (1 at wave 10, 2 at wave 20, ...).
 7. **Level 2 — the Dark Gate (NE):** opens when the first player destroys a Nexus. A shared lane with a stronger
    tower and Nexus; its monsters pay extra gold per kill.
@@ -41,7 +41,7 @@ ruins, then fight through the four shared **gate levels** (2–5). **Win** when 
 - **Secret grove** (narrow passage at the SE corner of the plaza; its shops sell to your champion anywhere on the
   map — just select the shop): Fountain of Power (fast HP + mana),
   **Premium Armory** (1000 gold: lifesteal, attack speed, critical strike, bash, evasion, boots, regeneration,
-  mana regeneration — buy the same item again to upgrade it, up to Lv 5), **Bank** (1 tree = +10 gold income every minute), **Apothecary** (potions heal % of max and stack in one slot: Healing 50 % HP and Mana 50 % mana for 100 gold, Restoration full HP + mana for 250, Invulnerability 200; staff of teleportation).
+  mana regeneration — buy the same item again to upgrade it, up to Lv 5), **Bank** (1 tree = +10 gold income every minute), **Apothecary** (potions heal % of max and stack in one slot — even with a full inventory: Healing 50 % HP and Mana 50 % mana for 100 gold, Restoration full HP + mana for 250, Invulnerability 200; staff of teleportation).
 
 ## EPIC loot
 
@@ -54,8 +54,12 @@ bosses.
 - Hero level is practically unlimited. After level 10 (spells maxed) skill points go into **Attributes**
   (learn key T): +10 Strength, Agility and Intelligence per level.
 - All heroes, melee too, can attack flying units.
-- The **Dryad** throws spears. **Q Extra Spear**: +1 spear per level at another enemy, full damage. **W Swift
-  Throw**: +20 % attack speed per level. **E Fire Spears**: +20 % fire damage on every hit per level. 5 levels each.
+- **7 champions**, every skill passive (Q W E, 5 levels each):
+  - **Dryad** — spears: Extra Spear (+1 flying spear per level), Swift Throw (attack speed), Fire Spears (+damage).
+  - **Mountain King**, **Tauren Chieftain**, **Pit Lord** — melee with **cleave** on every hit.
+  - **Archmage**, **Lich** — ranged **splash**. **Far Seer** — lightning **bounces** to 4 enemies.
+  - Their skills: **blast** (every hit damages enemies around the target), **nova** (every 3rd hit, a big area),
+    **bonus** (+damage), **speed** (+attack speed) — built to clear the big waves.
 
 ## Commands
 

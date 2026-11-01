@@ -1,5 +1,29 @@
 # Changelog
 
+## v3.4 — 2026-11-01: 6 AoE champions, bigger waves, potions sold as power-ups
+
+- **Uploaded as catalogue map #71** (HTTP 201, download SHA-256 `08169b93…` matches; 22 versions in the family).
+
+- Jiří (goal): add 6 champions with AoE attacks that clean the big waves; waves +2 melee and +1 ranged per wave.
+- **Champions (7 in the hall):** the Dryad + Mountain King, Tauren Chieftain, Pit Lord (melee, innate cleave 30 / 30 /
+  40 %), Archmage, Lich (ranged splash missile), Far Seer (bounce to 4). Each has 3 passive skills (5 levels, `AEev`
+  level holders, `AOE_CHAMPIONS` in `gen/objects.py`) of 4 kinds: bonus +20 %/lvl, blast (every hit, 20 %/lvl within
+  300 of the target), nova (every 3rd hit, 40 %/lvl within 450), speed +20 %/lvl. One generic engine in the script
+  (`ChampIndex`, `ChampBonusPct`, `AoeDamage`, `OnDamaged`, `OnAttacked`, `OnHeroSkill`; tables `gChamp*` / `gSk*`);
+  effects run on the PRIMARY hit only (`gAtkTarget`), so native splash / bounce never multiplies them.
+- **Waves:** front = 4 + 2 × wave, back = 1 × wave (`WAVE_FRONT_PER` / `WAVE_BACK_PER`), caps 30/15 → 40/20 per lane.
+- **Potions:** the Apothecary now sells power-up tokens `Ipo1`–`Ipo4`: +1 charge on the carried potion, or a new potion
+  in a free slot, or a refund (`GivePotion`). In-game finding: a shop refuses normal items to a full inventory but sells
+  power-ups — so potions now stack even with 6 items.
+- **Verified in-game (Wine, full self-test, all PASS, no crash):** wave 1 = 6 + 1, wave 2 = 8 + 2; all 7 champions in the
+  hall (screenshot); each AoE champion: hits, AoE effects (MK 8, TC 21, PL 9, AM 2, Lich 8, FS 8 in the window),
+  ranged native splash/bounce > primary hits (29/6, 18/6, 21/6), bonus only where a bonus skill exists, speed skills add
+  hidden attack speed; Dryad: Extra Spear 5, 17 spear hits, Swift Throw, bonus; potions 1 slot × 2; premium Lv 1 → Lv 5;
+  6th Fang at Lv 5 merged away with +1000 refund; Fury Gloves stay separate; XP +1 level; dead circle buy steps the price
+  and is applied after the revive; remote buy while dead refused with no gold taken; full inventory: Healing Potion
+  stacks to 3, a new potion type refunds; drinking heals 50 % and keeps the stack; **stress:** 4 × 60 wave-20 monsters
+  on one lane, 182 killed in 19 s, game kept running; victory after every boss and all 4 gates.
+
 ## v3.3 — 2026-11-01: premium stock 5, the double-slot shop bug, an in-game self-test
 
 - **Uploaded as catalogue map #35** (HTTP 201 — the first upload past 20 a day, thanks to techtools-4 `9b1d3cc0`; download SHA-256 `53e1fdd5…` matches). Carries v3.0–v3.2 too.

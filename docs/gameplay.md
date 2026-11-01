@@ -16,24 +16,30 @@ Invader of arm `d` = Player(8 + d): 0 North **The Scourge**, 1 East **The Burnin
 
 ## Round flow
 
-1. **Champion select** (45 s, `SELECT_TIME`). Camera on the Hall of Champions: **one** tavern, **one champion — the
-   Dryad** (`DRYAD_ID` = `Edry`, custom hero on the Priestess of the Moon with the Dryad model and spear missile,
-   `dryad_hero()` in `gen/objects.py`; the spear flies slow and high so it is visible even at short range:
-   `DRYAD_MISSILE_SPEED` 450 / arc 0.25, the base hero has 900 / 0.15). Every player plays her (stock 8). An invisible helper unit does the buying
-   (no walking). A big gold **"Select a Champion"** floats over the hall for players who haven't picked. Time out →
-   she is picked for you.
+1. **Champion select** (45 s, `SELECT_TIME`). Camera on the Hall of Champions: **one** tavern with **7 champions**
+   (`TAVERNS`; stock 8 each, so several players may pick the same one). An invisible helper unit does the buying (no
+   walking). A big gold **"Select a Champion"** floats over the hall for players who haven't picked. Time out → a
+   random champion (untaken first). Every champion has 3 passive skills on **Q W E** (5 levels each, `AEev` copies with
+   0 % evasion = level holders) + **Attributes** on T; the script does every effect.
 
-   | Key | Skill (5 levels, `DRYAD_SKILLS`) | Per level | How |
-   |---|---|---|---|
-   | Q | Extra Spear (`Xesp`) | +1 spear at another enemy within 600 of the target, full damage (+ fire bonus) — the spears **fly together** with her own (one per level; dummy damage point 0.3 s = hers); with too few other enemies the spare spears hit the main target | `OnAttacked` spawns invisible locust dummies `dspr`/`dspf` (fire) that attack once; their hit → `OnDamaged` deals the champion's last hit (`gLastHit`) |
-   | W | Swift Throw (`Xswt`) | +20 % attack speed | `OnHeroSkill` adds hidden `Xsw1`–`Xsw5` (AIsx copies) |
-   | E | Fire Spears (`Xfsp`) | +20 % of every hit as extra fire damage (fire burst on the target; **no splash**) | `OnDamaged` |
-   | T | Attributes (`Xatt`) | +10 all stats, from hero level 11 | |
+   | Champion | Attack | Q | W | E |
+   |---|---|---|---|---|
+   | **Dryad** (`Edry`, custom: Priestess base, Dryad model, slow high spear 450 / arc 0.25) | ranged, single target | Extra Spear: +1 **flying** spear per level at another enemy (full damage; spare spears hit the target) | Swift Throw: speed | Fire Spears: bonus (fire) |
+   | **Mountain King** (`Hmkg`) | melee, innate **cleave 30 %** | Thunder Clap: nova | Storm Hammer: bonus | Battle Fury: speed |
+   | **Tauren Chieftain** (`Otch`) | melee, innate **cleave 30 %** | Shockwave: blast | War Stomp: nova | Endurance: speed |
+   | **Pit Lord** (`Nplh`) | melee, innate **cleave 40 %** | Rain of Fire: nova | Howl of Terror: bonus | Doom Strike: blast |
+   | **Archmage** (`Hamg`) | ranged **splash** (100 / 200 / 300, 60 % / 30 %) | Blizzard: nova | Arcane Power: bonus | Brilliance: speed |
+   | **Lich** (`Ulic`) | ranged **splash** | Frost Nova: blast | Death and Decay: nova | Dark Ritual: bonus |
+   | **Far Seer** (`Ofar`) | ranged **bounce** to 4 enemies (−20 % per jump) | Chain Lightning: blast | Earthquake: nova | Spirit Wolf: speed |
 
-   The 3 skills are passive `AEev` copies with 0 % evasion (level holders only). 1.27 has no generic damage event:
-   every enemy unit (players 8–11) is registered on `gDmgTrig` when it enters the map (`OnEnterMap`), and
-   `DmgRebuild` starts a fresh trigger past 3000 registrations (`OnTick`). Extra damage is chaos/universal (no
-   second armour reduction); `gDmgLock` stops it from re-triggering.
+   Skill kinds (`SKILL_KIND`, per level): **bonus** +20 % of every hit as extra damage on the target · **blast** every
+   hit 20 % of it to every enemy within 300 of the target · **nova** every 3rd hit 40 % of it to the target and every
+   enemy within 450 · **speed** +20 % attack speed (`OnHeroSkill` adds hidden `Xsw1`–`Xsw5`). Innate cleave hits
+   enemies within 250 of the target. Effects use the champion's **primary** hit only — the unit it started the attack
+   on (`gAtkTarget`, set in `OnAttacked`) — never splash / bounce victims or our own damage (`gDmgLock`), so AoE never
+   multiplies. 1.27 has no generic damage event: every enemy unit (players 8–11) is registered on `gDmgTrig` when it
+   enters the map (`OnEnterMap`); `DmgRebuild` starts a fresh trigger past 3000 registrations (`OnTick`). Extra damage
+   is chaos/universal (no second armour reduction).
 2. **Start.** Hero appears on the player's **Champion's Circle** (lane entrance), lane hint (coloured circle,
    floating "Name's lane", minimap ping). One message: "Defend your lane! -help = commands".
    Starting gold **1000** (`SetupChampionSelect`).
@@ -62,8 +68,8 @@ Standardized: the **lane stage picks the unit types**, the wave number only adds
 | 2 | Nexus destroyed, boss alive | the ruins | stage-2 pair (strongest) |
 | — | boss slain | — | the lane stops |
 
-- **Front line** (melee) = `4 + wave` (wave 1 → 5, +1 per wave, max 30). **Back line** (ranged) = `wave / 2`
-  (+1 every 2 waves, max 15). Every 10th wave adds **wave/10 weakened champions** per lane (800 HP, armor 2, 30+1d8, normal size; `nc{d}0`,
+- **Front line** (melee) = `4 + 2 × wave` (wave 1 → 6, +2 per wave, max 40). **Back line** (ranged) = `wave`
+  (+1 per wave, max 20) — `WAVE_FRONT_PER` / `WAVE_BACK_PER`, `WAVE_FRONT_MAX` / `WAVE_BACK_MAX`. Every 10th wave adds **wave/10 weakened champions** per lane (800 HP, armor 2, 30+1d8, normal size; `nc{d}0`,
   `WAVE_CHAMP_*`), announced one wave before. Constants `WAVE_*` in `gen/objects.py`.
 - **Standardized unit stats** (`WAVE_*` in `gen/objects.py`): melee 200 HP / 30 damage, ranged 120 HP / 60 damage;
   stage 1 ×2, stage 2 ×3. Each faction/stage only changes the model (`stages` = model units; the spawned types are
@@ -195,7 +201,10 @@ anywhere on the map (`Aneu` radius 20 000). Bought items go straight into his in
 
 - **Long Reach** — **not sold since v2.6** (the only champion, the Dryad, is ranged). The code stays (`REACH_*`,
   `TryReach`: +150 attack range once, melee champions only, ranged buyers refunded) for a future melee champion.
-- **Apothecary** (`SHOPS["apothecary"]`, stock 8, restock 10 s): potions heal a **percent** of max, fixed price, and
+- **Apothecary** (`SHOPS["apothecary"]`, stock 8, restock 10 s): potions are sold as **power-up tokens** `Ipo1`–`Ipo4`
+  (`POTION_TOKENS`; a power-up is sold even to a full inventory, a normal item is refused). A token adds **one charge**
+  to the potion the champion carries, or puts the potion into a free slot, or refunds when the inventory is full and
+  holds no such potion (`GivePotion`, from `OnItemSold` / `OnItemPickup`). Potions heal a **percent** of max, fixed price, and
   **stack** in the inventory (one slot, more charges) — `POTIONS`, script `PotionIndex` / `StackPotion` (on buy and
   pickup) / `MergePotions` (every 0.2 s from `GrabTick`: same-type potions in two slots merge into the first) / `DrinkPotion` (on use; the native fixed heal of `AIh1`/`AIm1`/`AIre` is zeroed):
   Healing Potion 50 % HP 100 gold (10 s cooldown), Mana Potion 50 % mana 100 gold (10 s), Restoration Potion

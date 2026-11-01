@@ -113,9 +113,10 @@ def gate_dmg_abil(lane):
 
 
 # Wave size (same for every lane and stage): front line = melee, back line = ranged.
-WAVE_FRONT_BASE = 4          # front = 4 + wave  (wave 1 -> 5, +1 per wave)
-WAVE_BACK_DIV = 2            # back  = wave / 2  (+1 every 2 waves)
-WAVE_FRONT_MAX, WAVE_BACK_MAX = 30, 15     # per lane, keeps the lanes playable late
+WAVE_FRONT_BASE = 4          # front = 4 + 2 x wave  (wave 1 -> 6)      v3.4, Jiri: +2 melee per wave (was +1)
+WAVE_FRONT_PER = 2
+WAVE_BACK_PER = 1            # back  = 1 x wave      (wave 1 -> 1)      v3.4, Jiri: +1 ranged per wave (was +1 / 2 waves)
+WAVE_FRONT_MAX, WAVE_BACK_MAX = 40, 20     # per lane, keeps the lanes playable late (was 30 / 15)
 # Champions join every 10th wave: wave 10 -> 1, wave 20 -> 2, ... per lane, as weakened copies (nc{d}0).
 WAVE_CHAMP_EVERY = 10
 WAVE_CHAMP_HP, WAVE_CHAMP_ARMOR, WAVE_CHAMP_DMG, WAVE_CHAMP_SCALE = 800, 2, (30, 1, 8), 1.0
@@ -125,21 +126,88 @@ WAVE_CHAMP_HP, WAVE_CHAMP_ARMOR, WAVE_CHAMP_DMG, WAVE_CHAMP_SCALE = 800, 2, (30,
 # copies with 0 % evasion); the map script does the effects (gen/castle_logic.j: OnDamaged, OnHeroSkill):
 #   Q Extra Spear  : +1 spear per level at another enemy near the target, full damage (+ fire bonus)
 #   W Swift Throw  : +SWIFT_STEP attack speed per level (hidden item-bonus copies of AIsx, one per level)
-#   E Fire Spears  : +FIRE_PCT % of every hit as extra fire damage per level (fire burst on the target, no splash)
+#   E Fire Spears  : +20 % of every hit as extra fire damage per level (skill kind bonus, fire burst on the target)
 DRYAD_ID = "Edry"
-DRYAD_SKILLS = [      # (id, name, key, icon, tip(level), research text)
-    ("Xesp", "Extra Spear", "Q", "BTNEnvenomedSpear",
-     lambda L: f"+{L} extra spear{'s' if L > 1 else ''} per throw, full damage",
-     "Each level: +1 extra spear at another enemy, full damage."),
-    ("Xswt", "Swift Throw", "W", "BTNBerserkForTrolls",
-     lambda L: f"+{20 * L}% attack speed", "Each level: +20% attack speed."),
-    ("Xfsp", "Fire Spears", "E", "BTNSearingArrows",
-     lambda L: f"+{20 * L}% fire damage on every hit", "Each level: +20% fire damage on every hit."),
+# Skill kinds (all passive level holders; the script does the effect on the champion's PRIMARY hit, OnDamaged):
+#   bonus  = +pct % per level of every hit as extra damage on the target
+#   blast  = every hit: pct % per level of the hit to every enemy within rad of the target
+#   nova   = every 3rd hit: pct % per level of the hit to every enemy within rad of the target (big area)
+#   spears = the Dryad's extra flying spears (OnAttacked);  speed = +20 % attack speed per level (hidden AIsx)
+SKILL_KIND = {"bonus": 1, "blast": 2, "nova": 3, "spears": 4, "speed": 5}
+FX = {"fire": "Abilities\\Weapons\\FireBallMissile\\FireBallMissile.mdl",
+      "thunder": "Abilities\\Spells\\Human\\Thunderclap\\ThunderClapCaster.mdl",
+      "stomp": "Abilities\\Spells\\Orc\\WarStomp\\WarStompCaster.mdl",
+      "dust": "Objects\\Spawnmodels\\Undead\\ImpaleTargetDust\\ImpaleTargetDust.mdl",
+      "bolt": "Abilities\\Weapons\\Bolt\\BoltImpact.mdl",
+      "rainfire": "Abilities\\Spells\\Demon\\RainOfFire\\RainOfFireTarget.mdl",
+      "doom": "Abilities\\Spells\\Other\\Incinerate\\FireLordDeathExplode.mdl",
+      "blizzard": "Abilities\\Spells\\Human\\Blizzard\\BlizzardTarget.mdl",
+      "arcane": "Abilities\\Weapons\\SorceressMissile\\SorceressMissile.mdl",
+      "frost": "Abilities\\Spells\\Undead\\FrostNova\\FrostNovaTarget.mdl",
+      "decay": "Abilities\\Spells\\Undead\\DeathandDecay\\DeathandDecayTarget.mdl",
+      "chain": "Abilities\\Weapons\\FarseerMissile\\FarseerMissile.mdl",
+      "quake": "Abilities\\Spells\\Orc\\EarthQuake\\EarthQuakeTarget.mdl", "": ""}
+BLAST_RAD, NOVA_RAD, CLEAVE_RAD = 300, 450, 250
+#   skills: (id, name, key, icon, kind, pct per level, radius, fx key)
+DRYAD_SKILLS = [
+    ("Xesp", "Extra Spear", "Q", "BTNEnvenomedSpear", "spears", 0, 0, ""),
+    ("Xswt", "Swift Throw", "W", "BTNBerserkForTrolls", "speed", 20, 0, ""),
+    ("Xfsp", "Fire Spears", "E", "BTNSearingArrows", "bonus", 20, 0, "fire"),
 ]
+# v3.4 (Jiri): 6 more champions built to clear the big waves - every attack hits an AREA from level 1
+# (melee: innate cleave; ranged: splash / bounce missiles), and their skills scale the area damage.
+#   (hero, attack, innate cleave %, tavern button, tooltip, skills)
+AOE_CHAMPIONS = [
+    ("Hmkg", "melee", 30, (1, 0), "Melee AoE: cleave on every hit. |cffffcc00Q|r Thunder Clap, |cffffcc00W|r Storm Hammer, |cffffcc00E|r Battle Fury.", [
+        ("Xz1q", "Thunder Clap", "Q", "BTNThunderclap", "nova", 40, NOVA_RAD, "thunder"),
+        ("Xz1w", "Storm Hammer", "W", "BTNStormBolt", "bonus", 20, 0, "bolt"),
+        ("Xz1e", "Battle Fury", "E", "BTNBash", "speed", 20, 0, "")]),
+    ("Otch", "melee", 30, (2, 0), "Melee AoE: cleave on every hit. |cffffcc00Q|r Shockwave, |cffffcc00W|r War Stomp, |cffffcc00E|r Endurance.", [
+        ("Xz2q", "Shockwave", "Q", "BTNShockWave", "blast", 20, BLAST_RAD, "dust"),
+        ("Xz2w", "War Stomp", "W", "BTNWarStomp", "nova", 40, NOVA_RAD, "stomp"),
+        ("Xz2e", "Endurance", "E", "BTNCommand", "speed", 20, 0, "")]),
+    ("Nplh", "melee", 40, (3, 0), "Melee AoE: big cleave on every hit. |cffffcc00Q|r Rain of Fire, |cffffcc00W|r Howl, |cffffcc00E|r Doom Strike.", [
+        ("Xz3q", "Rain of Fire", "Q", "BTNFire", "nova", 40, NOVA_RAD, "rainfire"),
+        ("Xz3w", "Howl of Terror", "W", "BTNHowlOfTerror", "bonus", 20, 0, ""),
+        ("Xz3e", "Doom Strike", "E", "BTNDoom", "blast", 20, BLAST_RAD, "doom")]),
+    ("Hamg", "splash", 0, (0, 1), "Ranged AoE: splash bolts. |cffffcc00Q|r Blizzard, |cffffcc00W|r Arcane Power, |cffffcc00E|r Brilliance.", [
+        ("Xz4q", "Blizzard", "Q", "BTNBlizzard", "nova", 40, NOVA_RAD, "blizzard"),
+        ("Xz4w", "Arcane Power", "W", "BTNStarfall", "bonus", 20, 0, "arcane"),
+        ("Xz4e", "Brilliance", "E", "BTNBrilliance", "speed", 20, 0, "")]),
+    ("Ulic", "splash", 0, (1, 1), "Ranged AoE: splash frost bolts. |cffffcc00Q|r Frost Nova, |cffffcc00W|r Death and Decay, |cffffcc00E|r Dark Ritual.", [
+        ("Xz5q", "Frost Nova", "Q", "BTNGlacier", "blast", 20, BLAST_RAD, "frost"),
+        ("Xz5w", "Death and Decay", "W", "BTNDeathAndDecay", "nova", 40, NOVA_RAD, "decay"),
+        ("Xz5e", "Dark Ritual", "E", "BTNDarkRitual", "bonus", 20, 0, "")]),
+    ("Ofar", "bounce", 0, (2, 1), "Ranged AoE: lightning jumps to 4 enemies. |cffffcc00Q|r Chain Lightning, |cffffcc00W|r Earthquake, |cffffcc00E|r Spirit Wolf.", [
+        ("Xz6q", "Chain Lightning", "Q", "BTNChainLightning", "blast", 20, BLAST_RAD, "chain"),
+        ("Xz6w", "Earthquake", "W", "BTNEarthquake", "nova", 40, NOVA_RAD, "quake"),
+        ("Xz6e", "Spirit Wolf", "E", "BTNSpiritWolf", "speed", 20, 0, "")]),
+]
+SPLASH_TARGETS = "ground,air,structure,enemy"
+CHAMP_SPLASH = [("ua1w", S, "msplash"), ("ua1f", I, 100), ("ua1h", I, 200), ("ua1q", I, 300),
+                ("uhd1", U, 0.6), ("uqd1", U, 0.3), ("ua1p", S, SPLASH_TARGETS)]
+CHAMP_BOUNCE = [("ua1w", S, "mbounce"), ("utc1", I, 4), ("udl1", U, 0.2), ("ua1f", I, 450), ("ua1p", S, SPLASH_TARGETS)]
+# every champion: (hero id, innate cleave %, skills) - the script's tables (gChamp*, gSk*)
+ALL_CHAMPIONS = [("Edry", 0, None)] + [(h, cl, sk) for (h, _a, cl, _b, _t, sk) in AOE_CHAMPIONS]
+
+
+def skill_tip(kind, pct, L):
+    return {"bonus": f"+{pct * L}% damage on every hit",
+            "blast": f"Every hit: {pct * L}% damage to enemies around the target",
+            "nova": f"Every 3rd hit: {pct * L}% damage in a big area",
+            "speed": f"+{pct * L}% attack speed",
+            "spears": f"+{L} extra spear{'s' if L > 1 else ''} per throw, full damage"}[kind]
+
+
+def skill_research(kind, pct):
+    return {"bonus": f"Each level: +{pct}% damage on every hit.",
+            "blast": f"Each level: +{pct}% damage to enemies around the target, every hit.",
+            "nova": f"Each level: +{pct}% damage in a big area, every 3rd hit.",
+            "speed": f"Each level: +{pct}% attack speed.",
+            "spears": "Each level: +1 extra spear at another enemy, full damage."}[kind]
 DRYAD_SKILL_LEVELS = 5
 SWIFT_STEP = 0.20
 SWIFT_ABILS = [f"Xsw{L}" for L in range(1, DRYAD_SKILL_LEVELS + 1)]     # AIsx copies, +20 % each (they stack)
-FIRE_PCT = 20
 # (v3.2: no fire orb any more - Orb of Fire gives attacks SPLASH, Jiri wants none; the fire is a burst effect on hit)
 DRYAD_MISSILE_SPEED, DRYAD_MISSILE_ARC = 450, 0.25
 # Extra spears FLY (Jiri: the number of spears must be visible): each one is an invisible locust dummy that attacks once
@@ -147,8 +215,10 @@ DRYAD_MISSILE_SPEED, DRYAD_MISSILE_ARC = 450, 0.25
 SPEAR_DUMMY, FIRE_DUMMY = "dspr", "dspf"
 DRYAD_DAMAGE_POINT = 0.3     # her attack releases the spear 0.3 s in: the dummies wait the same, so all spears fly together
 SPEAR_RANGE = 600.0          # extra spears hit enemies within this distance of the main target
-TAVERNS = [("tvc0", "Hall of Champions", [DRYAD_ID])]
-ALL_HEROES = [DRYAD_ID]
+ALL_CHAMPIONS[0] = (DRYAD_ID, 0, DRYAD_SKILLS)
+TAVERNS = [("tvc0", "Hall of Champions", [DRYAD_ID] + [c[0] for c in AOE_CHAMPIONS])]
+ALL_HEROES = [DRYAD_ID] + [c[0] for c in AOE_CHAMPIONS]
+ALL_SKILLS = [sk for (_h, _c, skills) in ALL_CHAMPIONS for sk in skills]
 
 # Premium Armory (secret grove): 8 simple, special items for 1000 gold each. Each = a real base item (class/model)
 # + one custom ability cloned from a real item ability with a stronger value.
@@ -215,9 +285,15 @@ INCOME_TREE_COST = 1
 SHOPS = {
     "armory": ("shpa", "Premium Armory", [p[0] for p in PREMIUM]),     # Long Reach not sold since v2.6 (no melee champion)
     "bank": ("shpc", "Bank", [BANK_ITEM]),
-    "apothecary": ("shpb", "Apothecary", ["phea", "pman", "pres", "pnvl",
-                                          "bspd", "prvt", "rlif", "rwiz", "stel"]),
+    "apothecary": ("shpb", "Apothecary", [f"Ipo{i}" for i in range(1, 5)] + ["bspd", "prvt", "rlif", "rwiz", "stel"]),
 }
+# The Apothecary sells potions as POWER-UP tokens (v3.4): a power-up is sold even to a FULL inventory (a normal item is
+# refused - verified in-game), and the token adds one charge to the potion the champion carries (GivePotion), or puts a
+# new potion into a free slot, or refunds when the inventory is full and holds no such potion.
+POTION_TOKENS = [f"Ipo{i}" for i in range(1, 5)]          # one per POTIONS row, same order
+POTION_ICONS = {"phea": "BTNPotionGreenSmall", "pman": "BTNPotionBlueSmall", "pres": "BTNPotionOfRestoration",
+                "pnvl": "BTNLesserInvulneralbility"}
+APOTHECARY_SLOTS = {"bspd": (0, 1), "prvt": (1, 1), "rlif": (2, 1), "rwiz": (3, 1), "stel": (0, 2)}   # tokens = row 1
 # Apothecary potions (v1.7): heal a PERCENT of max HP / mana (the script does it on use - fixed amounts are useless
 # for champions with thousands of HP), fixed price, and they STACK in the inventory (one slot, more charges).
 #   (item, name, effect line, gold, hp %, mana %, native ability zeroed, its amount fields, cooldown s)
@@ -227,7 +303,8 @@ POTIONS = [
     ("pres", "Restoration Potion", "Restores all HP and mana", 250, 100, 100, "AIre", [("Ihps", 1), ("Imps", 2)], 30.0),
     ("pnvl", "Invulnerability Potion", "Invulnerable for a few seconds", 200, 0, 0, None, [], None),
 ]
-SHOP_ITEMS = sorted({i for (_, _, items) in SHOPS.values() for i in items} - {p[0] for p in PREMIUM} - {BANK_ITEM, REACH_ITEM})   # originals only
+SHOP_ITEMS = sorted({i for (_, _, items) in SHOPS.values() for i in items} - {p[0] for p in PREMIUM} - {BANK_ITEM, REACH_ITEM}
+                    - set(POTION_TOKENS))   # originals only
 
 CASTLE_ID = "hcd0"
 # The castle is owned by Player 15 (neutral "extra" slot). Its shop gets BOTH buyer-selection abilities with a
@@ -530,8 +607,21 @@ def _hero_targets_with_air(h):
 
 
 def original_unit_mods():
-    """Edits to standard units: none since v2.6 (the only champion is the custom Dryad, see dryad_hero)."""
-    return []
+    """The 6 AoE champions are the standard heroes, edited: free tavern heroes, attack air, our skills + Attributes,
+    AoE attack (ranged: splash / bounce missile; melee: the script's innate cleave), short tavern tooltip."""
+    out = []
+    for (h, attack, _cleave, (bx, by), tip, skills) in AOE_CHAMPIONS:
+        mods = [("ugol", I, 0), ("ulum", I, 0), ("ufoo", I, 0), ("usst", I, 0), ("usma", I, 8), ("usrg", I, 1), ("ureq", S, ""),
+                ("ua1g", S, _hero_targets_with_air(h)),
+                ("uhab", S, ",".join(sk[0] for sk in skills) + "," + ATTR_ABIL),
+                ("upgr", S, _hero_upgrades_with_reach(h, False)),
+                ("ubpx", I, bx), ("ubpy", I, by), ("utub", S, tip)]
+        if attack == "splash":
+            mods += CHAMP_SPLASH
+        elif attack == "bounce":
+            mods += CHAMP_BOUNCE
+        out.append((h, mods))
+    return out
 
 
 def dryad_hero():
@@ -555,9 +645,12 @@ def dryad_hero():
 
 
 def dryad_abilities():
-    """Her 3 learnable skills (passive AEev level holders, effects in the script) + the hidden helpers."""
+    """Every champion's 3 learnable skills (passive AEev level holders, effects in the script) + the hidden helpers."""
     out = []
-    for i, (aid, name, key, icon, tip, research) in enumerate(DRYAD_SKILLS):
+    for (aid, name, key, icon, kind, pct, _rad, _fx) in ALL_SKILLS:
+        i = "QWE".index(key)
+        tip = (lambda L, kind=kind, pct=pct: skill_tip(kind, pct, L))
+        research = skill_research(kind, pct)
         mods = [("aher", I, 0, 0, 1), ("alev", I, 0, 0, DRYAD_SKILL_LEVELS), ("arlv", I, 0, 0, 1), ("alsk", I, 0, 0, 2),
                 ("aart", S, 0, 0, CB + icon + ".blp"), ("arar", S, 0, 0, CB + icon + ".blp"),
                 ("ahky", S, 0, 0, key), ("arhk", S, 0, 0, key),
@@ -594,7 +687,10 @@ NO_BOUNTY = [("ubba", I, 0), ("ubdi", I, 0), ("ubsi", I, 0)]
 def original_item_mods():
     """Shop items: plenty in stock and quick restock (8 heroes share two shops)."""
     mods = {i: [("isto", I, 8), ("istr", I, 10), ("isst", I, 0)] for i in SHOP_ITEMS}
+    for iid, (x, y) in APOTHECARY_SLOTS.items():
+        mods[iid] += [("ubpx", I, x), ("ubpy", I, y)]
     for (iid, name, effect, gold, *_rest) in POTIONS:
+        mods.setdefault(iid, [])
         mods[iid] += [("unam", S, name), ("utip", S, name), ("ides", S, effect), ("igol", I, gold),
                       ("utub", S, f"{effect}|n|n|cffff8c00Stacks in your inventory|r")]
     return list(mods.items())
@@ -648,6 +744,13 @@ def custom_items():
         ("ides", S, f"+{REACH_STEP} attack range (melee only)"), ("iabi", S, ""),
         ("igol", I, REACH_PRICE), ("ilum", I, 0), ("isto", I, 3), ("istr", I, 30), ("isst", I, 0),
         ("ubpx", I, 0), ("ubpy", I, 2)]))
+    for i, (tid, (pid, name, effect, gold, *_r)) in enumerate(zip(POTION_TOKENS, POTIONS)):
+        out.append(("tst2", tid, [
+            ("unam", S, name), ("iico", S, CB + POTION_ICONS[pid] + ".blp"), ("uhot", S, "QWER"[i]),
+            ("utip", S, f"|cffffcc00{name}|r (|cffffcc00{'QWER'[i]}|r)"),
+            ("utub", S, f"{effect}|n|n|cffff8c00Stacks in your inventory|r"), ("ides", S, effect), ("iabi", S, ""),
+            ("igol", I, gold), ("ilum", I, 0), ("isto", I, 8), ("istr", I, 10), ("isst", I, 0),
+            ("ubpx", I, i), ("ubpy", I, 0)]))
     out.append(("tst2", BANK_ITEM, [
         ("unam", S, f"Income +{INCOME_STEP}"), ("iico", S, CB + "BTNChestOfGold.blp"), ("uhot", S, "Q"),
         ("utip", S, f"|cffffcc00Income +{INCOME_STEP}|r (|cffffcc00Q|r)"),
