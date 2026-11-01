@@ -88,8 +88,8 @@
 | `nc{d}0` (d 0–7) | unit (base: faction champion) | Weakened wave champion (every 10th wave) |
 | `Io01`–`Io05` | item (base `ckng`) | EPIC crowns dropped by Level 1–5 bosses (+200…+1000 all stats) |
 | `Xo01`–`Xo05` | ability (base `AIx1`) | EPIC crown all-stats bonus |
-| `Ixr1` | item (base `tst2`) | Long Reach (+150 attack range per buy) |
-| `Rcrg` | upgrade (base `Rhri`, `war3map.w3q`) | Long Reach range upgrade, 5 levels × 150 (`ratr`); every hero lists it in `upgr` |
+| `Ixr1` | item (base `tst2`) | Long Reach (+150 attack range, once, melee champions only) |
+| `Rcrg` | upgrade (base `Rhri`, `war3map.w3q`) | Long Reach range upgrade, 1 level, +150 (`ratr`); only the melee champions list it in `upgr` |
 | `Ib01` | item (base `tst2`) | Bank: Income +10 per minute for 1 tree |
 | `Ih Im Id Ir Is Ia Ii Il Ix` + `00`–`39` | item (base `tst2`) | Circle shop kinds × price steps (`Ix` = Experience) |
 | `Iy Ik Ie` + `00`–`39`, `Ic00`, `Iw00` | item (base `tst2`) | Castle shop: health/armor/regen steps, repair, shockwave (1 tree each) |

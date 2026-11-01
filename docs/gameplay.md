@@ -183,9 +183,10 @@ anywhere on the map (`Aneu` radius 20 000). Bought items go straight into his in
   | Troll Heart | +15 HP/s | +10 | +55 |
   | Arcane Mask | +150 % mana regen | +50 % | +350 % |
 
-- **Long Reach** (key Z, row 3, **1500 gold**): +150 attack range for your champion per buy, up to 5× (+750) —
-  melee champions hit from a distance. Instant via the custom range upgrade `Rcrg` (`REACH_*`, `TryReach`);
-  at the max a new buy is refunded; reset on restart.
+- **Long Reach** (key Z, row 3, **1500 gold**): **+150 attack range, once, melee champions only** (Mountain King,
+  Tauren Chieftain, Pit Lord). Instant via the custom range upgrade `Rcrg`, 1 level (`REACH_*`, `TryReach`); a ranged
+  champion (`UNIT_TYPE_MELEE_ATTACKER` false) or a second buy is refunded, and only melee champions list `Rcrg` in
+  `upgr` — ranged champions must never outrange the towers (the old 5 × +150 let them). Reset on restart.
 - **Apothecary** (`SHOPS["apothecary"]`, stock 8, restock 10 s): potions heal a **percent** of max, fixed price, and
   **stack** in the inventory (one slot, more charges) — `POTIONS`, script `PotionIndex` / `StackPotion` (on buy and
   pickup) / `DrinkPotion` (on use; the native fixed heal of `AIh1`/`AIm1`/`AIre` is zeroed):

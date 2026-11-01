@@ -30,7 +30,7 @@ GAME_DIR = os.environ.get("WC3_DIR", "/home/novakj/games/warcraft3")
 TEST = "--test" in sys.argv
 # VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
 # map name (game list, lobby, loading screen), the file name and the catalogue title.
-MAP_VERSION = "2.0"
+MAP_VERSION = "2.1"
 MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
@@ -333,6 +333,7 @@ globals
     integer gReachTech = 0
     integer gReachMax = 5
     integer gReachStep = 150
+    integer gReachPrice = 1500
     unit gBankShop = null
     unit gArmoryShop = null
     integer gIncomeStep = 100
@@ -533,6 +534,7 @@ def build_script():
     a(f"    set gReachTech = '{OB.REACH_TECH}'")
     a(f"    set gReachMax = {OB.REACH_LEVELS}")
     a(f"    set gReachStep = {OB.REACH_STEP}")
+    a(f"    set gReachPrice = {OB.REACH_PRICE}")
     for i, (iid, _n, _e, _g, hp, mp, *_r) in enumerate(OB.POTIONS):
         a(f"    set gPotItem[{i}] = '{iid}'")
         a(f"    set gPotHp[{i}] = {hp}")

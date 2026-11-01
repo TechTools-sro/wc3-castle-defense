@@ -42,7 +42,7 @@ ruins, then fight through the four shared **gate levels** (2–5). **Win** when 
   map — just select the shop): Fountain of Power (fast HP + mana),
   **Premium Armory** (1000 gold: lifesteal, attack speed, critical strike, bash, evasion, boots, regeneration,
   mana regeneration — buy the same item again to upgrade it, up to Lv 5; **Long Reach** 1500 gold = +150 attack
-  range, up to 5×, so melee champions can hit from a distance), **Bank** (1 tree = +10 gold income every minute), **Apothecary** (potions heal % of max and stack in one slot: Healing 50 % HP and Mana 50 % mana for 100 gold, Restoration full HP + mana for 250, Invulnerability 200; staff of teleportation).
+  range once, melee champions only), **Bank** (1 tree = +10 gold income every minute), **Apothecary** (potions heal % of max and stack in one slot: Healing 50 % HP and Mana 50 % mana for 100 gold, Restoration full HP + mana for 250, Invulnerability 200; staff of teleportation).
 
 ## EPIC loot
 

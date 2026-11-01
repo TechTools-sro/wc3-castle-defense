@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.1 — 2026-11-01: Long Reach = one +150 buy, melee champions only
+
+- **Uploaded as catalogue map #26** (HTTP 201, download SHA-256 `d1535369…` matches).
+
+- Jiří: Long Reach was bugged — stacking 5 × +150 let champions (ranged ones especially) outrange the towers. Now one
+  buy, +150 attack range, melee champions only (`REACH_LEVELS` = 1 in `gen/objects.py`; `TryReach` refunds a ranged
+  champion via `UNIT_TYPE_MELEE_ATTACKER` and a second buy; only the `cleave` champions list `Rcrg` in `upgr`; new
+  `gReachPrice` replaces the hard-coded refund). Verified: pjass + build; not tried in-game.
+
 ## v2.0 — 2026-11-01: one Hall of Champions, 6 multi-target champions
 
 - **Uploaded as catalogue map #25** (HTTP 201, download SHA-256 `810e472d…` matches).

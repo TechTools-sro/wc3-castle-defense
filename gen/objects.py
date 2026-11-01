@@ -181,11 +181,11 @@ def premium_abil_id(i, L):
 PREMIUM = [(premium_item_id(i, 1),) for i in range(len(PREMIUM_DEF))]   # shop list (Lv 1 ids)
 PREMIUM_KEYS = "QWERASDF"
 
-# Long Reach (Premium Armory, slot row 3): each buy = +REACH_STEP attack range for your champion, up to REACH_LEVELS
-# times - melee champions then hit from a distance. Applied instantly through a custom range upgrade (REACH_TECH,
+# Long Reach (Premium Armory, slot row 3): ONE buy = +REACH_STEP attack range, MELEE champions only (v2.1: the old
+# 5 x +150 let ranged champions outrange the towers). Ranged buyers and a second buy are refunded. Applied instantly through a custom range upgrade (REACH_TECH,
 # based on Long Rifles 'Rhri', effect 'ratr') that every hero lists under "upgrades used".
 REACH_ITEM, REACH_TECH = "Ixr1", "Rcrg"
-REACH_STEP, REACH_LEVELS, REACH_PRICE = 150, 5, 1500
+REACH_STEP, REACH_LEVELS, REACH_PRICE = 150, 1, 1500
 
 # EPIC boss loot: every Nexus boss drops one crown, +all stats by level (lane bosses = Level 1, gate Levels 2-5).
 #   (level, item id, ability id, name, all-stats bonus, icon)
@@ -518,7 +518,7 @@ def original_unit_mods():
                 ("usma", I, 8), ("usrg", I, 1), ("ureq", S, ""),
                 ("ua1g", S, _hero_targets_with_air(h)),
                 ("uhab", S, ua["heroAbilList"] + "," + ATTR_ABIL),
-                ("upgr", S, _hero_upgrades_with_reach(h)),
+                ("upgr", S, _hero_upgrades_with_reach(h, kind == "cleave")),
                 ("ubpx", I, bx), ("ubpy", I, by), ("utub", S, tip)]
         if kind == "cleave":
             mods.append(("uabi", S, ua["abilList"] + "," + CLEAVE_ABIL))
@@ -538,11 +538,11 @@ def cleave_ability():
                                   ("aub1", S, 1, 0, f"Every hit also deals {int(CLEAVE_PART * 100)}% damage to enemies around.")])
 
 
-def _hero_upgrades_with_reach(h):
-    """The hero's "upgrades used" (Units/UnitBalance.slk) + the Long Reach range upgrade."""
+def _hero_upgrades_with_reach(h, melee):
+    """The hero's "upgrades used" (Units/UnitBalance.slk) + the Long Reach range upgrade (melee champions only)."""
     cur = _ref_slk("Units_UnitBalance.slk").get(h, {}).get("upgrades") or "_"
     ups = [u for u in cur.split(",") if u and u != "_"]
-    return ",".join(ups + [REACH_TECH])
+    return ",".join(ups + ([REACH_TECH] if melee else [])) or "_"
 
 
 def custom_upgrades():
@@ -610,9 +610,8 @@ def custom_items():
     out.append(("tst2", REACH_ITEM, [
         ("unam", S, "Long Reach"), ("iico", S, CB + "BTNImprovedBows.blp"), ("uhot", S, "Z"),
         ("utip", S, "|cffffcc00Long Reach|r (|cffffcc00Z|r)"),
-        ("utub", S, f"+{REACH_STEP} attack range for your champion - melee champions hit from a distance.|n|n"
-                    f"|cffff8c00Buy again: +{REACH_STEP} more (max {REACH_LEVELS}x = +{REACH_STEP * REACH_LEVELS})|r"),
-        ("ides", S, f"+{REACH_STEP} attack range"), ("iabi", S, ""),
+        ("utub", S, f"+{REACH_STEP} attack range for melee champions|n|n|cffff8c00Melee only, one per champion|r"),
+        ("ides", S, f"+{REACH_STEP} attack range (melee only)"), ("iabi", S, ""),
         ("igol", I, REACH_PRICE), ("ilum", I, 0), ("isto", I, 3), ("istr", I, 30), ("isst", I, 0),
         ("ubpx", I, 0), ("ubpy", I, 2)]))
     out.append(("tst2", BANK_ITEM, [

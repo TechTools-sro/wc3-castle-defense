@@ -218,7 +218,8 @@ function BuyIncome takes integer p, item it returns nothing
     call DisplayTimedTextToPlayer(Player(p), 0.0, 0.0, 5.0, "|cffffcc00Income +" + I2S(gIncomeStep) + "|r   now " + I2S(gIncome[p]) + " gold/min")
 endfunction
 
-// Long Reach: +gReachStep attack range per buy (instant level of the range upgrade gReachTech), max gReachMax.
+// Long Reach: +gReachStep attack range, once, melee champions only (instant level of the range upgrade gReachTech).
+// A ranged champion or a second buy is refunded - ranged champions must never outrange the towers.
 function TryReach takes integer p, item it returns boolean
     local integer lvl
     if GetItemTypeId(it) != gReachItem or gReachItem == 0 then
@@ -226,12 +227,15 @@ function TryReach takes integer p, item it returns boolean
     endif
     call RemoveItem(it)
     set lvl = GetPlayerTechCount(Player(p), gReachTech, true)
-    if lvl >= gReachMax then
-        call SetPlayerState(Player(p), PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(Player(p), PLAYER_STATE_RESOURCE_GOLD) + 1500)
-        call DisplayTimedTextToPlayer(Player(p), 0.0, 0.0, 5.0, "|cffffcc00Long Reach|r is already max - refunded")
+    if gHero[p] == null or not IsUnitType(gHero[p], UNIT_TYPE_MELEE_ATTACKER) then
+        call SetPlayerState(Player(p), PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(Player(p), PLAYER_STATE_RESOURCE_GOLD) + gReachPrice)
+        call DisplayTimedTextToPlayer(Player(p), 0.0, 0.0, 5.0, "|cffffcc00Long Reach|r is for melee champions only - refunded")
+    elseif lvl >= gReachMax then
+        call SetPlayerState(Player(p), PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(Player(p), PLAYER_STATE_RESOURCE_GOLD) + gReachPrice)
+        call DisplayTimedTextToPlayer(Player(p), 0.0, 0.0, 5.0, "|cffffcc00Long Reach|r: you already have it - refunded")
     else
         call SetPlayerTechResearched(Player(p), gReachTech, lvl + 1)
-        call DisplayTimedTextToPlayer(Player(p), 0.0, 0.0, 5.0, "|cffffcc00Long Reach|r |cff4fc3ffLv " + I2S(lvl + 1) + "|r: +" + I2S(gReachStep * (lvl + 1)) + " attack range")
+        call DisplayTimedTextToPlayer(Player(p), 0.0, 0.0, 5.0, "|cffffcc00Long Reach|r: +" + I2S(gReachStep) + " attack range")
     endif
     return true
 endfunction
