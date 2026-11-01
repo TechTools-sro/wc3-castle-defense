@@ -30,7 +30,7 @@ GAME_DIR = os.environ.get("WC3_DIR", "/home/novakj/games/warcraft3")
 TEST = "--test" in sys.argv
 # VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
 # map name (game list, lobby, loading screen), the file name and the catalogue title.
-MAP_VERSION = "3.0"
+MAP_VERSION = "3.1"
 MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
@@ -419,6 +419,7 @@ globals
     button gEndQuit = null
     boolean gEndWon = false
     integer gStatTiers = 0
+    integer gKindStride = 128
     integer gStatPerLevel = 2
     real gHallX = 0.0
     real gHallY = 0.0
@@ -661,12 +662,13 @@ def build_script():
         a(f"    set gKindEffect[{si}] = {jstr(OB.kind_effect(si))}")
         a(f"    set gKindType[{si}] = {OB.KIND_TYPE[OB.KINDS_DEF[si]['type']]}")
         for k in range(OB.kind_tiers(si)):
-            a(f"    set gStatItem[{si * 64 + k}] = '{OB.stat_item_id(si, k)}'")
+            a(f"    set gStatItem[{si * OB.KIND_STRIDE + k}] = '{OB.stat_item_id(si, k)}'")
             if OB.KINDS_DEF[si]["type"] in ("abil", "castleabil"):
-                a(f"    set gBonusAbil[{si * 64 + k}] = '{OB.bonus_abil_id(si, k)}'")
+                a(f"    set gBonusAbil[{si * OB.KIND_STRIDE + k}] = '{OB.bonus_abil_id(si, k)}'")
     a(f"    set gKinds = {OB.KINDS}")
 
     a(f"    set gStatTiers = {OB.STAT_TIERS}")
+    a(f"    set gKindStride = {OB.KIND_STRIDE}")
     a(f"    set gStatPerLevel = {OB.STAT_PER_LEVEL}")
     a(f"    set gHallX = {jr(LY.HALL_CENTRE[0])}")
     a(f"    set gHallY = {jr(LY.HALL_CENTRE[1])}")

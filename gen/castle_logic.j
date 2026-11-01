@@ -91,7 +91,7 @@ function StockCircle takes integer p returns nothing
     loop
         exitwhen s >= gKinds
         if gKindType[s] < 3 and KindNext(p, s) < gStatTiers then
-            set id = gStatItem[s * 64 + KindNext(p, s)]
+            set id = gStatItem[s * gKindStride + KindNext(p, s)]
             call AddItemToStock(gLaneMarker[p], id, 1, 1)
             set gStocked[p * 16 + s] = id
         endif
@@ -119,7 +119,7 @@ function StockCastle takes nothing returns nothing
     loop
         exitwhen s >= gKinds
         if gKindType[s] >= 3 and gCastleNext[s] < gStatTiers then
-            set id = gStatItem[s * 64 + gCastleNext[s]]
+            set id = gStatItem[s * gKindStride + gCastleNext[s]]
             call AddItemToStock(gCastle, id, 1, 1)
             set gStocked[128 + s] = id
         endif
@@ -172,7 +172,7 @@ function ApplyBought takes integer p returns nothing
         if gKindType[s] == 1 then
             loop
                 exitwhen gStatApplied[p * 16 + s] >= gStatNext[p * 16 + s]
-                call UnitAddAbility(h, gBonusAbil[s * 64 + gStatApplied[p * 16 + s]])
+                call UnitAddAbility(h, gBonusAbil[s * gKindStride + gStatApplied[p * 16 + s]])
                 set gStatApplied[p * 16 + s] = gStatApplied[p * 16 + s] + 1
                 set fx = true
             endloop
@@ -192,7 +192,7 @@ function ApplyBought takes integer p returns nothing
 endfunction
 
 // A shop item was picked up: add the next hidden bonus ability (hero kinds) or upgrade the castle
-// (castle kinds), remove the item, step the price up 10 % and restock.
+// (castle kinds), remove the item, step the price up 3 % and restock.
 function AdvanceStatPrice takes integer p, item it returns nothing
     local integer id = GetItemTypeId(it)
     local integer s = 0
@@ -200,7 +200,7 @@ function AdvanceStatPrice takes integer p, item it returns nothing
     loop
         exitwhen s >= gKinds
         set k = KindNext(p, s)
-        if k < gStatTiers and gStatItem[s * 64 + k] == id then
+        if k < gStatTiers and gStatItem[s * gKindStride + k] == id then
             if gKindType[s] >= 3 then
                 // castle buy (costs a tree): stacking upgrades (type 4) step a global counter, repair (3) and
                 // shockwave (5) are the same item every time; applies even while the champion is dead
@@ -212,7 +212,7 @@ function AdvanceStatPrice takes integer p, item it returns nothing
                     if gKindType[s] == 3 then
                         call SetWidgetLife(gCastle, GetWidgetLife(gCastle) + I2R(gKindValue[s]))
                     elseif gKindType[s] == 4 then
-                        call UnitAddAbility(gCastle, gBonusAbil[s * 64 + k])
+                        call UnitAddAbility(gCastle, gBonusAbil[s * gKindStride + k])
                     else
                         call CastleShockwave()
                     endif
@@ -222,7 +222,7 @@ function AdvanceStatPrice takes integer p, item it returns nothing
                 call StockCastle()
                 return
             endif
-            // the buy counts AT ONCE (price +10 %), even while the champion is dead or not picked yet;
+            // the buy counts AT ONCE (price +3 %), even while the champion is dead or not picked yet;
             // ApplyBought hands the bonus over as soon as the champion is alive
             set gStatNext[p * 16 + s] = k + 1
             call RemoveItem(it)
@@ -524,7 +524,7 @@ function GrabTomeEnum takes nothing returns nothing
     local integer s = 0
     loop
         exitwhen s >= gKinds
-        if KindNext(p, s) < gStatTiers and gStatItem[s * 64 + KindNext(p, s)] == id then
+        if KindNext(p, s) < gStatTiers and gStatItem[s * gKindStride + KindNext(p, s)] == id then
             call UnitAddItem(gHero[p], it)
             set it = null
             return
@@ -1752,7 +1752,7 @@ function CreateQuests takes nothing returns nothing
     call AddQuest("Defend your lane", "Pick a champion: click a hall and click a hero. You then defend |cffffcc00your own lane|r - every player has one lane, and a lane only sends monsters when its player is in the game.\n\nThe next wave comes 10 s after all monsters of the last one are dead (2 min shopping break after every 5th wave). Keep the |cffffcc00Castle of Lordaeron|r alive - if it falls, everyone loses.", "ReplaceableTextures\\CommandButtons\\BTNCastle.blp", true)
     call AddQuest("Destroy your Nexus", "At the end of |cffffcc00your lane|r stands your own enemy Nexus, guarded by a strong tower. The Nexus sends the waves of your lane. Destroy it and your lane goes quiet - but its boss rises from the ruins.", "ReplaceableTextures\\CommandButtons\\BTNDemonGate.blp", true)
     call AddQuest("Slay the bosses", "Kill the boss of every lane to |cff40ff40win|r. Help your friends with theirs!", "ReplaceableTextures\\CommandButtons\\BTNPitLord.blp", true)
-    call AddQuest("Tips", "- Killing monsters gives gold and experience; every wave also pays gold.\n- |cffffcc00Secret grove|r: the narrow passage at the south-east corner of the plaza leads to the Fountain of Power (HP + mana), the Premium Armory (1000-gold items) and the Apothecary.\n- Your champion appears and revives on the circle in your colour at your lane - click the circle to |cffffcc00buy stats|r instantly (each buy costs 10% more).\n- Type |cffffcc00-help|r for the command list.\n- |cffffcc00Space|r = jump to your champion (hold to keep him centred); |cffffcc00Esc|r or -cam = camera follows him.\n- Spells are on |cffffcc00Q W E R|r. Clearing your first wave gives level 2.\n- Staff of Teleportation lets you jump back to the castle or to a friend.\n- Type |cffffcc00-zoom 250|r to zoom out (any value, e.g. -zoom 200; -zoom 165 = normal).", "ReplaceableTextures\\CommandButtons\\BTNSnazzyScroll.blp", false)
+    call AddQuest("Tips", "- Killing monsters gives gold and experience; every wave also pays gold.\n- |cffffcc00Secret grove|r: the narrow passage at the south-east corner of the plaza leads to the Fountain of Power (HP + mana), the Premium Armory (1000-gold items) and the Apothecary.\n- Your champion appears and revives on the circle in your colour at your lane - click the circle to |cffffcc00buy stats|r instantly (each buy costs 3% more).\n- Type |cffffcc00-help|r for the command list.\n- |cffffcc00Space|r = jump to your champion (hold to keep him centred); |cffffcc00Esc|r or -cam = camera follows him.\n- Spells are on |cffffcc00Q W E R|r. Clearing your first wave gives level 2.\n- Staff of Teleportation lets you jump back to the castle or to a friend.\n- Type |cffffcc00-zoom 250|r to zoom out (any value, e.g. -zoom 200; -zoom 165 = normal).", "ReplaceableTextures\\CommandButtons\\BTNSnazzyScroll.blp", false)
 endfunction
 
 //---------------------------------------------------------------------------
@@ -1791,9 +1791,9 @@ function TestStep takes nothing returns nothing
     elseif gTestClock == 30 then
         call SetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER, 5)
         call SelectUnitForPlayerSingle(gCastle, Player(0))
-        if IssueNeutralImmediateOrderById(Player(0), gCastle, gStatItem[9 * 64]) then
+        if IssueNeutralImmediateOrderById(Player(0), gCastle, gStatItem[9 * gKindStride]) then
             call Msg("[TEST] castle buy via neutral order: accepted")
-        elseif IssueImmediateOrderById(gCastle, gStatItem[9 * 64]) then
+        elseif IssueImmediateOrderById(gCastle, gStatItem[9 * gKindStride]) then
             call Msg("[TEST] castle buy via shop order: accepted")
         else
             call Msg("|cffff0000[TEST] castle buy: both orders REJECTED|r")

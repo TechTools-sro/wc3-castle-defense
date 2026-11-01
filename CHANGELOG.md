@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.1 — 2026-11-01: cheaper stat shop steps, bigger stat buys
+
+- Jiří: price growth per buy +10 % → **+3 %**; Strength / Agility / Intelligence +10 → **+20**; All stats +3 → **+10**
+  (`STAT_PRICE_GROWTH`, `STAT_PER_LEVEL`, `ALL_STATS_VALUE` in `gen/objects.py`). With +3 % players buy far more, so the
+  price steps per kind go 40 → **100** (`STAT_TIERS`, the most the 2-digit ids allow) and the script stride 64 → 128
+  (`KIND_STRIDE` / `gKindStride`). Tooltips and tips now derive the % from the constant. Map 248 → 279 KiB.
+  Verified: pjass + build; not tried in-game. **Not uploaded yet** (catalogue daily limit).
+
 ## v3.0 — 2026-11-01: potions really stack
 
 - **Not uploaded yet:** the catalogue answered HTTP 429 `UPLOAD_LIMIT` (20 uploads per uploader per rolling 24 h).

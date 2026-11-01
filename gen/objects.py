@@ -234,13 +234,13 @@ CASTLE_SHOP_ABIL = "Xcsh"     # custom 'Aneu' (Neutral Building: select hero)
 CASTLE_SHARE_ABIL = "Xcs2"    # custom 'Aall' (Shop Sharing, Allied Bldg.)
 CIRCLE_ID = "ncd3"           # the player's coloured circle at his lane entrance = stat shop
 
-# Stat shop at the lane circle (the player's own shop). Every item is instant and each buy costs 10 % more:
+# Stat shop at the lane circle (the player's own shop). Every item is instant and each buy costs PRICE_STEP_PCT % more:
 # every price step is its own item type, the script swaps the stock when the item is picked up.
 # Shop slots fill in order -> row 1 = Health Mana Damage Armor, row 2 = Strength Agility Intelligence All stats.
 #   every kind is type "abil": the script adds the next copy of a hidden item-bonus ability to the hero
 #   (copies with different ids stack). Attribute bonuses this way show as GREEN +N, not in the base value.
-STAT_PER_LEVEL = 10     # single stats (Str / Agi / Int)
-ALL_STATS_VALUE = 3     # the "All stats" buy
+STAT_PER_LEVEL = 20     # single stats (Str / Agi / Int)  (v3.1, Jiri: was 10)
+ALL_STATS_VALUE = 10    # the "All stats" buy           (v3.1, Jiri: was 3)
 CB = "ReplaceableTextures\\CommandButtons\\"
 STAT_ICON = {"str": CB + "BTNCDStr.blp", "agi": CB + "BTNCDAgi.blp", "int": CB + "BTNCDInt.blp"}   # imported (gen/icons.py)
 # item-bonus ability fields (AbilityMetaData.slk): Iagi = data 1, Iint = data 2, Istr = data 3
@@ -257,7 +257,7 @@ KINDS_DEF = [
 for _kd in KINDS_DEF:
     _kd["type"] = "abil"
 # Experience (row 3, key Z): each buy = exactly one level's worth of XP for the champion (100 x (level + 1), the game's
-# NeedHeroXP formula), so it stays worth one level at any level; price +10 % per buy like the stats.
+# NeedHeroXP formula), so it stays worth one level at any level; price grows per buy like the stats.
 KINDS_DEF.append({"item": "Ix", "name": "Experience", "type": "xp", "unam": "Experience +1 level", "value": 1,
                   "key": "Z", "icon": CB + "BTNTome.blp", "effect": "+1 level", "price": 250})
 # Castle upgrades, sold by the CASTLE itself (allied shop, row 1 of its command card). One global price step
@@ -278,8 +278,12 @@ KINDS_DEF += [
 CASTLE_TREE_COST = 1          # every castle upgrade costs 1 tree (lumber), no gold
 KINDS = len(KINDS_DEF)
 KIND_TYPE = {"abil": 1, "xp": 2, "castleheal": 3, "castleabil": 4, "castleshock": 5}
-STAT_TIERS = 40
-STAT_BASE_PRICE, STAT_PRICE_GROWTH = 100, 1.10
+# Price steps per kind = item types + bonus abilities (copies stack only with distinct ids). 100 = the most the
+# 2-digit ids allow; the script indexes gStatItem / gBonusAbil as kind * KIND_STRIDE + step.
+STAT_TIERS, KIND_STRIDE = 100, 128
+STAT_BASE_PRICE, STAT_PRICE_GROWTH = 100, 1.03     # v3.1, Jiri: +3 % per buy (was +10 %)
+PRICE_STEP_PCT = round((STAT_PRICE_GROWTH - 1) * 100)
+assert STAT_TIERS <= 100 and STAT_TIERS <= KIND_STRIDE
 
 
 def stat_item_id(s, k):
@@ -380,7 +384,7 @@ def custom_units():
     units.append(("ncp3", CIRCLE_ID, [
         ("unam", S, "Champion's Circle"), ("uabi", S, "Avul,Aall,Apit,Asid"), ("usei", S, ""),
         ("utip", S, "Champion's Circle"),
-        ("utub", S, "Your lane. Buy +2 Strength / Agility / Intelligence for your champion here - instant; every buy costs 10% more.")]))
+        ("utub", S, f"Your lane. Buy stats for your champion here - instant; every buy costs {PRICE_STEP_PCT}% more.")]))
     for (tid, name, heroes) in TAVERNS:
         units.append(("ntav", tid, [("unam", S, name), ("useu", S, ",".join(heroes))]))
     units.append(dryad_hero())
@@ -618,7 +622,7 @@ def custom_items():
             mods = [("unam", S, kd.get("unam", f"{kd['name']} +{kd['value']}")), ("iico", S, kd["icon"]), ("uhot", S, kd["key"]),
                     ("utip", S, f"{kd['name']}  |cff4fc3ffLv {k}|r  (|cffffcc00{kd['key']}|r)"),   # Lv = times already bought
                     ("utub", S, f"{kind_effect(si)}|n|n" + (f"|cff80ff80Costs {CASTLE_TREE_COST} tree|r" if castle
-                                                              else "|cffff8c00Next buy: +10% gold|r")),
+                                                              else f"|cffff8c00Next buy: +{PRICE_STEP_PCT}% gold|r")),
                     ("ides", S, kind_effect(si)),
                     ("igol", I, 0 if castle else stat_price(k, kd.get("price", STAT_BASE_PRICE))),
                     ("ilum", I, CASTLE_TREE_COST if castle else 0), ("isto", I, 1), ("istr", I, 1), ("isst", I, 0),

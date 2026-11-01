@@ -33,8 +33,8 @@ ruins, then fight through the four shared **gate levels** (2–5). **Win** when 
 
 ## Shops
 
-- **Champion's Circle** (your own shop, instant, +10 % price per buy): Health +100, Mana +75, Damage +5,
-  Armor +2, Strength +10, Agility +10, Intelligence +10, All stats +3 — bonuses show as green stats — and
+- **Champion's Circle** (your own shop, instant, +3 % price per buy): Health +100, Mana +75, Damage +5,
+  Armor +2, Strength +20, Agility +20, Intelligence +20, All stats +10 — bonuses show as green stats — and
   **Experience +1 level** (250 gold).
 - **The Castle** (select it; 1 tree each): Castle Health +1000, Castle Armor +3, Castle Regeneration +10 HP/s,
   Repair +2000 HP, Shockwave (damages every monster near the castle).
