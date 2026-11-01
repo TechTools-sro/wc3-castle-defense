@@ -2,6 +2,8 @@
 
 ## v4.1 — 2026-11-01: stronger monsters, smart scaling
 
+- **Uploaded as catalogue map #78** (HTTP 201, download SHA-256 `354e5f1f…` matches; 29 versions in the family).
+
 - Jiří asked for stronger monsters and smart scaling: a level 1 champion should struggle, winning should not be trivial, and players should think about upgrades and cooperate. → [docs/balance.md](docs/balance.md)
 - **Wave monsters:** melee 700 HP / 60 damage, ranged 420 / 120 (were 200 / 30, 120 / 60). With n = wave − 1: HP × (1 + 0.03 n²), damage × (1 + 0.018 n²). They used to grow only in number. Stage: HP ×1.5 / ×2, damage ×1.25 / ×1.5 (were ×2 / ×3 for both).
 - **Factions now share one set of combat values**: only the model and the movement type differ.
@@ -11,7 +13,7 @@
 - **Shop:** Health +600, Damage +20, Armor +8 (were +100, +5, +2), so they compete with the stats that also give them. **Castle Shockwave:** 25 % of a wave monster's max HP, because a fixed amount meant nothing against the new HP.
 - **Tools:** `tools/balance_matrix.py` (the model), `tools/balance_probe.py` and `gen/probe.j` (the production game played hidden by a bot with ordinary orders; only in `build.py --probe`).
 - **Verified, real fights** (seed 1, solo lane, same bot, 0 tower and Nexus hits): Dryad starter wave 1 from 11 s and 2479 of 2550 HP to 26 s and 1239. Frozen starter first dies in wave 4 on Dryad, Mountain King and Archmage; v4.0 had no death in 180 s. Archmage primary dies in wave 1. Careless dies in wave 1. With every coin spent: Dryad 16, Mountain King 20, Archmage 20 waves in 7 minutes, 0 deaths (v4.0: 20, 21, 24).
-- **Verified, Bank:** v4.0 paid 6 times while one wave stood. In v4.1 wave 3 stood 141.7 s with 2 payments, then the last 4 monsters destroyed the castle at 231.7 s: a real defeat, 8 s before a third payment could fall due.
+- **Verified, Bank:** v4.0 paid 7 times during wave 3, including 6 further payments after 90 s without another kill. In v4.1 wave 3 stood 141.7 s with 2 payments, then the last 4 monsters destroyed the castle at 231.7 s: a real defeat, 8 s before a third payment could fall due.
 - **Verified, self-test:** 97 PASS, 0 FAIL on map `3532ceed…` (`wip-selftest-3`). A source audit found only comments, the version and two Bank tooltips changed after it, so it was not rerun. Test-only change: the castle is invulnerable from clock 5, because stronger monsters kill it during the checks.
 - **NOT verified:** a human player, difficulty or fun as felt. A whole campaign to victory, and towers, Nexuses and bosses in a real fight (the bot does not push). Stages 1 and 2 in a real fight. Real team games: the formula is checked for 1, 2, 4 and 8 players, real units only with team 1 and a simulated team of 4, and a real leave was never exercised. That the Bank refuses a third payment in a real fight: the self-test's mechanical checks show the cap, and only the code shows its renewal by the next wave. Pit Lord, Far Seer, Lich and Tauren Chieftain are model only.
 - **To watch in a real game:** with every coin spent, the bot took 1 to 6 % of its HP per wave at stage 0 by waves 15 to 20, and a leak costs the castle about 9 times as many HP per second. `WAVE_HP_GROWTH`, `WAVE_DMG_GROWTH` and the castle's HP are the numbers to turn.

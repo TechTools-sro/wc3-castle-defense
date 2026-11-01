@@ -53,7 +53,7 @@ One shared TechTools account for every tool, identified by the session cookie.
 - **Player docs:** one Markdown file per version at `/warcraft3-api/maps/:id/doc.md`, written part at most 100 KB. Catalogue index: `/warcraft3-api/maps.md`, which links the newest version of each map.
 - **This map:** the current version and every catalogue id are in [`CLAUDE.md`](../CLAUDE.md) § Published. The player guide is [`map-catalog.md`](./map-catalog.md), uploaded with each version.
 
-Checked live on 2026-11-01: `/warcraft3-api/maps/77` answers v4.0, the latest of 28 versions, SHA-256 `04c52fdc4a5c310fd2a149f606dda9dc3cff4195dbb7f20ef259e6db73a3230f`.
+Checked live on 2026-11-01: `/warcraft3-api/maps/78` answers v4.1, the latest of 29 versions, SHA-256 `354e5f1fed52bfb06e94c9f53ab101585ec783ff9c425db56dfe5fadf56eeeb1`.
 
 ⚠️ **Open:** the upload limit is described differently in two places. The server code at `techtools-4` commit `9b1d3cc` limits new map families per day, and new versions of your own map are not limited. The public API docs and the tool's own notes still say a limit on uploads. Check the code before relying on a number.
 
