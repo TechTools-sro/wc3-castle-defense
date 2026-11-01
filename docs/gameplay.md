@@ -80,7 +80,7 @@ Higher level = harder.
 |---|---|---|---|---|
 | Where | NE | NW, around the Hall | SW (mirror of L2) | far SW, a chamber behind the L4 base |
 | Tower HP / dmg | 40 000 / ~3500 | 60 000 / ~4500 | 90 000 / ~6000 | 130 000 / ~8000 |
-| Nexus HP / attack | 32 000 / 1300+4d50 | 60 000 / 1800+4d60 | 100 000 / 2400+4d80 | 160 000 / 3200+4d100 |
+| Nexus HP / attack | 8 000 / 1300+4d50 | 15 000 / 1800+4d60 | 25 000 / 2400+4d80 | 40 000 / 3200+4d100 |
 | Wave bonus HP / dmg | +300 / — | +500 / +10 | +1000 / +25 | +2000 / +50 |
 | Boss (×lane boss HP) | Malgrath the Dark Lich ×3 | Kel'Thar the Frozen Tide ×5 | Azgaroth the Shadow Lord ×8 | Infernus the World Breaker ×12 |
 | Kill gold per minion | 2 × wave | 3 × wave | 4 × wave | 5 × wave |
@@ -201,7 +201,7 @@ anywhere on the map (`Aneu` radius 20 000). Bought items go straight into his in
 - Tower: **25 000 HP**, armor 4, **~2500 chaos** (2495 + 1d10) / 1.3 s, range 750 — mid-lane (`tower_pos`, v = 3600,
   1776 from the Champion's Circle), far in front of the Nexus (v = 5440) so their ranges never overlap: tower first,
   then its stronger waves, then the Nexus.
-- **Nexus: 12 000 HP, armor 10, huge attack** 900 + 4d40 chaos missile every 2.5 s, range 700, hits air too
+- **Nexus: 3 000 HP, armor 10, huge attack** 900 + 4d40 chaos missile every 2.5 s, range 700, hits air too
   (`BASE_HP`, `NEXUS_*`, `nexus_attack`).
 - Boss strength by player count: 1–2 / 3–5 / 6–8 players → 3500 / 6000 / 9000 HP, armor 3 / 4 / 5.
   Bosses cast spells, summon, and are leashed to their ruins (`BossTick`).

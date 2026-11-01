@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.2 — 2026-11-01: Nexus HP ÷ 4 again
+
+- **Uploaded as catalogue map #27** (HTTP 201, download SHA-256 `33349f58…` matches).
+
+- Jiří: "nerf the HP of the nexus even more, at least 4x less". Every Nexus HP ÷ 4 (`BASE_HP`, `GATE_LEVELS[*]["nexus"]`):
+  lane 12 000 → 3 000; gates L2–L5 8 000 / 15 000 / 25 000 / 40 000. Attack unchanged. Verified: pjass + build; not
+  tried in-game.
+
 ## v2.1 — 2026-11-01: Long Reach = one +150 buy, melee champions only
 
 - **Uploaded as catalogue map #26** (HTTP 201, download SHA-256 `d1535369…` matches).

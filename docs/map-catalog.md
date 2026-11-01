@@ -19,7 +19,7 @@ ruins, then fight through the four shared **gate levels** (2–5). **Win** when 
 4. **Stages:** the tower stands mid-lane, far in front of the Nexus — take them one at a time. While your tower
    stands, basic units come out of it. Tower down → a **Protector** guards the Nexus,
    the next wave comes at once and stronger units come out of the Nexus. Nexus down → its boss rises and the
-   strongest units come out of the ruins until the boss dies. ⚠️ The Nexus has 12 000 HP and a huge attack (~1000 per shot).
+   strongest units come out of the ruins until the boss dies. ⚠️ The Nexus has only 3 000 HP but a huge attack (~1000 per shot).
 5. **Monsters:** melee 200 HP / 30 damage, ranged 120 HP / 60 damage; ×2 after your tower falls, ×3 in the boss
    stage. **Kill gold:** a minion pays as much gold as the wave number (wave 5 → 5 gold), double on Level 2, triple on
    Level 3.

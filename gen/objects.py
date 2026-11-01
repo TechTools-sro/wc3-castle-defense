@@ -69,25 +69,25 @@ GATE_LEVELS = [
     {"level": 2, "lane": 8, "arm": 4, "name": "The Dark Gate", "color": "|cffff4040", "dir": "north-east",
      "base": ("unp2", "Dark Citadel"), "turret": ("uzg1", "Dark Spire"),
      "stages": [("ngh2", "uabo"), ("ninf", "nbal"), ("ninf", "nbal")], "champion": "nrvd",
-     "nexus": (32000, 15, (1300, 4, 50)), "tower": (40000, 8, (3495, 1, 10)), "tint": (255, 90, 90),
+     "nexus": (8000, 15, (1300, 4, 50)), "tower": (40000, 8, (3495, 1, 10)), "tint": (255, 90, 90),
      "unit_hp": 300, "unit_dmg": 0, "gold": 500, "nexus_scale": 1.2, "tower_scale": 1.5,
      "boss": (0, "Malgrath the Dark Lich", 3, 1.5, 2.4)},
     {"level": 3, "lane": 9, "arm": 5, "name": "The Frozen Gate", "color": "|cff80dfff", "dir": "north-west",
      "base": ("uaod", "Frozen Throne"), "turret": ("uzg1", "Frozen Spire"),
      "stages": [("nsoc", "ufro"), ("nbal", "ninf"), ("nbal", "ninf")], "champion": "nlrv",
-     "nexus": (60000, 20, (1800, 4, 60)), "tower": (60000, 12, (4495, 1, 10)), "tint": (140, 200, 255),
+     "nexus": (15000, 20, (1800, 4, 60)), "tower": (60000, 12, (4495, 1, 10)), "tint": (140, 200, 255),
      "unit_hp": 500, "unit_dmg": 10, "gold": 1000, "nexus_scale": 1.6, "tower_scale": 1.7,
      "boss": (2, "Kel'Thar the Frozen Tide", 5, 2.0, 2.5)},
     {"level": 4, "lane": 10, "arm": 6, "name": "The Shadow Gate", "color": "|cffc080ff", "dir": "south-west",
      "base": ("ndmg", "Shadow Portal"), "turret": ("ntx2", "Shadow Spire"),
      "stages": [("ninf", "nerw"), ("nbal", "nhyc"), ("nbal", "nhyc")], "champion": "nina",
-     "nexus": (100000, 25, (2400, 4, 80)), "tower": (90000, 15, (5995, 1, 10)), "tint": (200, 120, 255),
+     "nexus": (25000, 25, (2400, 4, 80)), "tower": (90000, 15, (5995, 1, 10)), "tint": (200, 120, 255),
      "unit_hp": 1000, "unit_dmg": 25, "gold": 2000, "nexus_scale": 1.4, "tower_scale": 1.6,
      "boss": (1, "Azgaroth the Shadow Lord", 8, 3.0, 2.2)},
     {"level": 5, "lane": 11, "arm": 7, "name": "The Inferno Gate", "color": "|cffff9020", "dir": "far south-west",
      "base": ("ofrt", "Inferno Fortress"), "turret": ("owtw", "Inferno Tower"),
      "stages": [("nrvd", "ufro"), ("nlrv", "nbal"), ("nlrv", "nbal")], "champion": "nggr",
-     "nexus": (160000, 30, (3200, 4, 100)), "tower": (130000, 18, (7995, 1, 10)), "tint": (255, 160, 60),
+     "nexus": (40000, 30, (3200, 4, 100)), "tower": (130000, 18, (7995, 1, 10)), "tint": (255, 160, 60),
      "unit_hp": 2000, "unit_dmg": 50, "gold": 3000, "nexus_scale": 1.4, "tower_scale": 1.8,
      "boss": (1, "Infernus the World Breaker", 12, 4.0, 2.8)},
 ]
@@ -341,7 +341,7 @@ def boss_id(d, k):           # k = player-count tier: 0 (1-2 players), 1 (3-5), 
     return f"nb{d}{k}"
 
 
-BASE_HP, BASE_ARMOR = 12000, 10      # v1.6 (Jiri): HP -60 % (was 30000), damage x2 - killable but deadly
+BASE_HP, BASE_ARMOR = 3000, 10       # Jiri: v1.6 30000 -> 12000, v2.2 / 4 -> 3000; damage x2 (v1.6) - quick but deadly
 # Every Nexus fights back (huge attack, out of the tower's reach - see layout.tower_pos)
 NEXUS_DMG, NEXUS_COOLDOWN, NEXUS_RANGE = (900, 4, 40), 2.5, 700
 NEXUS_MISSILE = "Abilities\\Weapons\\FrostWyrmMissile\\FrostWyrmMissile.mdl"
