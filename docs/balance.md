@@ -26,13 +26,13 @@ about upgrades and cooperate.
 
 1. **The model** (`tools/balance_matrix.py [--rev REV]`): formulas over the game's real tables. No pathing, healing or potions; a fixed number of attackers and targets. It shows trends and compares champions. Its loadouts and budgets are not the bot's, so it does not predict a real fight.
 2. **Real fights** (`tools/balance_probe.py`): the production game, hidden, played by a simple bot with ordinary orders and real purchases. A bot is not a player.
-3. **The self-test** (`tools/test_env.py run`): mechanical regression. It gives itself gold and levels, pauses enemies and forces kills, so it says nothing about balance. It does check the rules: a scale applied twice changes nothing, a wounded unit that grows does not heal, the shared HP for 1, 2, 4 and 8 players (a simulated count on real units), a player who picked and left (a simulated state), the real first wave after a restart, and the Bank's budget and kill rule. **97 PASS, 0 FAIL** (`wip-selftest-3`, map `3532ceed…`). The release differs from that map only in text: the version, comments and two Bank tooltips.
+3. **The self-test** (`tools/test_env.py run`): mechanical regression. It gives itself gold and levels, pauses enemies and forces kills, so it says nothing about balance. It does check the rules: a scale applied twice changes nothing, a wounded unit that grows does not heal, the shared HP formula for 1, 2, 4 and 8 players, a real personal spawn with team 1 and a real gate spawn with a simulated team of 4, a player who picked and left (a simulated state), the real first wave after a restart, and the Bank's budget and kill rule. **97 PASS, 0 FAIL** (`wip-selftest-3`, map `3532ceed…`). The release differs from that map only in text: the version, comments and two Bank tooltips.
 
 ## Real fights
 
 Seed 1, a solo lane on the Scourge arm, ordinary orders, production timings, normal 1000 gold, legal purchases. The same bot played v4.0 and v4.1, and during a measured fight nothing changes HP, gold, level or time. **Every run had 0 tower and Nexus hits**, so these are monster fights only. A failed fight stays in the data.
 
-Three loadouts, bought before wave 1 and frozen for the 180 s of the run: **starter** = All ×4, Agi ×2, Str ×2, potion (924 g); **primary** = primary stat ×8, potion (989 g); **careless** = Mana ×4, Damage ×4 (836 g).
+Three loadouts, bought before wave 1 and frozen for the 180 s of the run: **starter** = All ×4, Str ×2, Agi ×2, potion (924 g); **primary** = primary stat ×8, potion (989 g); **careless** = Mana ×4, Damage ×4 (836 g).
 
 ### Frozen loadouts: 180 s
 
@@ -52,19 +52,19 @@ Wave = the last wave **reached**, not cleared.
 
 ### Frozen loadouts: wave 1
 
-First hit and clear in seconds after the spawn. **Min HP** = the lowest HP in the wave, **taken** = all damage received, which can be more than the HP lost. Dealt = HP removed from monsters by the champion.
+First hit and clear in seconds after the spawn. **Min HP** = the lowest HP in the wave, **taken** = all damage received, which can be more than the HP lost. Dealt = HP removed from monsters by the champion. \* = the clear was not confirmed: the time is where the next wave began.
 
 | Champion | Loadout | HP | v4.0 first hit / clear / min HP / taken / dealt | v4.1 first hit / clear / min HP / taken / dealt |
 |---|---|---|---|---|
 | Dryad | starter | 2550 | 4.8 / 11 / 2479 / 101 / 1313 | 4.8 / 26 / 1239 / 1419 / 4596 |
 | Dryad | primary | 550 | 6.1 / 8 / 542 / 7 / 1316 | 4.8 / 13 / 252 / 307 / 4607 |
-| Dryad | careless | 550 | 4.8 / 42 / 0 / 1006 / 1307, 1 deaths | 4.8 / 92 / 0 / 2945 / 4597, 5 deaths |
+| Dryad | careless | 550 | 4.8 / 42\* / 0 / 1006 / 1307, 1 death | 4.8 / 92 / 0 / 2945 / 4597, 5 deaths |
 | Mountain King | starter | 2700 | 4.4 / 12 / 2618 / 116 / 1366 | 4.4 / 22 / 1466 / 1326 / 4747 |
-| Mountain King | primary | 4700 | 4.4 / 14 / 4410 / 369 / 1391 | 4.4 / 28 / 1825 / 4007 / 4688 |
-| Mountain King | careless | 700 | 4.4 / 32 / 0 / 1001 / 1345, 1 deaths | 4.4 / 89 / 0 / 4323 / 4657, 5 deaths |
+| Mountain King | primary | 4700 | 4.4 / 14 / 4410 / 369 / 1391 | 4.4 / 28\* / 1825 / 4007 / 4688 |
+| Mountain King | careless | 700 | 4.4 / 32 / 0 / 1001 / 1345, 1 death | 4.4 / 89 / 0 / 4323 / 4657, 5 deaths |
 | Archmage | starter | 2450 | 4.8 / 11 / 2370 / 102 / 1323 | 4.8 / 22 / 1316 / 1256 / 4652 |
-| Archmage | primary | 450 | 4.8 / 11 / 277 / 177 / 1349 | 4.8 / 23 / 0 / 961 / 4619, 1 deaths |
-| Archmage | careless | 450 | 4.8 / 24 / 0 / 480 / 1344, 1 deaths | 4.8 / 40 / 0 / 1214 / 4641, 2 deaths |
+| Archmage | primary | 450 | 4.8 / 11 / 277 / 177 / 1349 | 4.8 / 23\* / 0 / 961 / 4619, 1 death |
+| Archmage | careless | 450 | 4.8 / 24\* / 0 / 480 / 1344, 1 death | 4.8 / 40 / 0 / 1214 / 4641, 2 deaths |
 
 ### Frozen loadouts: waves 2, 3, 5
 
@@ -77,30 +77,30 @@ Each cell: seconds in the wave, min HP / the loadout's HP before wave 1. That se
 | Dryad | starter | 5 | 12 s, 2554 / 2550 | 8 s (open at the end), 656 / 2550 |
 | Dryad | primary | 2 | 10 s, 529 / 550 | 17 s, 188 / 550 |
 | Dryad | primary | 3 | 10 s, 530 / 550 | 18 s, 34 / 550 |
-| Dryad | primary | 5 | 9 s, 641 / 550 | 36 s, 0 / 550, 1 deaths |
+| Dryad | primary | 5 | 9 s, 641 / 550 | 36 s, 0 / 550, 1 death |
 | Dryad | careless | 2 | 61 s, 0 / 550, 2 deaths | 57 s (open at the end), 0 / 550, 3 deaths |
 | Dryad | careless | 3 | 47 s (open at the end), 0 / 550, 2 deaths | - |
 | Mountain King | starter | 2 | 12 s, 2674 / 2700 | 22 s, 1383 / 2700 |
 | Mountain King | starter | 3 | 13 s, 2659 / 2700 | 22 s, 1096 / 2700 |
-| Mountain King | starter | 5 | 12 s, 2849 / 2700 | 39 s, 0 / 2700, 1 deaths |
+| Mountain King | starter | 5 | 12 s, 2849 / 2700 | 39 s, 0 / 2700, 1 death |
 | Mountain King | primary | 2 | 14 s, 4511 / 4700 | 27 s, 522 / 4700 |
-| Mountain King | primary | 3 | 16 s, 4481 / 4700 | 42 s, 0 / 4700, 1 deaths |
+| Mountain King | primary | 3 | 16 s, 4481 / 4700 | 42 s, 0 / 4700, 1 death |
 | Mountain King | primary | 5 | 8 s, 4519 / 4700 | 11 s (open at the end), 1191 / 4700 |
-| Mountain King | careless | 2 | 35 s, 0 / 700, 1 deaths | 60 s (open at the end), 0 / 700, 3 deaths |
-| Mountain King | careless | 3 | 39 s, 0 / 700, 1 deaths | - |
+| Mountain King | careless | 2 | 35 s, 0 / 700, 1 death | 60 s (open at the end), 0 / 700, 3 deaths |
+| Mountain King | careless | 3 | 39 s, 0 / 700, 1 death | - |
 | Archmage | starter | 2 | 11 s, 2386 / 2450 | 22 s, 962 / 2450 |
 | Archmage | starter | 3 | 12 s, 2385 / 2450 | 20 s, 1192 / 2450 |
-| Archmage | starter | 5 | 12 s, 2515 / 2450 | 43 s, 0 / 2450, 1 deaths |
-| Archmage | primary | 2 | 11 s, 329 / 450 | 26 s, 0 / 450, 1 deaths |
+| Archmage | starter | 5 | 12 s, 2515 / 2450 | 43 s, 0 / 2450, 1 death |
+| Archmage | primary | 2 | 11 s, 329 / 450 | 26 s, 0 / 450, 1 death |
 | Archmage | primary | 3 | 12 s, 285 / 450 | 53 s, 0 / 450, 3 deaths |
 | Archmage | primary | 5 | 10 s, 465 / 450 | 1 s (open at the end), 160 / 450 |
-| Archmage | careless | 2 | 29 s, 0 / 450, 1 deaths | 57 s, 0 / 450, 3 deaths |
-| Archmage | careless | 3 | 27 s, 0 / 450, 1 deaths | 45 s, 0 / 450, 2 deaths |
-| Archmage | careless | 5 | 34 s, 0 / 450, 1 deaths | - |
+| Archmage | careless | 2 | 29 s, 0 / 450, 1 death | 57 s, 0 / 450, 3 deaths |
+| Archmage | careless | 3 | 27 s, 0 / 450, 1 death | 45 s, 0 / 450, 2 deaths |
+| Archmage | careless | 5 | 34 s, 0 / 450, 1 death | - |
 
 ### Playing on: 420 s
 
-Starter, then every coin into All, All, Agi, Str and every tree into the Bank. Stage 0 only: the bot does not push. Cell: seconds in the wave, HP taken, min HP, level, gold spent. `-` = not reached.
+Starter, then every coin into All, All, Str, Agi and every tree into the Bank. Stage 0 only: the bot does not push. Cell: seconds in the wave, HP taken, min HP, level, gold spent. `-` = not reached.
 
 | Champion | Waves reached, deaths: v4.0 | v4.1 |
 |---|---|---|
@@ -137,11 +137,12 @@ Dryad, starter, no further purchases, income 200. From wave 3 she walks away fro
 
 | | v4.0 | v4.1 |
 |---|---|---|
-| Wave 3 stood | from 54 s to the end at 420 s, 3 monsters | from 90 s to the defeat at 231.7 s, 4 monsters |
-| Payments of +200 in that wave | 6 (120 s … 420 s), no end in sight | 2 (120 s, 180 s), then the game was over |
+| Wave 3 | spawned at 54 s, still open at the end, 420 s | spawned at 90 s, still open at the defeat, 231.7 s |
+| Monsters left, no new kill | 3, from 90 s to 420 s | 4, from 114.5 s to 231.7 s |
+| Payments of +200 in wave 3 | 7: one at 60 s, then 6 further after 90 s, up to 420 s | 2: at 120 s and 180 s, then the game was over |
 | Castle | 8000 → 4960 at 390 s, about 10 HP per second | 8000 → 0, about 90 HP per second, **destroyed at 231.7 s** |
 
-This real run shows two things: v4.0 paid for as long as a wave stood, and in v4.1 the last monsters of a wave are dangerous to the castle. It does **not** show that a third payment is denied: the castle fell 8 s before the payment at 240 s. The cap of 120 counted seconds per wave, its reset by the next wave and the kill rule are shown by the self-test's mechanical checks of `BankTick` and by the code, not by this fight.
+This real run shows two things: v4.0 paid for as long as a wave stood, and in v4.1 the last monsters of a wave are dangerous to the castle. It does **not** show that a third payment is denied: the castle fell 8 s before the payment at 240 s. The cap of 120 counted seconds and the kill rule are shown by the self-test's mechanical checks of `BankTick`. The renewal by the next wave is in the code (`OnWaveTimer`), with no check of its own. None of this comes from this fight.
 
 ### Evidence
 
@@ -359,7 +360,7 @@ Only Dryad, Mountain King and Archmage were measured in real fights. Pit Lord, F
 - **Not measured:** a whole campaign to victory, towers, Nexuses and bosses in a real fight. The bot does not push. Their base numbers are unchanged since v4.0, and the model's brackets are bounds, not proof.
 - **Not measured:** stages 1 and 2 in a real fight. With every coin spent, the bot took 1 to 6 % of its HP per wave at stage 0 by waves 15 to 20. Whether the mid game is hard enough once players push is for a real game to show. `WAVE_HP_GROWTH` and `WAVE_DMG_GROWTH` in `gen/objects.py` are the two numbers to turn.
 - **Not measured:** the castle under a real leak in a team game. Monster damage grew and the castle did not. If it proves too harsh, the castle's HP is one number.
-- **Not measured:** several real players. Team sizes are the formula's values, tested on real units with a simulated count, and "picked and left" is a simulated state. A real leave has not been exercised.
+- **Not measured:** several real players. The formula is checked for 1, 2, 4 and 8 players, real units only for a personal spawn with team 1 and a gate spawn with a simulated team of 4, and "picked and left" is a simulated state. A real leave has not been exercised.
 - **Not measured in a fight:** that the Bank refuses a third payment. See above.
 - **Solo lane, Scourge only** in real fights: a hidden run has one player, on lane 1. The other factions have the same numbers now, which the build's data shows, not a fight.
 - Software rendering, one bot, seed 1: a small sample. Differences of a few seconds mean nothing.
