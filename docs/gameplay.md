@@ -196,7 +196,7 @@ anywhere on the map (`Aneu` radius 20 000). Bought items go straight into his in
   `TryReach`: +150 attack range once, melee champions only, ranged buyers refunded) for a future melee champion.
 - **Apothecary** (`SHOPS["apothecary"]`, stock 8, restock 10 s): potions heal a **percent** of max, fixed price, and
   **stack** in the inventory (one slot, more charges) — `POTIONS`, script `PotionIndex` / `StackPotion` (on buy and
-  pickup) / `DrinkPotion` (on use; the native fixed heal of `AIh1`/`AIm1`/`AIre` is zeroed):
+  pickup) / `MergePotions` (every 0.2 s from `GrabTick`: same-type potions in two slots merge into the first) / `DrinkPotion` (on use; the native fixed heal of `AIh1`/`AIm1`/`AIre` is zeroed):
   Healing Potion 50 % HP 100 gold (10 s cooldown), Mana Potion 50 % mana 100 gold (10 s), Restoration Potion
   100 % HP + mana 250 gold (30 s), Invulnerability Potion 200 gold. Also boots, rings, periapt, staff of teleportation.
 

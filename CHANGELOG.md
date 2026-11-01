@@ -1,5 +1,14 @@
 # Changelog
 
+## v3.0 — 2026-11-01: potions really stack
+
+- **Not uploaded yet:** the catalogue answered HTTP 429 `UPLOAD_LIMIT` (20 uploads per uploader per rolling 24 h).
+
+- Jiří (screenshot): buying Healing Potions filled 2 slots (3 + 3 charges). The buy-time `StackPotion` alone is not
+  reliable with the neutral shop events (same class of problem as the premium merge). New `MergePotions`
+  (`gen/castle_logic.j`) merges every pair of same-type potions into the first slot; it runs every 0.2 s from
+  `GrabTick` and after each buy (`OnItemSold`). Verified: pjass + build; not tried in-game.
+
 ## v2.9 — 2026-11-01: Extra Spear spears fly
 
 - **Uploaded as catalogue map #34** (HTTP 201, download SHA-256 `5758a863…` matches).

@@ -408,6 +408,37 @@ function StackPotion takes unit h, item it returns boolean
     return false
 endfunction
 
+// Event-independent stacking (Jiri, v3.0: bought potions still took 2 slots): merges every pair of same-type potions
+// in the inventory into the first slot. Run every 0.2 s from GrabTick and after every buy.
+function MergePotions takes unit h returns nothing
+    local integer a = 0
+    local integer b
+    local item ia
+    local item ib
+    if h == null or GetWidgetLife(h) <= 0.405 then
+        return
+    endif
+    loop
+        exitwhen a >= 5
+        set ia = UnitItemInSlot(h, a)
+        if ia != null and PotionIndex(GetItemTypeId(ia)) >= 0 then
+            set b = a + 1
+            loop
+                exitwhen b >= 6
+                set ib = UnitItemInSlot(h, b)
+                if ib != null and GetItemTypeId(ib) == GetItemTypeId(ia) then
+                    call SetItemCharges(ia, GetItemCharges(ia) + IMaxBJ(GetItemCharges(ib), 1))
+                    call RemoveItem(ib)
+                endif
+                set b = b + 1
+            endloop
+        endif
+        set a = a + 1
+    endloop
+    set ia = null
+    set ib = null
+endfunction
+
 function DrinkPotion takes unit u, item it returns boolean
     local integer i = PotionIndex(GetItemTypeId(it))
     if i < 0 then
@@ -448,6 +479,7 @@ function OnItemSold takes nothing returns nothing
                 endif
             endif
             call MergePremiumAll(gHero[p])
+            call MergePotions(gHero[p])
         endif
     endif
     set it = null
@@ -527,6 +559,7 @@ function GrabTick takes nothing returns nothing
         endif
         if gHero[p] != null then
             call ApplyBought(p)
+            call MergePotions(gHero[p])
         endif
         if gHero[p] != null and gCircleRect[p] != null and GetWidgetLife(gHero[p]) > 0.405 then
             set gGrabP = p

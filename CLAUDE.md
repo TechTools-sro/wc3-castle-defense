@@ -36,7 +36,7 @@ tools/run_test.sh 'Maps\Test\TechToolsCastleDefence_TEST.w3x' <outdir> 40   # Wi
 
 ## Versions
 
-- `MAP_VERSION` in `build.py` (now **v2.9**) is in the map name, the file name (`TechToolsCastleDefence_v2.9.w3x`) and
+- `MAP_VERSION` in `build.py` (now **v3.0**) is in the map name, the file name (`TechToolsCastleDefence_v3.0.w3x`) and
   the catalogue title. ⚠️ **Jiří's rule: every feature = a new version (1.2, 1.3, …) AND an upload to the
   catalogue** (LAN players must have the identical file). Bump, build, commit, upload, verify the download's
   SHA-256, record the new entry below + in `CHANGELOG.md`. Install removes older `TechToolsCastleDefence*.w3x`.
