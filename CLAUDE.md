@@ -52,8 +52,7 @@ tools/balance_probe.py run LABEL --set fight   # real fights, hidden, played by 
 
 ## Versions
 
-- ⚠️ **Jiří's gate on v4.4 (2026-11-01):** it is a review candidate on the local branch `codex/v4.4-review`. No install into his game, no catalogue upload, no push to `main`, no Brain version pointer until he approves. v4.3 stays the published version. Build it only with `python3 build.py --no-install`.
-- `MAP_VERSION` in `build.py` (**v4.4 on that branch; v4.3 on `main` and in the catalogue**) is in the map name, the file name (`TechToolsCastleDefence_v4.4.w3x`) and
+- `MAP_VERSION` in `build.py` (now **v4.4**) is in the map name, the file name (`TechToolsCastleDefence_v4.4.w3x`) and
   the catalogue title. ⚠️ **Jiří's rule: every feature = a new version (1.2, 1.3, …) AND an upload to the
   catalogue** (LAN players must have the identical file). Bump, build, commit, upload, verify the download's
   SHA-256, record the new entry below + in `CHANGELOG.md`. Install removes older `TechToolsCastleDefence*.w3x`.
@@ -63,8 +62,8 @@ tools/balance_probe.py run LABEL --set fight   # real fights, hidden, played by 
 - ⚠️ **The repo is PUBLIC:** https://github.com/TechTools-sro/wc3-castle-defense (Jiří's choice, 2026-11-01). Never commit
   secrets, credentials or the game's own files (`ref/`, `dist/` stay ignored). The hidden dev-cheat names in `build.py` are public.
 
-- Catalogue (uploaded as `brainbot`): newest first — **v4.3 = https://techtools.cz/tools/warcraft3/#map/80** (current),
-  v4.2 = #79, v4.1 = #78, v4.0 = #77, v3.9 = #76, v3.8 = #75, v3.7 = #74, v3.6 = #73, v3.5 = #72, v3.4 = #71, v3.3 = #35 (v3.0–v3.2 were never uploaded), v2.9 = #34, v2.8 = #33, v2.7 = #32, v2.6 = #31, v2.5 = #30, v2.4 = #29, v2.3 = #28, v2.2 = #27, v2.1 = #26, v2.0 = #25, v1.9 = #24, v1.8 = #23, v1.7 = #22, v1.6 = #21, v1.5 = #20, v1.4 = #19, v1.3 = #18,
+- Catalogue (uploaded as `brainbot`): newest first — **v4.4 = https://techtools.cz/tools/warcraft3/#map/81** (current),
+  v4.3 = #80, v4.2 = #79, v4.1 = #78, v4.0 = #77, v3.9 = #76, v3.8 = #75, v3.7 = #74, v3.6 = #73, v3.5 = #72, v3.4 = #71, v3.3 = #35 (v3.0–v3.2 were never uploaded), v2.9 = #34, v2.8 = #33, v2.7 = #32, v2.6 = #31, v2.5 = #30, v2.4 = #29, v2.3 = #28, v2.2 = #27, v2.1 = #26, v2.0 = #25, v1.9 = #24, v1.8 = #23, v1.7 = #22, v1.6 = #21, v1.5 = #20, v1.4 = #19, v1.3 = #18,
   v1.2 = #17 and v1.1 = #16 (both have the broken Bank / upgrades), unversioned = #3 (stale; only an admin can
   delete old entries).
   Upload = `POST /warcraft3-api/maps` (multipart `file`, `title`, `players`, `description`, `doc=@docs/map-catalog.md`)

@@ -1,8 +1,8 @@
 # Changelog
 
-## v4.4 — 2026-11-01: real tooltips, a boss on every ruined tower, bosses in gear, a modest Premium Armory, +5 % prices
+## v4.4 — 2026-11-02: real tooltips, a boss on every ruined tower, bosses in gear, a modest Premium Armory, +5 % prices
 
-- **Status: built and tested, waiting for Jiří's approval. Not installed, not uploaded, not pushed.** v4.3 stays the released version.
+- **Approved by Jiří, uploaded as catalogue map #81** (HTTP 201, download SHA-256 `aad2c4b9…` matches dist and the installed map; 32 versions in the family).
 
 - Jiří, playing v4.3: spell tooltips far better, with real effects and numbers for all ranks. The premium items are grossly overtuned, 30 % lifesteal for 1000 gold. Prices should grow 5 %, not 3 %. "Where the turret lay, a boss must spawn." Bosses are still far too easy: brutal real equipment.
 - **Tooltips of all 12 champions** (`gen/xhs_tips.py`): generated per rank from the numbers each ability really has. The current rank in gold, learned ones light grey, future ones grey, the next rank's hero level in orange, Max rank in green. The Learn card lists all ranks and names the offered one, because the engine has one Learn text for all ranks. Toggles say they are on. The innate ability and the tavern name what comes at hero level 20. **Numbers corrected in the words on the way**, none in the game: Immolation per interval, Doom's guards, Unholy Aura's flat HP per second, Healing Wave's targets in all, Negative Energy has no stun, and so on. The old text is gone. **Superseded on request:** "tooltips one line" no longer holds for spells and premium items.
