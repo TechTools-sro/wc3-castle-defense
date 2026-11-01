@@ -25,7 +25,7 @@ Invader of arm `d` = Player(8 + d): 0 North **The Scourge**, 1 East **The Burnin
 
    | Key | Skill (5 levels, `DRYAD_SKILLS`) | Per level | How |
    |---|---|---|---|
-   | Q | Extra Spear (`Xesp`) | +1 spear at another enemy within 600 of the target, full damage (+ fire bonus) | `OnDamaged` |
+   | Q | Extra Spear (`Xesp`) | +1 spear at another enemy within 600 of the target, full damage (+ fire bonus) — the spears **fly** (one per level) | `OnAttacked` spawns invisible locust dummies `dspr`/`dspf` (fire) that attack once; their hit → `OnDamaged` deals the champion's last hit (`gLastHit`) |
    | W | Swift Throw (`Xswt`) | +20 % attack speed | `OnHeroSkill` adds hidden `Xsw1`–`Xsw5` (AIsx copies) |
    | E | Fire Spears (`Xfsp`) | +20 % of every hit as extra fire damage | `OnDamaged`; level 1 adds the fire orb `Xfor` (missile look) |
    | T | Attributes (`Xatt`) | +10 all stats, from hero level 11 | |

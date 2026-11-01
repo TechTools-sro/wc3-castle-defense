@@ -1067,30 +1067,66 @@ function OnDamaged takes nothing returns nothing
     local unit tgt = GetTriggerUnit()
     local real dmg = GetEventDamage()
     local integer p
-    local integer n
     local integer f
-    local integer o
-    local real hit
-    local unit u
-    if gDmgLock or src == null or dmg <= 0.0 then
+    local real base
+    if gDmgLock or src == null then
         set src = null
         set tgt = null
         return
     endif
     set p = GetPlayerId(GetOwningPlayer(src))
-    if p >= 8 or src != gHero[p] then
+    if p >= 8 then
         set src = null
         set tgt = null
         return
     endif
-    set n = GetUnitAbilityLevel(src, gSpearAbil)
-    set f = GetUnitAbilityLevel(src, gFireSkill)
-    set hit = dmg * (1.0 + I2R(gFirePct * f) / 100.0)
-    set gDmgLock = true
-    if f > 0 then
-        call UnitDamageTarget(src, tgt, hit - dmg, true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
+    if GetUnitTypeId(src) == gSpearDummy or GetUnitTypeId(src) == gFireDummy then
+        // an extra spear landed: the champion deals her last hit's damage (+ fire bonus) to this enemy
+        if gHero[p] != null then
+            set base = gLastHit[p]
+            if base <= 0.0 then
+                set base = I2R(GetHeroAgi(gHero[p], true)) + 25.0
+            endif
+            set f = GetUnitAbilityLevel(gHero[p], gFireSkill)
+            set gDmgLock = true
+            call UnitDamageTarget(gHero[p], tgt, base * (1.0 + I2R(gFirePct * f) / 100.0), true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
+            set gDmgLock = false
+        endif
+        call UnitApplyTimedLife(src, 'BTLF', 0.1)
+    elseif src == gHero[p] and dmg > 0.0 then
+        set gLastHit[p] = dmg
+        set f = GetUnitAbilityLevel(src, gFireSkill)
+        if f > 0 then
+            set gDmgLock = true
+            call UnitDamageTarget(src, tgt, dmg * I2R(gFirePct * f) / 100.0, true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
+            set gDmgLock = false
+        endif
+    endif
+    set src = null
+    set tgt = null
+endfunction
+
+// Extra Spear: when the champion starts an attack, one invisible spear dummy per level shoots at another enemy near
+// the target - the spears are SEEN flying (fire spears once Fire Spears is learned). Their hit = OnDamaged above.
+function OnAttacked takes nothing returns nothing
+    local unit a = GetAttacker()
+    local unit tgt = GetTriggerUnit()
+    local unit u
+    local unit d
+    local integer p
+    local integer n = 0
+    local integer o
+    local integer dt = gSpearDummy
+    if a != null then
+        set p = GetPlayerId(GetOwningPlayer(a))
+        if p < 8 and a == gHero[p] then
+            set n = GetUnitAbilityLevel(a, gSpearAbil)
+        endif
     endif
     if n > 0 then
+        if GetUnitAbilityLevel(a, gFireSkill) > 0 then
+            set dt = gFireDummy
+        endif
         call GroupEnumUnitsInRange(gDmgGroup, GetUnitX(tgt), GetUnitY(tgt), gSpearRange, null)
         loop
             set u = FirstOfGroup(gDmgGroup)
@@ -1098,21 +1134,18 @@ function OnDamaged takes nothing returns nothing
             call GroupRemoveUnit(gDmgGroup, u)
             set o = GetPlayerId(GetOwningPlayer(u))
             if u != tgt and o >= 8 and o <= 11 and GetWidgetLife(u) > 0.405 then
-                call UnitDamageTarget(src, u, hit, true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
-                if f > 0 then
-                    call DestroyEffect(AddSpecialEffectTarget("Abilities\\Weapons\\FireBallMissile\\FireBallMissile.mdl", u, "chest"))
-                else
-                    call DestroyEffect(AddSpecialEffectTarget("Abilities\\Weapons\\Dryadmissile\\Dryadmissile.mdl", u, "chest"))
-                endif
+                set d = CreateUnit(Player(p), dt, GetUnitX(a), GetUnitY(a), bj_RADTODEG * Atan2(GetUnitY(u) - GetUnitY(a), GetUnitX(u) - GetUnitX(a)))
+                call UnitApplyTimedLife(d, 'BTLF', 4.0)
+                call IssueTargetOrder(d, "attack", u)
                 set n = n - 1
             endif
         endloop
         call GroupClear(gDmgGroup)
     endif
-    set gDmgLock = false
-    set src = null
+    set a = null
     set tgt = null
     set u = null
+    set d = null
 endfunction
 
 function DmgRebuild takes nothing returns nothing
@@ -2374,6 +2407,9 @@ function InitGame takes nothing returns nothing
     set t = CreateTrigger()
     call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_HERO_LEVEL)
     call TriggerAddAction(t, function OnHeroLevel)
+    set t = CreateTrigger()
+    call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_UNIT_ATTACKED)
+    call TriggerAddAction(t, function OnAttacked)
     set t = CreateTrigger()
     call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_HERO_SKILL)
     call TriggerAddAction(t, function OnHeroSkill)

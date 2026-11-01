@@ -142,6 +142,9 @@ SWIFT_ABILS = [f"Xsw{L}" for L in range(1, DRYAD_SKILL_LEVELS + 1)]     # AIsx c
 FIRE_PCT = 20
 FIRE_ORB = "Xfor"            # AIfb copy with 0 bonus damage: only turns the spears into fire missiles
 DRYAD_MISSILE_SPEED, DRYAD_MISSILE_ARC = 450, 0.25
+# Extra spears FLY (Jiri: the number of spears must be visible): each one is an invisible locust dummy that attacks once
+# with the spear missile; its hit makes the script deal the champion's damage (OnAttacked / OnDamaged).
+SPEAR_DUMMY, FIRE_DUMMY = "dspr", "dspf"
 SPEAR_RANGE = 600.0          # extra spears hit enemies within this distance of the main target
 TAVERNS = [("tvc0", "Hall of Champions", [DRYAD_ID])]
 ALL_HEROES = [DRYAD_ID]
@@ -381,6 +384,14 @@ def custom_units():
     for (tid, name, heroes) in TAVERNS:
         units.append(("ntav", tid, [("unam", S, name), ("useu", S, ",".join(heroes))]))
     units.append(dryad_hero())
+    for did, missile in ((SPEAR_DUMMY, "Abilities\\Weapons\\Dryadmissile\\Dryadmissile.mdl"),
+                         (FIRE_DUMMY, "Abilities\\Weapons\\FireBallMissile\\FireBallMissile.mdl")):
+        units.append(("earc", did, [
+            ("unam", S, "Spear"), ("usca", R, 0.01), ("ushu", S, ""), ("uabi", S, "Aloc"), ("upgr", S, ""), ("ureq", S, ""),
+            ("umvs", I, 0), ("ucol", U, 0.0), ("ufoo", I, 0), ("uhpm", I, 100),
+            ("ua1b", I, 0), ("ua1d", I, 1), ("ua1s", I, 1), ("ua1c", U, 5.0), ("ua1r", I, 2000), ("uacq", U, 2000.0),
+            ("udp1", U, 0.0), ("ubs1", U, 0.0), ("ua1m", S, missile), ("ua1z", I, DRYAD_MISSILE_SPEED),
+            ("uma1", U, DRYAD_MISSILE_ARC), ("ua1g", S, "ground,air,structure,ward"), ("ulpz", U, 60.0)] + no_bounty))
     for (sid, name, items) in SHOPS.values():
         mods = [("unam", S, name), ("usei", S, ",".join(items))]
         if sid == SHOPS["bank"][0]:      # looks like a gold mine

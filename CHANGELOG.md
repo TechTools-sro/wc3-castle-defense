@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.9 — 2026-11-01: Extra Spear spears fly
+
+- **Uploaded as catalogue map #34** (HTTP 201, download SHA-256 `5758a863…` matches).
+
+- Jiří: the number of spears must be visible by upgrade level. When the Dryad starts an attack, `OnAttacked` spawns one
+  invisible locust dummy per Extra Spear level (`dspr`, or `dspf` with the fire missile once Fire Spears is learned)
+  that shoots one spear at another enemy near the target; its hit makes `OnDamaged` deal the champion's last hit
+  damage (`gLastHit`, + fire bonus) from the champion (kill credit stays hers). Replaces the instant extra damage.
+  Verified: pjass + build; not tried in-game.
+
 ## v2.8 — 2026-11-01: slower, higher Dryad spear
 
 - **Uploaded as catalogue map #33** (HTTP 201, download SHA-256 `7c193db7…` matches).

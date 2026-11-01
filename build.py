@@ -30,7 +30,7 @@ GAME_DIR = os.environ.get("WC3_DIR", "/home/novakj/games/warcraft3")
 TEST = "--test" in sys.argv
 # VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
 # map name (game list, lobby, loading screen), the file name and the catalogue title.
-MAP_VERSION = "2.8"
+MAP_VERSION = "2.9"
 MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
@@ -341,6 +341,9 @@ globals
     integer array gSwiftAbil
     integer gFirePct = 20
     real gSpearRange = 600.0
+    integer gSpearDummy = 0
+    integer gFireDummy = 0
+    real array gLastHit
     integer gReachTech = 0
     integer gReachMax = 5
     integer gReachStep = 150
@@ -561,6 +564,8 @@ def build_script():
         a(f"    set gSwiftAbil[{lv}] = '{aid}'")
     a(f"    set gFirePct = {OB.FIRE_PCT}")
     a(f"    set gSpearRange = {jr(OB.SPEAR_RANGE)}")
+    a(f"    set gSpearDummy = '{OB.SPEAR_DUMMY}'")
+    a(f"    set gFireDummy = '{OB.FIRE_DUMMY}'")
     # gate lanes 8-11 = Levels 2-5 (arms 4-7), all owned by the Scourge computer (Player 9)
     for g in OB.GATE_LEVELS:
         lane, arm, f = g["lane"], g["arm"], g
@@ -833,7 +838,7 @@ def misc_constants(game):
 REQUIRED_SCRIPT_DATA = ["set gBankItem = ", "set gIncomeStep = ", "set gPremItem[1] = ", "set gPremCount = ",
                         "set gShopFxCount = ", "set gDevCount = ", "set gAttrPerLevel = ", "set gReachItem = ",
                         "set gGateState[11] = ", "set gStageUnit[0] = ", "set gEpicItem[5] = ", "set gStatItem[0] = ", "set gHeroPool[0] = ",
-                        "set gPotCount = ", "set gSpearAbil = ", "set gSwiftAbil[5] = "]
+                        "set gPotCount = ", "set gSpearAbil = ", "set gSwiftAbil[5] = ", "set gSpearDummy = "]
 
 
 def check_script_data(script):
