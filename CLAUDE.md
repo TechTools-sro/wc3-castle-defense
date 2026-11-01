@@ -12,6 +12,7 @@ Start here, then read only what the task needs:
 | `docs/architecture.md` | Touching code: build pipeline, file map, JASS function map, object-ID registry, data flow |
 | `docs/wc3-127-gotchas.md` | Anything engine/format related. **Every entry was hit for real — read before "fixing" something odd** |
 | `docs/test-env.md` | Running the map in the real game: the hidden test environment, its outputs, limits and rollback |
+| `docs/techtools-warcraft-tool.md` | The website around this map: VPN, catalogue, accounts, voice, messages, what lives where |
 | `README.md` | Human overview + build/install |
 
 ## Build, install, test

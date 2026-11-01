@@ -17,6 +17,7 @@ into `Maps/` of a WarCraft III 1.27 install. `python3 build.py` installs a fresh
 | [docs/architecture.md](docs/architecture.md) | Build pipeline, file map, JASS function map, shop data model, object-ID registry |
 | [docs/wc3-127-gotchas.md](docs/wc3-127-gotchas.md) | Engine and file-format traps that were hit for real |
 | [docs/test-env.md](docs/test-env.md) | The hidden test environment: run the map's self-test in the real game beside a running client |
+| [docs/techtools-warcraft-tool.md](docs/techtools-warcraft-tool.md) | The TechTools website around this map: VPN, catalogue, accounts, voice, messages |
 | [CLAUDE.md](CLAUDE.md) | Entry point for AI agents: rules, workflow, the owner's design rules |
 
 ## Build

@@ -1,5 +1,11 @@
 # Changelog
 
+## Docs — 2026-11-01: the website around this map
+
+- Jiří: "přidej k tomu ještě i kontext o celým tom našem toolu v TechTools". [docs/techtools-warcraft-tool.md](docs/techtools-warcraft-tool.md): the web tool and its
+  repo, LAN and VPN, accounts, catalogue, voice, messages, what lives where, dated 2026-11-01 with open points. No server code and no private data.
+- Verified against `techtools-4` at `9b1d3cc`, `1497fd1` and `fcd2838`, and live API answers. The live message checks are the release coordinators' results, attributed as such.
+
 ## Test tooling — 2026-11-01: a hidden test environment (no map change, no new version)
 
 - Jiří: test the map in the background while he plays, without "Warcraft III is already running".
