@@ -177,7 +177,11 @@ anywhere on the map (`Aneu` radius 20 000). Bought items go straight into his in
 - **Long Reach** (key Z, row 3, **1500 gold**): +150 attack range for your champion per buy, up to 5× (+750) —
   melee champions hit from a distance. Instant via the custom range upgrade `Rcrg` (`REACH_*`, `TryReach`);
   at the max a new buy is refunded; reset on restart.
-- **Apothecary**: potions, scrolls, boots, rings, staff of teleportation (`SHOPS["apothecary"]`), stock 8, restock 10 s.
+- **Apothecary** (`SHOPS["apothecary"]`, stock 8, restock 10 s): potions heal a **percent** of max, fixed price, and
+  **stack** in the inventory (one slot, more charges) — `POTIONS`, script `PotionIndex` / `StackPotion` (on buy and
+  pickup) / `DrinkPotion` (on use; the native fixed heal of `AIh1`/`AIm1`/`AIre` is zeroed):
+  Healing Potion 50 % HP 100 gold (10 s cooldown), Mana Potion 50 % mana 100 gold (10 s), Restoration Potion
+  100 % HP + mana 250 gold (30 s), Invulnerability Potion 200 gold. Also boots, rings, periapt, staff of teleportation.
 
 ## Enemy bases and bosses (`gen/objects.py`)
 

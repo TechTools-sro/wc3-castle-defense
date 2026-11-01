@@ -194,9 +194,18 @@ INCOME_TREE_COST = 1
 SHOPS = {
     "armory": ("shpa", "Premium Armory", [p[0] for p in PREMIUM] + [REACH_ITEM]),
     "bank": ("shpc", "Bank", [BANK_ITEM]),
-    "apothecary": ("shpb", "Apothecary", ["phea", "pman", "pghe", "pgma", "pres", "plcl",
-                                          "bspd", "prvt", "rlif", "rwiz", "stel", "pnvl"]),
+    "apothecary": ("shpb", "Apothecary", ["phea", "pman", "pres", "pnvl",
+                                          "bspd", "prvt", "rlif", "rwiz", "stel"]),
 }
+# Apothecary potions (v1.7): heal a PERCENT of max HP / mana (the script does it on use - fixed amounts are useless
+# for champions with thousands of HP), fixed price, and they STACK in the inventory (one slot, more charges).
+#   (item, name, effect line, gold, hp %, mana %, native ability zeroed, its amount fields, cooldown s)
+POTIONS = [
+    ("phea", "Healing Potion", "Restores 50% HP", 100, 50, 0, "AIh1", [("Ihpg", 1)], 10.0),
+    ("pman", "Mana Potion", "Restores 50% mana", 100, 0, 50, "AIm1", [("Impg", 1)], 10.0),
+    ("pres", "Restoration Potion", "Restores all HP and mana", 250, 100, 100, "AIre", [("Ihps", 1), ("Imps", 2)], 30.0),
+    ("pnvl", "Invulnerability Potion", "Invulnerable for a few seconds", 200, 0, 0, None, [], None),
+]
 SHOP_ITEMS = sorted({i for (_, _, items) in SHOPS.values() for i in items} - {p[0] for p in PREMIUM} - {BANK_ITEM, REACH_ITEM})   # originals only
 
 CASTLE_ID = "hcd0"
@@ -514,7 +523,11 @@ NO_BOUNTY = [("ubba", I, 0), ("ubdi", I, 0), ("ubsi", I, 0)]
 
 def original_item_mods():
     """Shop items: plenty in stock and quick restock (8 heroes share two shops)."""
-    return [(i, [("isto", I, 8), ("istr", I, 10), ("isst", I, 0)]) for i in SHOP_ITEMS]
+    mods = {i: [("isto", I, 8), ("istr", I, 10), ("isst", I, 0)] for i in SHOP_ITEMS}
+    for (iid, name, effect, gold, *_rest) in POTIONS:
+        mods[iid] += [("unam", S, name), ("utip", S, name), ("ides", S, effect), ("igol", I, gold),
+                      ("utub", S, f"{effect}|n|n|cffff8c00Stacks in your inventory|r")]
+    return list(mods.items())
 
 
 def original_ability_mods():
@@ -525,7 +538,10 @@ def original_ability_mods():
             ("Aneu", [("aran", U, 1, 0, 20000.0), ("Neu1", U, 1, 1, 20000.0)]),
             # Fountain of Power: HP (ACnr/Aoar) and mana (ANre/Aarm) regeneration 1 % -> 2 % of max per second
             ("ACnr", [("Oar1", U, 1, 1, 0.02)]),
-            ("ANre", [("Arm1", U, 1, 1, 0.02)])]
+            ("ANre", [("Arm1", U, 1, 1, 0.02)])] + [
+            # potions: the native fixed heal is zeroed, the script heals the percent (DrinkPotion)
+            (ab, [(f, I, 1, d, 0) for (f, d) in fields] + [("acdn", U, 1, 0, cd)])
+            for (_i, _n, _e, _g, _hp, _mp, ab, fields, cd) in POTIONS if ab]
 
 
 def custom_items():

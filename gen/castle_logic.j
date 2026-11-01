@@ -293,6 +293,55 @@ function TryUpgradePremium takes unit h, item it returns boolean
     return false
 endfunction
 
+// Apothecary potions: heal a percent of max HP / mana on use; the same potion stacks into one slot.
+function PotionIndex takes integer id returns integer
+    local integer i = 0
+    loop
+        exitwhen i >= gPotCount
+        if gPotItem[i] == id then
+            return i
+        endif
+        set i = i + 1
+    endloop
+    return -1
+endfunction
+
+function StackPotion takes unit h, item it returns boolean
+    local integer id = GetItemTypeId(it)
+    local integer s = 0
+    local item o
+    if h == null or id == 0 or PotionIndex(id) < 0 then
+        return false
+    endif
+    loop
+        exitwhen s >= 6
+        set o = UnitItemInSlot(h, s)
+        if o != null and o != it and GetItemTypeId(o) == id then
+            call SetItemCharges(o, GetItemCharges(o) + IMaxBJ(GetItemCharges(it), 1))
+            call RemoveItem(it)
+            set o = null
+            return true
+        endif
+        set s = s + 1
+    endloop
+    set o = null
+    return false
+endfunction
+
+function DrinkPotion takes unit u, item it returns boolean
+    local integer i = PotionIndex(GetItemTypeId(it))
+    if i < 0 then
+        return false
+    endif
+    if gPotHp[i] > 0 then
+        call SetWidgetLife(u, GetWidgetLife(u) + GetUnitState(u, UNIT_STATE_MAX_LIFE) * gPotHp[i] / 100.0)
+    endif
+    if gPotMp[i] > 0 then
+        call SetUnitState(u, UNIT_STATE_MANA, GetUnitState(u, UNIT_STATE_MANA) + GetUnitState(u, UNIT_STATE_MAX_MANA) * gPotMp[i] / 100.0)
+    endif
+    return true
+endfunction
+
 // Neutral shops (grove, castle) fire "item sold". WarCraft does NOT fire "picked up" for a permanent item bought
 // from a neutral shop, and a REMOTE purchase leaves the item on the ground at the shop. So here: a Bank buy is
 // counted, anything else is handed to the buyer if needed and a premium item is merged (upgrade). An item that the
@@ -306,6 +355,8 @@ function OnItemSold takes nothing returns nothing
             call BuyIncome(p, it)
         elseif TryReach(p, it) then
             // Long Reach applied
+        elseif StackPotion(b, it) then
+            // potion merged into the one the champion already carries
         else
             if not UnitHasItem(b, it) then
                 if not UnitAddItem(b, it) then
@@ -324,6 +375,14 @@ endfunction
 function OnItemPickup takes nothing returns nothing
     local integer p = GetPlayerId(GetOwningPlayer(GetTriggerUnit()))
     local item it = GetManipulatedItem()
+    if GetTriggerEventId() == EVENT_PLAYER_UNIT_USE_ITEM and DrinkPotion(GetTriggerUnit(), it) then
+        set it = null
+        return
+    endif
+    if GetTriggerEventId() == EVENT_PLAYER_UNIT_PICKUP_ITEM and StackPotion(GetTriggerUnit(), it) then
+        set it = null
+        return
+    endif
     if p < 8 and GetTriggerUnit() == gHero[p] and TryUpgradePremium(gHero[p], it) then
         set it = null
         return

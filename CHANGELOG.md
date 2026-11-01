@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.7 — 2026-11-01: potions heal % and stack
+
+- **Uploaded as catalogue map #22** (HTTP 201, download SHA-256 `194772af…` matches).
+
+- Jiří: the potion economy made no sense (a 150-gold potion healed a fixed 250 HP on champions with thousands of HP)
+  and potions should stack in the inventory. Apothecary potions now heal a percent of max (`POTIONS` in
+  `gen/objects.py`; the native amounts of `AIh1`/`AIm1`/`AIre` are zeroed, `DrinkPotion` heals on USE): Healing 50 % HP
+  and Mana 50 % mana for 100 gold (10 s cooldown), Restoration 100 % HP + mana for 250 (30 s), Invulnerability 200.
+  Greater Healing / Greater Mana / Lesser Clarity removed. The same potion stacks into one slot (`StackPotion`, on
+  buy in `OnItemSold` and on pickup). Verified: pjass + build; not tried in-game.
+
 ## v1.6 — 2026-11-01: Nexus HP −60 %, Nexus damage ×2
 
 - **Uploaded as catalogue map #21** (HTTP 201, download SHA-256 `56a858ac…` matches; joins the map family, 7 versions).
