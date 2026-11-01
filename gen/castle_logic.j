@@ -46,6 +46,20 @@ function GiveAllGold takes integer gold returns nothing
     endloop
 endfunction
 
+// The highest wave of any lane.
+function HighestWave takes nothing returns integer
+    local integer L = 0
+    local integer w = 0
+    loop
+        exitwhen L > 11
+        if gLaneWave[L] > w then
+            set w = gLaneWave[L]
+        endif
+        set L = L + 1
+    endloop
+    return w
+endfunction
+
 function SideName takes integer p returns string
     if ModuloInteger(p, 2) == 0 then
         return "left"
@@ -53,7 +67,7 @@ function SideName takes integer p returns string
     return "right"
 endfunction
 
-// First wave of a lane cleared (or wave 2 starts) -> the champion jumps to level 2.
+// First wave of a lane cleared (or its wave 2 starts) -> the champion jumps to level 2.
 function GrantLevelTwo takes integer L returns nothing
     if gHero[L] != null and GetHeroLevel(gHero[L]) < 2 then
         call SetHeroLevel(gHero[L], 2, true)
@@ -157,7 +171,7 @@ function CastleShockwave takes nothing returns nothing
     local integer i = 0
     local real cx = GetUnitX(gCastle)
     local real cy = GetUnitY(gCastle)
-    local real dmg = 300.0 + 30.0 * I2R(gWave)
+    local real dmg = 300.0 + 30.0 * I2R(HighestWave())
     call GroupEnumUnitsInRange(g, cx, cy, 1100.0, null)
     // wave monsters lose a quarter of their max HP, at any wave; anything else (a boss) the fixed amount
     loop
@@ -296,36 +310,49 @@ function TryReach takes integer p, item it returns boolean
     return true
 endfunction
 
-function IncomeTick takes nothing returns nothing
+function IncomeTick takes integer p returns nothing
+    if gIncome[p] > 0 and IsPlaying(p) then
+        call SetPlayerState(Player(p), PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(Player(p), PLAYER_STATE_RESOURCE_GOLD) + gIncome[p])
+        call DisplayTimedTextToPlayer(Player(p), 0.0, 0.0, 4.0, "|cffffcc00+" + I2S(gIncome[p]) + " gold|r income")
+    endif
+endfunction
+
+// The Bank's clock, per player: one payment per 60 counted seconds. Every wave of his own lane gives it gIncomeWaveSeconds to
+// count, and only his next wave renews that, so holding a wave (a stalled last monster, a kill now and then, a long break) pays
+// two minutes at most. The final fight has no waves and always counts. Called every second.
+function BankTick takes nothing returns nothing
     local integer p = 0
     loop
         exitwhen p >= 8
-        if gIncome[p] > 0 and IsPlaying(p) then
-            call SetPlayerState(Player(p), PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(Player(p), PLAYER_STATE_RESOURCE_GOLD) + gIncome[p])
-            call DisplayTimedTextToPlayer(Player(p), 0.0, 0.0, 4.0, "|cffffcc00+" + I2S(gIncome[p]) + " gold|r income")
+        if gFinalPhase or gIncomeBudget[p] > 0 then
+            set gIncomeClock[p] = gIncomeClock[p] + 1
+            if not gFinalPhase then
+                set gIncomeBudget[p] = gIncomeBudget[p] - 1
+                if gIncomeBudget[p] == 0 and gIncome[p] > 0 then
+                    call DisplayTimedTextToPlayer(Player(p), 0.0, 0.0, 8.0, "|cffffcc00Bank stopped|r until your next wave")
+                endif
+            endif
+            if ModuloInteger(gIncomeClock[p], 60) == 0 then
+                call IncomeTick(p)
+            endif
         endif
         set p = p + 1
     endloop
 endfunction
 
-// The Bank's clock: one payment per 60 counted seconds. Every wave gives it gIncomeWaveSeconds to count, and only the next wave
-// renews that, so holding a wave (a stalled last monster, a kill now and then, a long break) pays two minutes at most.
-// The final fight has no waves and always counts. Called every second.
-function BankTick takes nothing returns nothing
-    if gFinalPhase then
-        set gIncomeClock = gIncomeClock + 1
-    elseif gIncomeBudget > 0 then
-        set gIncomeBudget = gIncomeBudget - 1
-        set gIncomeClock = gIncomeClock + 1
-        if gIncomeBudget == 0 then
-            call Msg("|cffffcc00Bank stopped|r until the next wave")
+// A new wave on lane L renews the Bank of that lane's player. A player whose lane is finished has nothing left to hold: any wave renews his.
+function BankRenew takes integer L returns nothing
+    local integer p = 0
+    if L < 8 then
+        set gIncomeBudget[L] = gIncomeWaveSeconds
+    endif
+    loop
+        exitwhen p >= 8
+        if gLaneState[p] == 2 then
+            set gIncomeBudget[p] = gIncomeWaveSeconds
         endif
-    else
-        return
-    endif
-    if ModuloInteger(gIncomeClock, 60) == 0 then
-        call IncomeTick()
-    endif
+        set p = p + 1
+    endloop
 endfunction
 
 // Premium items level up: picking up a shop (Lv 1) premium item while already holding the same item merges
@@ -755,8 +782,16 @@ function TimeText takes integer s returns string
     return out + ":" + I2S(sec)
 endfunction
 
-// Compact scoreboard: the title carries game time + wave + castle HP; one row per player = name, level, kills,
-// deaths, income (gold per minute from the Bank).
+// A lane's wave for the scoreboard: "done" once its boss is dead.
+function BoardWave takes integer L returns string
+    if (L >= 8 and gGateState[L] == 2) or (L < 8 and gLaneState[L] == 2) then
+        return "|cff40ff40done|r"
+    endif
+    return I2S(gLaneWave[L])
+endfunction
+
+// Compact scoreboard: the title carries game time + castle HP; one row per player = name, level, his own wave, kills,
+// deaths, income (gold per minute from the Bank); an opened gate adds a row with its own wave (BoardAddGate).
 function UpdateBoard takes nothing returns nothing
     local integer i
     local string castle
@@ -774,7 +809,7 @@ function UpdateBoard takes nothing returns nothing
     elseif gFinalPhase then
         call MultiboardSetTitleText(gBoard, "|cff4fc3ff" + TimeText(gGameTime) + "|r    |cffff4040FINAL BOSS awakens...|r")
     else
-        call MultiboardSetTitleText(gBoard, "|cff4fc3ff" + TimeText(gGameTime) + "|r    Wave |cffffcc00" + I2S(gWave) + "|r    Castle |cffffcc00" + castle + "|r")
+        call MultiboardSetTitleText(gBoard, "|cff4fc3ff" + TimeText(gGameTime) + "|r    Castle |cffffcc00" + castle + "|r")
     endif
     set i = 0
     loop
@@ -785,9 +820,17 @@ function UpdateBoard takes nothing returns nothing
             else
                 call BoardSet(gBoardRow[i], 1, "-")
             endif
-            call BoardSet(gBoardRow[i], 2, I2S(gKills[i]))
-            call BoardSet(gBoardRow[i], 3, I2S(gDeaths[i]))
-            call BoardSet(gBoardRow[i], 4, "|cffffcc00+" + I2S(gIncome[i]) + "|r")
+            call BoardSet(gBoardRow[i], 2, BoardWave(i))
+            call BoardSet(gBoardRow[i], 3, I2S(gKills[i]))
+            call BoardSet(gBoardRow[i], 4, I2S(gDeaths[i]))
+            call BoardSet(gBoardRow[i], 5, "|cffffcc00+" + I2S(gIncome[i]) + "|r")
+        endif
+        set i = i + 1
+    endloop
+    loop
+        exitwhen i > 11
+        if gBoardRow[i] > 0 then
+            call BoardSet(gBoardRow[i], 2, BoardWave(i))
         endif
         set i = i + 1
     endloop
@@ -806,6 +849,16 @@ function BoardWidth takes integer rows, integer col, real w returns nothing
     set it = null
 endfunction
 
+function BoardStyle takes integer rows returns nothing
+    call MultiboardSetItemsStyle(gBoard, true, false)
+    call BoardWidth(rows, 0, 0.075)
+    call BoardWidth(rows, 1, 0.022)
+    call BoardWidth(rows, 2, 0.032)
+    call BoardWidth(rows, 3, 0.03)
+    call BoardWidth(rows, 4, 0.038)
+    call BoardWidth(rows, 5, 0.038)
+endfunction
+
 function CreateBoard takes nothing returns nothing
     local integer i
     local integer rows = 1
@@ -822,18 +875,21 @@ function CreateBoard takes nothing returns nothing
     endloop
     set gBoard = CreateMultiboard()
     call MultiboardSetRowCount(gBoard, rows)
-    call MultiboardSetColumnCount(gBoard, 5)
-    call MultiboardSetItemsStyle(gBoard, true, false)
-    call BoardWidth(rows, 0, 0.075)
-    call BoardWidth(rows, 1, 0.022)
-    call BoardWidth(rows, 2, 0.03)
-    call BoardWidth(rows, 3, 0.038)
-    call BoardWidth(rows, 4, 0.038)
+    call MultiboardSetColumnCount(gBoard, 6)
+    set gBoardRows = rows
+    call BoardStyle(rows)
     call BoardSet(0, 0, "|cffffcc00Player|r")
     call BoardSet(0, 1, "|cffffcc00Lv|r")
-    call BoardSet(0, 2, "|cffffcc00Kills|r")
-    call BoardSet(0, 3, "|cffffcc00Deaths|r")
-    call BoardSet(0, 4, "|cffffcc00Income|r")
+    call BoardSet(0, 2, "|cffffcc00Wave|r")
+    call BoardSet(0, 3, "|cffffcc00Kills|r")
+    call BoardSet(0, 4, "|cffffcc00Deaths|r")
+    call BoardSet(0, 5, "|cffffcc00Income|r")
+    set i = 8
+    loop
+        exitwhen i > 11
+        set gBoardRow[i] = 0
+        set i = i + 1
+    endloop
     set i = 0
     loop
         exitwhen i >= 8
@@ -843,6 +899,19 @@ function CreateBoard takes nothing returns nothing
         set i = i + 1
     endloop
     call MultiboardDisplay(gBoard, true)
+    call UpdateBoard()
+endfunction
+
+// An opened gate gets its own row: its wave is its own too.
+function BoardAddGate takes integer L returns nothing
+    if gBoard == null then
+        return
+    endif
+    set gBoardRow[L] = gBoardRows
+    set gBoardRows = gBoardRows + 1
+    call MultiboardSetRowCount(gBoard, gBoardRows)
+    call BoardStyle(gBoardRows)
+    call BoardSet(gBoardRow[L], 0, gDirColor[LaneArm(L)] + "Level " + I2S(L - 6) + "|r")
     call UpdateBoard()
 endfunction
 
@@ -933,7 +1002,7 @@ function LaneStage takes integer L returns integer
     return 0
 endfunction
 
-// ---- Scaling (docs/gameplay.md). n = wave - 1: HP x (1 + gWaveHpGrowth n^2), damage x (1 + gWaveDmgGrowth n^2). Gate lanes also
+// ---- Scaling (docs/gameplay.md). n = the lane's own wave - 1: HP x (1 + gWaveHpGrowth n^2), damage x (1 + gWaveDmgGrowth n^2). Gate lanes also
 // x their level, and in HP x the team: the champions at the start of the round (gTeamCount), so leaving changes nothing.
 function WaveHpFactor takes integer w returns real
     return 1.0 + gWaveHpGrowth * I2R(w - 1) * I2R(w - 1)
@@ -950,9 +1019,9 @@ endfunction
 // HP and damage on top of the unit's own numbers. role: 0 melee, 1 ranged, 2 champion (no stage).
 function ObstacleHpFactor takes integer L returns real
     if L >= 8 then
-        return WaveHpFactor(gWave) * (1.0 + gGateHpPer * I2R(L - 7)) * TeamHpFactor(gTeamCount)
+        return WaveHpFactor(gLaneWave[L]) * (1.0 + gGateHpPer * I2R(L - 7)) * TeamHpFactor(gTeamCount)
     endif
-    return WaveHpFactor(gWave)
+    return WaveHpFactor(gLaneWave[L])
 endfunction
 
 function ScaleHpBonus takes integer L, integer role, integer st returns integer
@@ -965,7 +1034,7 @@ endfunction
 
 function ScaleDmgBonus takes integer L, integer role, integer st returns integer
     local real base = gRoleDmg[role]
-    local real f = WaveDmgFactor(gWave)
+    local real f = WaveDmgFactor(gLaneWave[L])
     if role < 2 then
         set base = base * gStageDmg[st]
     endif
@@ -1070,7 +1139,7 @@ function SpawnWaveUnit takes integer L, integer ut, integer role returns nothing
     endif
     call SetUnitUserData(u, L * 16 + 1)
     call SetUnitState(u, UNIT_STATE_LIFE, GetUnitState(u, UNIT_STATE_MAX_LIFE))
-    if gWave == 1 then
+    if gLaneWave[L] == 1 then
         call GroupAddUnit(gFirstWave, u)
         set gFirstWaveLeft[L] = gFirstWaveLeft[L] + 1
     endif
@@ -1082,14 +1151,15 @@ function SpawnWaveUnit takes integer L, integer ut, integer role returns nothing
     set u = null
 endfunction
 
-// Standardized waves: the lane STAGE picks the unit types, the wave number adds units and strength (ScalePrepare).
+// Standardized waves: the lane STAGE picks the unit types, the lane's own wave number adds units and strength (ScalePrepare).
 // Front line (melee) = 4 + 2 x wave, back line (ranged) = 1 x wave (gFrontPer / gBackPer, capped by gFrontMax /
 // gBackMax). Every 10th wave: wave/10 wave champions.
 function SpawnWave takes integer L returns nothing
     local integer d = LaneArm(L)
     local integer st = LaneStage(L)
-    local integer front = gFrontBase + gFrontPer * gWave
-    local integer back = gBackPer * gWave
+    local integer w = gLaneWave[L]
+    local integer front = gFrontBase + gFrontPer * w
+    local integer back = gBackPer * w
     local integer i = 0
     if front > gFrontMax then
         set front = gFrontMax
@@ -1098,8 +1168,8 @@ function SpawnWave takes integer L returns nothing
         set back = gBackMax
     endif
     call ScalePrepare(L, st)
-    if gTestMode and L == 0 and gWave <= 2 then
-        call TestCheck(front == 4 + 2 * gWave and back == gWave, "wave " + I2S(gWave) + " size: front " + I2S(front) + " (+2 per wave), back " + I2S(back) + " (+1 per wave)")
+    if gTestMode and L == 0 and w <= 2 then
+        call TestCheck(front == 4 + 2 * w and back == w, "wave " + I2S(w) + " size: front " + I2S(front) + " (+2 per wave), back " + I2S(back) + " (+1 per wave)")
     endif
     loop
         exitwhen i >= front
@@ -1112,17 +1182,17 @@ function SpawnWave takes integer L returns nothing
         call SpawnWaveUnit(L, gStageUnit[d * 6 + st * 2 + 1], 1)
         set i = i + 1
     endloop
-    if ModuloInteger(gWave, gChampEvery) == 0 then
+    if ModuloInteger(w, gChampEvery) == 0 then
         set i = 0
         loop
-            exitwhen i >= gWave / gChampEvery
+            exitwhen i >= w / gChampEvery
             call SpawnWaveUnit(L, gWaveChamp[d], 2)
             set i = i + 1
         endloop
     endif
-    if gTestMode and L == 0 and gWave <= 2 and st == 0 and gTestLast != null then
+    if gTestMode and L == 0 and w <= 2 and st == 0 and gTestLast != null then
         // a real wave unit of this wave (the last one spawned: ranged) against the formula, also right after a restart
-        call TestCheck(RAbsBJ(GetUnitState(gTestLast, UNIT_STATE_MAX_LIFE) - gRoleHp[1] * WaveHpFactor(gWave)) <= I2R(gScaleHpStep), "wave " + I2S(gWave) + " round " + I2S(gTestRound) + ": a real ranged monster has the formula's HP (" + I2S(R2I(GetUnitState(gTestLast, UNIT_STATE_MAX_LIFE))) + ")")
+        call TestCheck(RAbsBJ(GetUnitState(gTestLast, UNIT_STATE_MAX_LIFE) - gRoleHp[1] * WaveHpFactor(w)) <= I2R(gScaleHpStep), "wave " + I2S(w) + " round " + I2S(gTestRound) + ": a real ranged monster has the formula's HP (" + I2S(R2I(GetUnitState(gTestLast, UNIT_STATE_MAX_LIFE))) + ")")
     endif
 endfunction
 
@@ -1131,80 +1201,159 @@ function SpawnWaveThread takes nothing returns nothing
     call SpawnWave(gSpawnLane)
 endfunction
 
-function OnWaveTimer takes nothing returns nothing
+// ---- Every lane has its own wave (gLaneWave): lanes 0-7 the player's, 8-11 the shared gates. A lane's next wave comes when
+// THAT lane is clear (OnTick -> OnLaneCleared), so a fast player climbs and a slow one holds back nobody but himself.
+function LaneSpawns takes integer L returns boolean
+    if L >= 8 then
+        return gGateState[L] == 0 or gGateState[L] == 1
+    endif
+    return gLaneActive[L] and (gLaneState[L] == 0 or gLaneState[L] == 1)
+endfunction
+
+// A lane's news goes to its player, a gate's to everyone, and the lane of a player who left to the others (they clear it now).
+function LaneMsg takes integer L, string s returns nothing
+    if L >= 8 then
+        call Msg(s)
+    elseif IsPlaying(L) then
+        call DisplayTimedTextToPlayer(Player(L), 0.0, 0.0, 12.0, s)
+    else
+        call Msg(gPlayerColorCode[L] + GetPlayerName(Player(L)) + "|r's lane: " + s)
+    endif
+endfunction
+
+function LaneSound takes integer L, sound s returns nothing
+    if L >= 8 or GetLocalPlayer() == Player(L) then
+        call StartSound(s)
+    endif
+endfunction
+
+// The countdown of a lane: only its player sees it. A gate has none.
+function LaneDialog takes integer L, boolean on returns nothing
+    if L < 8 and gLaneDialog[L] != null and GetLocalPlayer() == Player(L) then
+        call TimerDialogDisplay(gLaneDialog[L], on)
+    endif
+endfunction
+
+function LaneStop takes integer L returns nothing
+    call PauseTimer(gLaneTimer[L])
+    call LaneDialog(L, false)
+endfunction
+
+// The end of a round or the final fight: no lane sends or pays anything more.
+function LanesStop takes nothing returns nothing
     local integer L = 0
-    if gGameOver or gFinalPhase then
-        return
-    endif
-    set gWave = gWave + 1
-    set gIncomeBudget = gIncomeWaveSeconds
-    if gWave == 2 then
-        loop
-            exitwhen L >= 8
-            call GrantLevelTwo(L)
-            set L = L + 1
-        endloop
-        set L = 0
-    endif
-    loop
-        exitwhen L >= 8
-        if gLaneActive[L] and (gLaneState[L] == 0 or gLaneState[L] == 1) then
-            set gSpawnLane = L
-            call ExecuteFunc("SpawnWaveThread")
-        endif
-        set L = L + 1
-    endloop
-    set L = 8
     loop
         exitwhen L > 11
-        if gGateState[L] == 0 or gGateState[L] == 1 then
-            set gSpawnLane = L
-            call ExecuteFunc("SpawnWaveThread")
-        endif
+        set gLaneWaiting[L] = false
+        call LaneStop(L)
         set L = L + 1
     endloop
-    call Msg("|cffff4040Wave " + I2S(gWave) + "|r is coming down the lanes!")
-    if ModuloInteger(gWave, gChampEvery) == gChampEvery - 1 then
-        call Msg("|cffffcc00Champions|r march with the next wave!")
+endfunction
+
+function StartLaneWave takes integer L returns nothing
+    if gGameOver or gFinalPhase or not LaneSpawns(L) then
+        return
     endif
-    call StartSound(bj_questWarningSound)
-    // the next countdown only starts once every wave monster is dead (checked in OnTick)
-    set gWaitingClear = true
-    if gWaveDialog != null then
-        call TimerDialogDisplay(gWaveDialog, false)
+    set gLaneWave[L] = gLaneWave[L] + 1
+    call BankRenew(L)
+    if L < 8 and gLaneWave[L] == 2 then
+        call GrantLevelTwo(L)
     endif
+    set gSpawnLane = L
+    call ExecuteFunc("SpawnWaveThread")
+    if L < 8 then
+        call LaneMsg(L, "|cffff4040Wave " + I2S(gLaneWave[L]) + "|r is coming!")
+        if ModuloInteger(gLaneWave[L], gChampEvery) == gChampEvery - 1 then
+            call LaneMsg(L, "|cffffcc00Champions|r march with the next wave!")
+        endif
+        call LaneSound(L, bj_questWarningSound)
+    endif
+    // the lane's next countdown only starts once its monsters are dead (checked in OnTick)
+    set gLaneWaiting[L] = true
+    call LaneDialog(L, false)
     call UpdateBoard()
 endfunction
 
-// The next wave comes right away (gWaveInterval, 0 s since v3.5), but a 1 min break after every 10th wave.
-function NextWaveDelay takes nothing returns real
-    if ModuloInteger(gWave, gBreakEvery) == 0 then
+function OnLaneTimer takes nothing returns nothing
+    local timer t = GetExpiredTimer()
+    local integer L = 0
+    loop
+        exitwhen L > 11
+        if gLaneTimer[L] == t then
+            call StartLaneWave(L)
+        endif
+        set L = L + 1
+    endloop
+    set t = null
+endfunction
+
+// A lane's next wave comes right away (gWaveInterval, 0 s since v3.5), but a 1 min break after every 10th wave of that lane.
+function NextWaveDelay takes integer L returns real
+    if ModuloInteger(gLaneWave[L], gBreakEvery) == 0 then
         return gWaveBreak
     endif
     return gWaveInterval
 endfunction
 
-// Shopping break (after every gBreakEvery-th wave): announcement + gold pings and effects on the secret grove.
-// Wave reward, paid when the wave is CLEARED: 100 gold for wave 1, +50 for every next wave (no cap).
-function WaveGold takes nothing returns integer
-    return 50 + 50 * gWave
+// Wave reward, paid when the lane's wave is CLEARED: 100 gold for wave 1, +50 for every next wave (no cap).
+function WaveGold takes integer L returns integer
+    return 50 + 50 * gLaneWave[L]
 endfunction
 
-function ShoppingTime takes nothing returns nothing
+// Gold + 1 tree: to the lane's player. A shared gate pays everyone, and so does the lane of a player who left.
+function LanePay takes integer L returns nothing
+    local integer p = 0
+    loop
+        exitwhen p >= 8
+        if IsPlaying(p) and (p == L or L >= 8 or not IsPlaying(L)) then
+            call SetPlayerState(Player(p), PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(Player(p), PLAYER_STATE_RESOURCE_GOLD) + WaveGold(L))
+            call SetPlayerState(Player(p), PLAYER_STATE_RESOURCE_LUMBER, GetPlayerState(Player(p), PLAYER_STATE_RESOURCE_LUMBER) + 1)
+        endif
+        set p = p + 1
+    endloop
+endfunction
+
+// Shopping break (after every gBreakEvery-th wave of a player's lane): announcement + gold pings and effects on the secret grove.
+function ShoppingTime takes integer L returns nothing
     local integer i = 0
-    call Msg("|cffffcc00BREAK - Time to go Shopping!|r   Secret grove (SE).   |cffffcc00+" + I2S(WaveGold()) + " gold|r  |cff80ff80+1 tree|r   Next wave in " + I2S(R2I(gWaveBreak)) + "s.")
-    call StartSound(bj_questHintSound)
+    call LaneMsg(L, "|cffffcc00BREAK - Time to go Shopping!|r   Secret grove (SE).   |cffffcc00+" + I2S(WaveGold(L)) + " gold|r  |cff80ff80+1 tree|r   Next wave in " + I2S(R2I(gWaveBreak)) + "s.")
+    call LaneSound(L, bj_questHintSound)
     loop
         exitwhen i >= gShopFxCount
-        call PingMinimapEx(gShopFxX[i], gShopFxY[i], 6.0, 255, 204, 0, true)
+        if GetLocalPlayer() == Player(L) then
+            call PingMinimapEx(gShopFxX[i], gShopFxY[i], 6.0, 255, 204, 0, true)
+        endif
         call DestroyEffect(AddSpecialEffect("Abilities\\Spells\\Human\\Resurrect\\ResurrectTarget.mdl", gShopFxX[i], gShopFxY[i]))
         call DestroyEffect(AddSpecialEffect("Abilities\\Spells\\Items\\ResourceItems\\ResourceEffectTarget.mdl", gShopFxX[i], gShopFxY[i]))
         set i = i + 1
     endloop
 endfunction
 
-function OnFirstWave takes nothing returns nothing
-    call OnWaveTimer()
+// A lane's wave is dead: it pays, and its next wave comes (unless its boss is slain: then this was its last).
+function OnLaneCleared takes integer L returns nothing
+    local real delay = NextWaveDelay(L)
+    local string text = "|cff40ff40Wave " + I2S(gLaneWave[L]) + " cleared!|r  |cffffcc00+" + I2S(WaveGold(L)) + " gold|r  |cff80ff80+1 tree|r"
+    local boolean more = LaneSpawns(L)
+    set gLaneWaiting[L] = false
+    call LanePay(L)
+    if more then
+        call TimerStart(gLaneTimer[L], delay, false, function OnLaneTimer)
+        if delay >= 1.0 then
+            call LaneDialog(L, true)
+        endif
+    endif
+    if L >= 8 then
+        set text = gDirColor[LaneArm(L)] + "LEVEL " + I2S(L - 6) + ":|r " + text
+    endif
+    if more and L < 8 and ModuloInteger(gLaneWave[L], gBreakEvery) == 0 then
+        call ShoppingTime(L)
+    elseif not more then
+        call LaneMsg(L, text)
+    elseif delay < 1.0 then
+        call LaneMsg(L, text + "   Next wave now!")
+    else
+        call LaneMsg(L, text + "   Next wave in " + I2S(R2I(delay)) + "s.")
+    endif
 endfunction
 
 // A wave monster taken over by a player (Charm, Possession, ...) stops being a wave monster: no more lane
@@ -1243,6 +1392,7 @@ function WaveUnitTick takes nothing returns nothing
     endif
     set data = GetUnitUserData(u)
     set L = data / 16
+    set gLaneAlive[L] = gLaneAlive[L] + 1
     set k = data - L * 16
     set dx = gWpX[L * 8 + k] - GetUnitX(u)
     set dy = gWpY[L * 8 + k] - GetUnitY(u)
@@ -1479,11 +1629,7 @@ endfunction
 
 function StartFinalBoss takes nothing returns nothing
     set gFinalPhase = true
-    set gWaitingClear = false
-    call PauseTimer(gWaveTimer)
-    if gWaveDialog != null then
-        call TimerDialogDisplay(gWaveDialog, false)
-    endif
+    call LanesStop()
     call SetUnitInvulnerable(gCastle, true)
     call StartSound(bj_questWarningSound)
     call PingMinimapEx(gFinalX, gFinalY, 8.0, 255, 0, 0, true)
@@ -2072,34 +2218,19 @@ function OnTick takes nothing returns nothing
         set gGameTime = gGameTime + 1     // game clock: from the end of champion select, stops at the end
         call BankTick()
     endif
-    call ForGroup(gWaveUnits, function WaveUnitTick)
-    if gWaitingClear and not gGameOver and CountUnitsInGroup(gWaveUnits) == 0 then
-        set gWaitingClear = false
-        call TimerStart(gWaveTimer, NextWaveDelay(), false, function OnWaveTimer)
-        if NextWaveDelay() >= 1.0 then
-            call TimerDialogDisplay(gWaveDialog, true)
-        endif
-        // every cleared wave pays its gold + 1 tree (lumber) to every player
-        call GiveAllGold(WaveGold())
-        set L = 0
-        loop
-            exitwhen L >= 8
-            if IsPlaying(L) then
-                call SetPlayerState(Player(L), PLAYER_STATE_RESOURCE_LUMBER, GetPlayerState(Player(L), PLAYER_STATE_RESOURCE_LUMBER) + 1)
-            endif
-            set L = L + 1
-        endloop
-        set L = 0
-        if ModuloInteger(gWave, gBreakEvery) == 0 then
-            call ShoppingTime()
-        elseif gWaveInterval < 1.0 then
-            call Msg("|cff40ff40All monsters dead!|r  |cffffcc00+" + I2S(WaveGold()) + " gold|r  |cff80ff80+1 tree|r   Next wave now!")
-        else
-            call Msg("|cff40ff40All monsters dead!|r  |cffffcc00+" + I2S(WaveGold()) + " gold|r  |cff80ff80+1 tree|r   Next wave in " + I2S(R2I(gWaveInterval)) + "s.")
-        endif
-    endif
     loop
         exitwhen L > 11
+        set gLaneAlive[L] = 0
+        set L = L + 1
+    endloop
+    // steers every monster and counts the living per lane
+    call ForGroup(gWaveUnits, function WaveUnitTick)
+    set L = 0
+    loop
+        exitwhen L > 11
+        if gLaneWaiting[L] and gLaneAlive[L] == 0 and not gGameOver then
+            call OnLaneCleared(L)
+        endif
         if (L < 8 and gLaneState[L] == 1) or (L >= 8 and gGateState[L] == 1) then
             call BossTick(L)
         endif
@@ -2122,8 +2253,7 @@ function ShowEndDialog takes boolean won returns nothing
     local integer i = 0
     set gGameOver = true
     set gEndWon = won
-    set gWaitingClear = false
-    call PauseTimer(gWaveTimer)
+    call LanesStop()
     call DialogClear(gEndDialog)
     if won then
         call DialogSetMessage(gEndDialog, "VICTORY in " + TimeText(gGameTime) + "!  Play again?")
@@ -2199,27 +2329,6 @@ function DropEpic takes integer lvl, real x, real y returns nothing
     call Msg("|cffa335eeEPIC DROP:|r |cffffcc00" + gEpicName[lvl] + "|r")
 endfunction
 
-// Any lane still sending waves? (tower/Nexus standing, or Nexus down but its boss alive, or the Dark Gate open)
-function AnyNexusLeft takes nothing returns boolean
-    local integer L = 0
-    loop
-        exitwhen L > 11
-        if L >= 8 and (gGateState[L] == 0 or gGateState[L] == 1) then
-            return true
-        endif
-        set L = L + 1
-    endloop
-    set L = 0
-    loop
-        exitwhen L >= 8
-        if gLaneState[L] == 0 or gLaneState[L] == 1 then
-            return true
-        endif
-        set L = L + 1
-    endloop
-    return false
-endfunction
-
 // A lane's tower fell: a Protector (the faction champion, bigger) guards the Nexus, and that lane's next wave
 // comes at once - already the stronger Nexus wave. Works for the Dark Gate (lane 8) too.
 function OnTowerDestroyed takes integer L returns nothing
@@ -2281,12 +2390,15 @@ endfunction
 // Gate levels: LEVEL 2 = the Dark Gate (lane 8, NE) opens when the first player destroys his Nexus;
 // LEVEL 3 = the Frozen Gate (lane 9, NW) opens when the Dark Citadel falls. gGateState: -1 closed, 0 open, 2 done.
 //---------------------------------------------------------------------------
-function OpenGateLane takes integer L returns nothing
+// A gate goes on from the wave of the lane that opened it, then counts by itself: each of its clears brings its next wave.
+function OpenGateLane takes integer L, integer opener returns nothing
     local integer d = LaneArm(L)
     if gGateState[L] != -1 or gGameOver then
         return
     endif
     set gGateState[L] = 0
+    set gLaneWave[L] = gLaneWave[opener]
+    call TimerStart(gLaneTimer[L], gFirstWaveDelay, false, function OnLaneTimer)
     call SetDestructableInvulnerable(gGate[L], false)
     call ModifyGateBJ(bj_GATEOPERATION_OPEN, gGate[L])
     set gTower[L] = CreateUnit(gInvader[d], gTurretType[d], gTowerX[L], gTowerY[L], gDirFace[d])
@@ -2296,7 +2408,8 @@ function OpenGateLane takes integer L returns nothing
     call PingMinimapEx(gGateX[L], gGateY[L], 6.0, 255, 60, 60, true)
     call PingMinimapEx(gNexusX[L], gNexusY[L], 6.0, 255, 60, 60, true)
     call StartSound(bj_questWarningSound)
-    call Msg(gDirColor[d] + "LEVEL " + I2S(L - 6) + ":|r " + gDirColor[d] + gFactionName[d] + "|r is open (" + gGateDir[L] + ")!  Stronger monsters, " + I2S(L - 6) + "x gold per kill!")
+    call Msg(gDirColor[d] + "LEVEL " + I2S(L - 6) + ":|r " + gDirColor[d] + gFactionName[d] + "|r is open (" + gGateDir[L] + ")!  Wave " + I2S(gLaneWave[L] + 1) + " in " + I2S(R2I(gFirstWaveDelay)) + "s, " + I2S(L - 6) + "x gold per kill!")
+    call BoardAddGate(L)
 endfunction
 
 // A gate's Nexus fell: its boss rises from the ruins (the level is done when the boss dies), waves keep coming
@@ -2314,7 +2427,7 @@ function OnGateNexusDestroyed takes integer L returns nothing
     call Msg("|cff40ff40The " + gBaseName[d] + " is destroyed!|r  From its ruins rises " + gDirColor[d] + gBossName[d] + "|r!   |cffffcc00+" + I2S(gGateGold[L]) + " gold|r")
     call GiveAllGold(gGateGold[L])
     if L < 11 then
-        call OpenGateLane(L + 1)
+        call OpenGateLane(L + 1, L)
     endif
     call UpdateBoard()
 endfunction
@@ -2327,22 +2440,19 @@ function OnGateBossSlain takes integer L returns nothing
     call StartSound(bj_questCompletedSound)
     call Msg(gDirColor[d] + gBossName[d] + "|r is slain - " + gDirColor[d] + "LEVEL " + I2S(L - 6) + "|r cleared!   |cffffcc00+" + I2S(gGateGold[L]) + " gold|r")
     call GiveAllGold(gGateGold[L])
-    if not AnyNexusLeft() then
-        set gWaitingClear = false
-        call PauseTimer(gWaveTimer)
-        call TimerDialogDisplay(gWaveDialog, false)
-    endif
+    call LaneStop(L)
     call UpdateBoard()
     call CheckVictory()
 endfunction
 
-// Minion kill gold (wave units only; their built-in bounty is 0): gold = wave number on the player lanes,
+// Minion kill gold (wave units only; their built-in bounty is 0): gold = its lane's wave on the player lanes,
 // x level on the gate lanes (Level 2 x2 ... Level 5 x5). Floating +N only the killer sees.
 function MinionBounty takes unit u, integer kid returns nothing
-    local integer g = gWave
+    local integer L = GetUnitUserData(u) / 16
+    local integer g = gLaneWave[L]
     local texttag tt = CreateTextTag()
-    if GetUnitUserData(u) / 16 >= 8 then
-        set g = (GetUnitUserData(u) / 16 - 6) * gWave
+    if L >= 8 then
+        set g = (L - 6) * gLaneWave[L]
     endif
     if g < 1 then
         set g = 1
@@ -2360,7 +2470,7 @@ endfunction
 
 function OnNexusDestroyed takes integer L returns nothing
     local integer d = LaneArm(L)
-    call OpenGateLane(8)
+    call OpenGateLane(8, L)
     set gLaneState[L] = 1
     set gBossTick[L] = 0
     set gBoss[L] = CreateUnit(gInvader[d], gBossType[d * 3 + 1], gNexusX[L], gNexusY[L], gDirFace[d])
@@ -2370,12 +2480,6 @@ function OnNexusDestroyed takes integer L returns nothing
     call StartSound(bj_questWarningSound)
     call Msg(gPlayerColorCode[L] + GetPlayerName(Player(L)) + "|r destroyed the " + gBaseName[d] + "!   From its ruins rises " + gDirColor[d] + gBossName[d] + "|r!  Kill it!   |cffffcc00+150 gold|r")
     call GiveAllGold(150)
-    if not AnyNexusLeft() then
-        set gWaitingClear = false
-        call PauseTimer(gWaveTimer)
-        call TimerDialogDisplay(gWaveDialog, false)
-        call Msg("No Nexus is left - no more waves. Kill the remaining bosses!")
-    endif
     call UpdateBoard()
 endfunction
 
@@ -2385,6 +2489,7 @@ function OnBossSlain takes integer L returns nothing
     set gBoss[L] = null
     call DropEpic(1, gNexusX[L], gNexusY[L])
     call GiveAllGold(250)
+    call LaneStop(L)
     call StartSound(bj_questCompletedSound)
     call Msg(gDirColor[d] + gBossName[d] + "|r of " + gPlayerColorCode[L] + GetPlayerName(Player(L)) + "|r's lane has been slain!   |cffffcc00+250 gold|r")
     call UpdateBoard()
@@ -2604,7 +2709,7 @@ function AddQuest takes string title, string text, string icon, boolean required
 endfunction
 
 function CreateQuests takes nothing returns nothing
-    call AddQuest("Defend your lane", "Pick a champion: click a hall and click a hero. You then defend |cffffcc00your own lane|r - every player has one lane, and a lane only sends monsters when its player is in the game.\n\nThe next wave comes as soon as all monsters of the last one are dead (1 min shopping break after every 10th wave). Keep the |cffffcc00Castle of Lordaeron|r alive - if it falls, everyone loses.", "ReplaceableTextures\\CommandButtons\\BTNCastle.blp", true)
+    call AddQuest("Defend your lane", "Pick a champion: click a hall and click a hero. You then defend |cffffcc00your own lane|r - every player has one lane, and a lane only sends monsters when its player is in the game.\n\nYour wave is your own: your next wave comes as soon as your lane is clear, so clearing fast means more gold and stronger monsters (1 min shopping break after every 10th wave). Keep the |cffffcc00Castle of Lordaeron|r alive - if it falls, everyone loses.", "ReplaceableTextures\\CommandButtons\\BTNCastle.blp", true)
     call AddQuest("Destroy your Nexus", "At the end of |cffffcc00your lane|r stands your own enemy Nexus, guarded by a strong tower. The Nexus sends the waves of your lane. Destroy it and your lane goes quiet - but its boss rises from the ruins.", "ReplaceableTextures\\CommandButtons\\BTNDemonGate.blp", true)
     call AddQuest("Slay the bosses", "Kill the boss of every lane and of all 4 gates. Then the |cffff4040final boss|r rises at the Castle: he cannot be stunned and grows stronger every minute. Kill him to |cff40ff40win|r!", "ReplaceableTextures\\CommandButtons\\BTNPitLord.blp", true)
     call AddQuest("Tips", "- Killing monsters gives gold and experience; every wave also pays gold.\n- |cffffcc00Secret grove|r: the narrow passage at the south-east corner of the plaza leads to the Fountain of Power (HP + mana), the Premium Armory (1000-gold items) and the Apothecary.\n- Your champion appears and revives on the circle in your colour at your lane - click the circle to |cffffcc00buy stats|r instantly (each buy costs 3% more).\n- Type |cffffcc00-help|r for the command list.\n- |cffffcc00Space|r = jump to your champion (hold to keep him centred); |cffffcc00Esc|r or -cam = camera follows him.\n- Spells are on |cffffcc00Q W E R|r. Clearing your first wave gives level 2.\n- Staff of Teleportation lets you jump back to the castle or to a friend.\n- Type |cffffcc00-zoom 250|r to zoom out (any value, e.g. -zoom 200; -zoom 165 = normal).", "ReplaceableTextures\\CommandButtons\\BTNSnazzyScroll.blp", false)
@@ -2747,7 +2852,7 @@ function TestEdge takes nothing returns nothing
             set s = s + 1
         endloop
         set gTestKills = 0
-        set gWave = 20
+        set gLaneWave[0] = 20
         set s = 0
         loop
             exitwhen s >= 4
@@ -2815,9 +2920,10 @@ function TestScaling takes nothing returns nothing
     local real one
     local integer goldBefore = GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)
     local integer incomeBefore = gIncome[0]
-    local integer budgetBefore = gIncomeBudget
-    local integer clockBefore = gIncomeClock
-    local integer waveBefore = gWave
+    local integer budgetBefore = gIncomeBudget[0]
+    local integer clockBefore = gIncomeClock[0]
+    local integer waveBefore = gLaneWave[0]
+    local integer gateBefore = gLaneWave[8]
     local integer teamBefore = gTeamCount
     local integer hpBits
     local integer dmgBits
@@ -2848,7 +2954,8 @@ function TestScaling takes nothing returns nothing
     call RemoveUnit(u)
     set u = null
     // real units through the production path: a personal lane, then a shared gate with a simulated team of 4
-    set gWave = 30
+    set gLaneWave[0] = 30
+    set gLaneWave[8] = 30
     call ScalePrepare(0, 0)
     call SpawnWaveUnit(0, gStageUnit[0], 0)
     set one = gRoleHp[0] * WaveHpFactor(30)
@@ -2866,29 +2973,128 @@ function TestScaling takes nothing returns nothing
     call GroupRemoveUnit(gWaveUnits, gTestLast)
     call RemoveUnit(gTestLast)
     set gTestLast = null
-    set gWave = waveBefore
+    set gLaneWave[0] = waveBefore
+    set gLaneWave[8] = gateBefore
     set gTeamCount = teamBefore
     // the Bank's clock, in state: it counts exactly the budget, kills do not renew it, the next wave does, the minute pays once
     set gIncome[0] = 100
-    set gIncomeBudget = 2
-    set gIncomeClock = 58
+    set gIncomeBudget[0] = 2
+    set gIncomeClock[0] = 58
     call BankTick()
-    call TestCheck(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD) == goldBefore and gIncomeClock == 59 and gIncomeBudget == 1, "Bank: a counted second, no payment yet")
+    call TestCheck(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD) == goldBefore and gIncomeClock[0] == 59 and gIncomeBudget[0] == 1, "Bank: a counted second, no payment yet")
     call BankTick()
-    call TestCheck(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD) == goldBefore + 100 and gIncomeClock == 60 and gIncomeBudget == 0, "Bank: the last second of the budget pays the full minute once")
+    call TestCheck(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD) == goldBefore + 100 and gIncomeClock[0] == 60 and gIncomeBudget[0] == 0, "Bank: the last second of the budget pays the full minute once")
     call BankTick()
     call BankTick()
-    call TestCheck(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD) == goldBefore + 100 and gIncomeClock == 60, "Bank: a used-up budget stands still, no gold")
+    call TestCheck(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD) == goldBefore + 100 and gIncomeClock[0] == 60, "Bank: a used-up budget stands still, no gold")
     call OnUnitDeathBudgetCheck()
-    call TestCheck(gIncomeBudget == 0, "Bank: a kill does not renew the budget")
+    call TestCheck(gIncomeBudget[0] == 0, "Bank: a kill does not renew the budget")
     set gFinalPhase = true
     call BankTick()
-    call TestCheck(gIncomeClock == 61, "Bank: the final fight always counts")
+    call TestCheck(gIncomeClock[0] == 61, "Bank: the final fight always counts")
     set gFinalPhase = false
     call SetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD, goldBefore)
     set gIncome[0] = incomeBefore
-    set gIncomeBudget = budgetBefore
-    set gIncomeClock = clockBefore
+    set gIncomeBudget[0] = budgetBefore
+    set gIncomeClock[0] = clockBefore
+endfunction
+
+function TestKillLaneEnum takes nothing returns nothing
+    if GetUnitUserData(GetEnumUnit()) / 16 == gTestKillLane then
+        call KillUnit(GetEnumUnit())
+    endif
+endfunction
+
+function TestKillLane takes integer L returns nothing
+    set gTestKillLane = L
+    call ForGroup(gWaveUnits, function TestKillLaneEnum)
+endfunction
+
+function TestWaveSum takes nothing returns integer
+    local integer L = 0
+    local integer n = 0
+    loop
+        exitwhen L > 11
+        set n = n + gLaneWave[L]
+        set L = L + 1
+    endloop
+    return n
+endfunction
+
+// Two lanes side by side, each with its own wave. Real units and the real clear check; lane 1 is a SIMULATED second player: a hidden
+// run has one, nobody plays in that slot, so its clear pays like the lane of a player who left. 1 s steps while TestStep holds.
+function TestLanes takes nothing returns nothing
+    local integer w
+    set gTestLanesT = gTestLanesT + 1
+    if gTestLanesT == 1 then
+        // the champion must not earn anything here
+        call SetUnitInvulnerable(gHero[0], true)
+        call PauseUnit(gHero[0], true)
+        // a slow lane: one monster of lane 0 stays alive, far from everything, so lane 0 cannot clear
+        call ScalePrepare(0, LaneStage(0))
+        call SpawnWaveUnit(0, gStageUnit[0], 0)
+        set gTestSentinel = gTestLast
+        call SetUnitPosition(gTestSentinel, gHallX, gHallY - 2000.0)
+        call PauseUnit(gTestSentinel, true)
+        set gTestW0 = gLaneWave[0]
+        // a fast lane, further along
+        set gLaneActive[1] = true
+        call CreateLaneBase(1)
+        set gLaneWave[1] = 4
+        call StartLaneWave(1)
+        call TestCheck(gLaneWave[1] == 5 and gLaneWave[0] == gTestW0, "lane 2 starts its wave 5 while lane 1 stays at wave " + I2S(gTestW0))
+        call TestCheck(RAbsBJ(GetUnitState(gTestLast, UNIT_STATE_MAX_LIFE) - gRoleHp[1] * WaveHpFactor(5)) <= I2R(gScaleHpStep), "a real monster of lane 2 has the HP of ITS wave 5: " + I2S(R2I(GetUnitState(gTestLast, UNIT_STATE_MAX_LIFE))))
+    elseif gTestLanesT == 2 then
+        set gTestGold = GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)
+        set gTestTrees = GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER)
+        call TestKillLane(1)
+    elseif gTestLanesT == 4 then
+        call TestCheck(gLaneWave[1] == 6 and gLaneWave[0] == gTestW0, "lane 2 clear: its wave 6 came, lane 1 still at wave " + I2S(gLaneWave[0]))
+        call TestCheck(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD) == gTestGold + 300 and GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER) == gTestTrees + 1, "the clear of a lane whose player is gone pays the others: +300 gold, +1 tree (gold " + I2S(gTestGold) + " -> " + I2S(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)) + ")")
+        set gTestGold = GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)
+        set gTestTrees = GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER)
+        call PauseUnit(gTestSentinel, false)
+        call TestKillLane(0)
+    elseif gTestLanesT == 6 then
+        call TestCheck(gLaneWave[0] == gTestW0 + 1 and gLaneWave[1] == 6, "lane 1 clear: its next wave came, lane 2 stays at wave 6 while its monsters live")
+        call TestCheck(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD) == gTestGold + 50 + 50 * gTestW0 and GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER) == gTestTrees + 1, "a player's own clear pays him for HIS wave " + I2S(gTestW0) + ": +" + I2S(50 + 50 * gTestW0) + " gold, +1 tree (gold " + I2S(gTestGold) + " -> " + I2S(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)) + ")")
+        // the break belongs to the lane (state)
+        set w = gLaneWave[1]
+        set gLaneWave[1] = 20
+        call TestCheck(RAbsBJ(NextWaveDelay(1) - gWaveBreak) < 0.01 and RAbsBJ(NextWaveDelay(0) - gWaveInterval) < 0.01, "after its 10th or 20th wave only that lane pauses")
+        set gLaneWave[1] = w
+        // the Bank of a player: his own wave renews it, a gate's only once his lane is finished (state)
+        set gIncomeBudget[0] = 5
+        set gLaneState[1] = 2
+        set gIncomeBudget[1] = 5
+        call BankRenew(8)
+        call TestCheck(gIncomeBudget[0] == 5 and gIncomeBudget[1] == gIncomeWaveSeconds, "Bank: a gate's wave renews only a player whose lane is finished")
+        call BankRenew(0)
+        call TestCheck(gIncomeBudget[0] == gIncomeWaveSeconds, "Bank: his own wave renews a player's Bank")
+        set gLaneState[1] = 0
+    elseif gTestLanesT == 7 then
+        // lane 1 goes away again; the round goes on from here: the tower falls (TestStep's next step goes on with the Nexus)
+        call LaneStop(1)
+        set gLaneWaiting[1] = false
+        set gLaneActive[1] = false
+        set gLaneState[1] = -1
+        call TestKillLane(1)
+        call RemoveUnit(gTower[1])
+        call RemoveUnit(gNexus[1])
+        set gTower[1] = null
+        set gNexus[1] = null
+        set gLaneWave[1] = 0
+        set gIncomeBudget[1] = 0
+        call StartLaneWave(1)
+        call TestCheck(gLaneWave[1] == 0 and not gLaneWaiting[1], "a lane without a player sends nothing")
+        call PauseTimer(GetExpiredTimer())
+        call DestroyTimer(GetExpiredTimer())
+        call PauseUnit(gHero[0], false)
+        call SetUnitInvulnerable(gHero[0], false)
+        call KillUnit(gTower[0])
+        call TestFlush()
+        set gTestHold = false
+    endif
 endfunction
 
 function TestStep takes nothing returns nothing
@@ -2899,7 +3105,7 @@ function TestStep takes nothing returns nothing
         return
     endif
     set gTestClock = gTestClock + 5
-    call Msg("|cff00ffff[TEST]|r t=" + I2S(gTestClock) + "  wave=" + I2S(gWave))
+    call Msg("|cff00ffff[TEST]|r t=" + I2S(gTestClock) + "  wave=" + I2S(gLaneWave[0]))
     if gTestClock == 5 then
         call FogEnable(false)
         call FogMaskEnable(false)
@@ -3119,14 +3325,14 @@ function TestStep takes nothing returns nothing
             call TimerStart(CreateTimer(), 1.0, true, function TestEdge)
             return
         endif
-        if false then
-            set gTestRound = 1
-            call ExecuteFunc("CDRestart")
-            return
-        endif
-        call KillUnit(gTower[0])
+        // two lanes side by side first; the tower falls at the end of it
+        set gTestHold = true
+        set gTestLanesT = 0
+        call TimerStart(CreateTimer(), 1.0, true, function TestLanes)
     elseif gTestClock == 35 then
         call KillUnit(gNexus[0])
+        set gTestGateWave = gLaneWave[8]
+        call TestCheck(gGateState[8] == 0 and gLaneWave[8] == gLaneWave[0] and MultiboardGetRowCount(gBoard) == 3, "Level 2 opens at the wave of the lane that opened it (" + I2S(gLaneWave[8]) + "), with its own scoreboard row")
     elseif gTestClock == 40 then
         call PanCameraToTimed(gGateX[8] + 800.0, gGateY[8], 0.0)
         call TestLog("round 2: gate L2=" + I2S(gGateState[8]) + " L3=" + I2S(gGateState[9]) + " income=" + I2S(gIncome[0]))
@@ -3134,7 +3340,12 @@ function TestStep takes nothing returns nothing
         call Msg("[TEST] gate states L2=" + I2S(gGateState[8]) + " L3=" + I2S(gGateState[9]) + "   income=" + I2S(gIncome[0]) + "   Fang Lv2 slot=" + I2S(GetInventoryIndexOfItemTypeBJ(gHero[0], gPremItem[2])) + "   reach=" + I2S(GetPlayerTechCount(Player(0), gReachTech, true)))
     elseif gTestClock == 45 then
         call KillUnit(gBoss[0])
+        set gTestW0 = gLaneWave[0]
     elseif gTestClock == 50 then
+        call TestCheck(gLaneWave[8] == gTestGateWave + 1 and gLaneAlive[8] > 0, "Level 2's first wave is one above its start: wave " + I2S(gLaneWave[8]) + ", " + I2S(gLaneAlive[8]) + " monsters")
+        set gTestGold = GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)
+        set gTestGateWave = gLaneWave[8]
+        call TestKillLane(8)
         set L = 1
         loop
             exitwhen L >= 8
@@ -3145,6 +3356,9 @@ function TestStep takes nothing returns nothing
             set L = L + 1
         endloop
     elseif gTestClock == 55 then
+        call TestCheck(gLaneWave[8] == gTestGateWave + 1 or ModuloInteger(gTestGateWave, gBreakEvery) == 0, "Level 2 clear: its own next wave came (wave " + I2S(gLaneWave[8]) + ")")
+        call TestCheck(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD) >= gTestGold + 50 + 50 * gTestGateWave, "a gate's clear pays the players: at least " + I2S(50 + 50 * gTestGateWave) + " gold (gold " + I2S(gTestGold) + " -> " + I2S(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)) + ")")
+        call TestCheck(gLaneState[0] == 2 and gLaneWave[0] == gTestW0, "a finished lane sends no more waves: lane 1 stays at wave " + I2S(gLaneWave[0]))
         call PanCameraToTimed(0.0, 0.0, 0.0)
         set L = 1
         loop
@@ -3156,6 +3370,7 @@ function TestStep takes nothing returns nothing
         endloop
         call KillUnit(gTower[8])
         call KillUnit(gNexus[8])
+        call TestCheck(gGateState[9] == 0 and gLaneWave[9] == gLaneWave[8], "Level 3 goes on from Level 2's wave " + I2S(gLaneWave[9]))
     elseif gTestClock >= 60 and gTestClock <= 75 then
         // one gate level per step: kill the previous level's boss, then this level's tower + Nexus (boss rises)
         set L = 8 + (gTestClock - 60) / 5
@@ -3182,7 +3397,7 @@ function TestStep takes nothing returns nothing
         set gTestFinalCastle = GetWidgetLife(gCastle)
         call UnitDamageTarget(gFinalBoss, gCastle, 5000.0, true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
         call TestCheck(GetWidgetLife(gCastle) >= gTestFinalCastle, "the castle is shielded while he lives")
-        set gTestFinalWave = gWave
+        set gTestFinalWave = TestWaveSum()
         // targets for his spells: paused Taurens outside his stomp; our hero (invulnerable, he must ignore it) gets a Storm Bolt
         set L = 0
         loop
@@ -3220,7 +3435,7 @@ function TestStep takes nothing returns nothing
         call TestCheck(TestFinalBitSum(gFinalHpBits, gFinalDmgBits) * gFinalDmgStep == gFinalDmgPerMin * gFinalMinute, "his damage follows the minute: +" + I2S(TestFinalBitSum(gFinalHpBits, gFinalDmgBits) * gFinalDmgStep))
         call TestCheck(TestFinalBitSum(gFinalHpBits + gFinalDmgBits, gFinalArmorBits) == gFinalMinute / gFinalArmorEvery, "his armor follows the minute: +" + I2S(TestFinalBitSum(gFinalHpBits + gFinalDmgBits, gFinalArmorBits)))
         call TestCheck(gTestFinalCast[0] > 0 and gTestFinalCast[1] > 0 and gTestFinalCast[2] > 0 and gTestFinalCast[3] > 0, "his own spells went off: Storm Bolt " + I2S(gTestFinalCast[0]) + ", War Stomp " + I2S(gTestFinalCast[1]) + ", Shockwave " + I2S(gTestFinalCast[2]) + ", Inferno " + I2S(gTestFinalCast[3]))
-        call TestCheck(gWave == gTestFinalWave, "no more waves in the final phase (wave " + I2S(gWave) + ")")
+        call TestCheck(TestWaveSum() == gTestFinalWave, "no more waves on any lane in the final phase")
         call TestFlush()
         // the end dialog pauses a single-player game: no timer runs after this, so check in this same thread
         call KillUnit(gFinalBoss)
@@ -3231,6 +3446,7 @@ function TestStep takes nothing returns nothing
         set gTestHold = true
         call ExecuteFunc("CDRestart")
         call TestCheck(not gFinalPhase and gFinalBoss == null and GetUnitAbilityLevel(gCastle, 'Avul') == 0, "Play again clears the final phase")
+        call TestCheck(TestWaveSum() == 0, "Play again: every lane's wave starts over")
         call TestLog("SELFTEST DONE")
         call TestFlush()
     endif
@@ -3246,14 +3462,15 @@ function StartGame takes nothing returns nothing
     endif
     set gStarted = true
     set gGameTime = 0
-    set gIncomeBudget = gIncomeWaveSeconds
-    set gIncomeClock = 0
     set gTeamCount = 0
     loop
         exitwhen i >= 8
         set gLaneActive[i] = IsPlaying(i)
+        set gIncomeClock[i] = 0
+        set gIncomeBudget[i] = 0
         if gLaneActive[i] then
             set gTeamCount = gTeamCount + 1
+            set gIncomeBudget[i] = gIncomeWaveSeconds
         elseif gHero[i] != null then
             // picked, then left before the round began: no lane and not counted, so no champion either
             call RemoveUnit(gHero[i])
@@ -3278,17 +3495,17 @@ function StartGame takes nothing returns nothing
         exitwhen i >= 8
         if gLaneActive[i] then
             call CreateLaneBase(i)
+            call TimerStart(gLaneTimer[i], gFirstWaveDelay, false, function OnLaneTimer)
+            if gLaneDialog[i] == null then
+                set gLaneDialog[i] = CreateTimerDialog(gLaneTimer[i])
+                call TimerDialogSetTitle(gLaneDialog[i], "Next wave in")
+            endif
+            call LaneDialog(i, true)
         else
             set gLaneState[i] = -1
         endif
         set i = i + 1
     endloop
-    call TimerStart(gWaveTimer, gFirstWaveDelay, false, function OnFirstWave)
-    if gWaveDialog == null then
-        set gWaveDialog = CreateTimerDialog(gWaveTimer)
-        call TimerDialogSetTitle(gWaveDialog, "Next wave in")
-    endif
-    call TimerDialogDisplay(gWaveDialog, true)
     if not gTickStarted then
         set gTickStarted = true
         call TimerStart(CreateTimer(), 1.0, true, function OnTick)
@@ -3299,6 +3516,7 @@ function StartGame takes nothing returns nothing
     call CreateBoard()
     call Msg("|cffffcc00Defend your lane!|r   |cffffcc00-help|r = commands")
     call Msg("|cff4fc3ffSpend your gold now|r at your Champion's Circle: the first wave is strong.")
+    call Msg("|cff4fc3ffEvery lane has its own wave:|r clear yours fast for more gold.")
 endfunction
 
 //---------------------------------------------------------------------------
@@ -3486,7 +3704,7 @@ function CDRestart takes nothing returns nothing
     if gSelecting then
         return
     endif
-    set gWaitingClear = false
+    call LanesStop()
     set gFinalPhase = false
     set gFinalBoss = null
     set gFinalTier = -1
@@ -3499,11 +3717,7 @@ function CDRestart takes nothing returns nothing
     set gSpearTick = gSpearTick + 1000000
     call ForGroup(gSpearLive, function SpearSweepEnum)
     set gSpearTick = gSpearTick - 1000000
-    call PauseTimer(gWaveTimer)
     call PauseTimer(gSelectTimer)
-    if gWaveDialog != null then
-        call TimerDialogDisplay(gWaveDialog, false)
-    endif
     set i = 8
     loop
         exitwhen i > 11
@@ -3611,7 +3825,12 @@ function CDRestart takes nothing returns nothing
         call DestroyMultiboard(gBoard)
         set gBoard = null
     endif
-    set gWave = 0
+    set i = 0
+    loop
+        exitwhen i > 11
+        set gLaneWave[i] = 0
+        set i = i + 1
+    endloop
     set gStarted = false
     set gGameOver = false
     set gTestClock = 0
@@ -3714,13 +3933,14 @@ endfunction
 //---------------------------------------------------------------------------
 // Pace settings (any player, announced to everyone):
 //   -break 60   shopping-break length (5-300 s)      -wave 5   seconds between waves (0-60 s, default 0)
-// Without a number they show the current value. A running countdown that is longer is shortened at once.
+// Without a number they show the current value. A running countdown of any lane that is longer is shortened at once.
 //---------------------------------------------------------------------------
 function OnConfigChat takes nothing returns nothing
     local player p = GetTriggerPlayer()
     local string m = GetEventPlayerChatString()
     local string who = gPlayerColorCode[GetPlayerId(p)] + GetPlayerName(p) + "|r"
     local integer n
+    local integer L = 0
     local boolean isBreak = SubString(m, 0, 6) == "-break"
     if not isBreak and SubString(m, 0, 5) != "-wave" then
         set p = null
@@ -3754,9 +3974,13 @@ function OnConfigChat takes nothing returns nothing
         call Msg(who + " set the wave gap to |cffffcc00" + I2S(n) + "s|r")
     endif
     // a countdown that is running now gets shortened if it is longer than the new setting
-    if gStarted and not gGameOver and not gFinalPhase and not gWaitingClear and gWave > 0 and TimerGetRemaining(gWaveTimer) > NextWaveDelay() then
-        call TimerStart(gWaveTimer, NextWaveDelay(), false, function OnWaveTimer)
-    endif
+    loop
+        exitwhen L > 11
+        if gStarted and not gGameOver and not gFinalPhase and LaneSpawns(L) and not gLaneWaiting[L] and gLaneWave[L] > 0 and TimerGetRemaining(gLaneTimer[L]) > NextWaveDelay(L) then
+            call TimerStart(gLaneTimer[L], NextWaveDelay(L), false, function OnLaneTimer)
+        endif
+        set L = L + 1
+    endloop
     set p = null
 endfunction
 
@@ -3769,7 +3993,6 @@ function InitGame takes nothing returns nothing
     set gKingdom = Player(14)
     set gWaveUnits = CreateGroup()
     set gFirstWave = CreateGroup()
-    set gWaveTimer = CreateTimer()
     set gSelectTimer = CreateTimer()
     call SetupAlliances()
     call SetupDarkness()
@@ -3778,6 +4001,7 @@ function InitGame takes nothing returns nothing
     call FogMaskEnable(false)
     loop
         exitwhen i > 11
+        set gLaneTimer[i] = CreateTimer()
         set gGate[i] = CreateDestructable(gGateType[i], gGateX[i], gGateY[i], gGateFace[i], 1.0, 0)
         call SetDestructableInvulnerable(gGate[i], true)
         set i = i + 1

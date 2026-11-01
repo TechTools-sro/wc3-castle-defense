@@ -114,7 +114,7 @@ WAVE_HP_GROWTH, WAVE_DMG_GROWTH = 0.03, 0.018
 # Gate levels 2-5: +25 % HP and +10 % damage per level above 1. Only shared obstacles scale with the team, mainly in HP.
 GATE_HP_PER_LEVEL, GATE_DMG_PER_LEVEL = 0.25, 0.10
 TEAM_HP_PER_PLAYER = 0.35              # shared gates: HP x (1 + 0.35 (team - 1)); team = champions at the start of the round
-# The Bank pays for at most this many seconds per wave, renewed only by the next wave: 2 payments at most, however long a wave is held.
+# The Bank pays a player for at most this many seconds per wave of his lane, renewed only by his next wave: 2 payments at most, however long a wave is held.
 INCOME_WAVE_SECONDS = 120
 # Scaling goes through hidden item-bonus abilities, one per bit.
 # A bonus above the last bit stays at the maximum (saturates, never wraps): +3 276 700 HP, +81 915 damage.
@@ -987,8 +987,8 @@ def custom_items():
     out.append(("tst2", BANK_ITEM, [
         ("unam", S, f"Income +{INCOME_STEP}"), ("iico", S, CB + "BTNChestOfGold.blp"), ("uhot", S, "Q"),
         ("utip", S, f"|cffffcc00Income +{INCOME_STEP}|r (|cffffcc00Q|r)"),
-        ("utub", S, f"+{INCOME_STEP} gold every minute|n|cff4fc3ffUp to {INCOME_WAVE_SECONDS // 60} minutes per wave, renewed by the next wave. Always during the final boss.|r|n|n|cffff8c00Costs {INCOME_TREE_COST} tree|r"),
-        ("ides", S, f"+{INCOME_STEP} gold every minute, up to {INCOME_WAVE_SECONDS // 60} minutes per wave"), ("iabi", S, ""),
+        ("utub", S, f"+{INCOME_STEP} gold every minute|n|cff4fc3ffUp to {INCOME_WAVE_SECONDS // 60} minutes per wave of your lane, renewed by your next wave. Always during the final boss.|r|n|n|cffff8c00Costs {INCOME_TREE_COST} tree|r"),
+        ("ides", S, f"+{INCOME_STEP} gold every minute, up to {INCOME_WAVE_SECONDS // 60} minutes per wave of your lane"), ("iabi", S, ""),
         ("igol", I, 0), ("ilum", I, INCOME_TREE_COST), ("isto", I, 20), ("istr", I, 1), ("isst", I, 0),
         ("ubpx", I, 0), ("ubpy", I, 0)]))
     for i, (name, base, icon, _ab, _f, _vals, effect) in enumerate(PREMIUM_DEF):

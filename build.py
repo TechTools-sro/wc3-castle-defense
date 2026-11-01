@@ -29,13 +29,16 @@ import icons as IC                        # noqa: E402
 from mpq import write_w3x, GameData       # noqa: E402
 
 GAME_DIR = os.environ.get("WC3_DIR", "/home/novakj/games/warcraft3")
+# A plain run installs into the owner's game, so anything unknown (--help) must stop here.
+if set(sys.argv[1:]) - {"--test", "--no-install", "--probe"}:
+    sys.exit("usage: build.py [--test] [--no-install] [--probe]   (no option = build and INSTALL into the game)")
 TEST = "--test" in sys.argv
 PROBE = json.loads(os.environ.get("CD_PROBE", "{}")) if "--probe" in sys.argv else None     # never installed, see apply_probe
 if TEST and PROBE is not None:
     sys.exit("--probe and --test cannot be combined: --test changes the timers and runs TestStep")
 # VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
 # map name (game list, lobby, loading screen), the file name and the catalogue title.
-MAP_VERSION = "4.1"
+MAP_VERSION = "4.2"
 MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else "TechToolsCastleDefence_PROBE.w3x" if PROBE is not None else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
@@ -321,9 +324,9 @@ globals
     integer array gScaleN
     integer gTeamCount = 1
     integer gSpawnLane = 0
-    integer gIncomeBudget = 0
+    integer array gIncomeBudget
     integer gIncomeWaveSeconds = 120
-    integer gIncomeClock = 0
+    integer array gIncomeClock
     unit gTestLast = null
     unit gTestPreLeft = null
     integer array gGateTintR
@@ -422,6 +425,12 @@ globals
     integer gTestFinalCasts = 0
     integer gTestFinalTier = 0
     integer gTestFinalWave = 0
+    integer gTestKillLane = 0
+    integer gTestLanesT = 0
+    integer gTestW0 = 0
+    integer gTestTrees = 0
+    integer gTestGateWave = 0
+    unit gTestSentinel = null
     real gTestFinalCastle = 0.0
     integer array gTestFinalCast
     real gTestFinalHp = 0.0
@@ -566,16 +575,17 @@ globals
     integer gTestSpawned = 0
     boolean gTestDeadOrder = false
     player gKingdom = null
-    integer gWave = 0
+    integer array gLaneWave
+    integer array gLaneAlive
+    boolean array gLaneWaiting
+    timer array gLaneTimer
+    timerdialog array gLaneDialog
     integer gElapsed = 0
     integer gGameTime = 0
     integer gBossTier = 0
     boolean gStarted = false
     boolean gSelecting = false
     boolean gGameOver = false
-    boolean gWaitingClear = false
-    timer gWaveTimer = null
-    timerdialog gWaveDialog = null
     timer gSelectTimer = null
     timerdialog gSelectDialog = null
     group gWaveUnits = null
@@ -592,6 +602,7 @@ globals
     integer array gDeaths
     texttag array gPickTag
     integer array gBoardRow
+    integer gBoardRows = 1
     multiboard gBoard = null
     unit array gSoul
     unit array gLaneMarker

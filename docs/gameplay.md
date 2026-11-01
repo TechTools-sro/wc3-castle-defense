@@ -47,10 +47,10 @@ Invader of arm `d` = Player(8 + d): 0 North **The Scourge**, 1 East **The Burnin
 2. **Start.** Hero appears on the player's **Champion's Circle** (lane entrance), lane hint (coloured circle,
    floating "Name's lane", minimap ping). One message: "Defend your lane! -help = commands".
    Starting gold **1000** (`SetupChampionSelect`). A second message tells players to spend it at the Circle: the first wave is strong.
-3. **Waves.** First wave 30 s after the pick (`FIRST_WAVE_DELAY`). The next countdown starts only when **every
-   wave monster on every lane is dead**: then **at once** (`WAVE_INTERVAL` = 0 s since v3.5), or a **1 min break after every
-   10th wave** (`WAVE_BREAK`, `BREAK_EVERY`). The timer is hidden while monsters are alive.
-   The break is a **shopping break**: "BREAK - Time to go Shopping!", gold minimap pings + effects on the grove
+3. **Waves.** **Every lane has its own wave** (see below). First wave 30 s after the pick (`FIRST_WAVE_DELAY`), on every lane. A lane's
+   next countdown starts only when **that lane's wave monsters are dead**: then **at once** (`WAVE_INTERVAL` = 0 s since v3.5), or a **1 min
+   break after its every 10th wave** (`WAVE_BREAK`, `BREAK_EVERY`). The timer is hidden while its monsters are alive, and only the lane's player sees it.
+   The break is that player's **shopping break**: "BREAK - Time to go Shopping!", gold minimap pings only he sees + effects on the grove
    entrance and every grove building (`ShoppingTime`). Bosses don't hold the waves.
 4. **Push.** Each lane has its own tower (in front) and Nexus (behind). Tower destroyed → waves come out of the
    Nexus, stronger. **Nexus destroyed → that lane's boss rises** (+150 gold to all). Boss slain → +250 gold to all.
@@ -63,7 +63,25 @@ Only active lanes (player present) have monsters, a base and an open gate; empty
 
 ## Waves (`SpawnWave`, `LaneStage` in `gen/castle_logic.j`)
 
-Standardized: the **lane stage picks the unit types**, the wave number adds units and strength.
+Standardized: the **lane stage picks the unit types**, the lane's own wave number adds units and strength.
+
+### Every lane has its own wave (v4.2, `gLaneWave`, `StartLaneWave`, `OnLaneCleared`)
+
+Jiří: every lane has its own wave level, each player his own, based on how fast he clears it. A fast player climbs, a slow one holds back nobody but himself. No catch-up.
+
+| | A player's lane (0–7) | A shared gate (8–11) |
+|---|---|---|
+| Wave starts | 0; its first wave 30 s after the pick | The wave of the lane that opened it (Level 2: the player whose Nexus fell first, Level 3: Level 2, ...); its next wave is one higher and comes 30 s after it opens |
+| Next wave | When **that lane's** monsters are dead | Same |
+| Break | After that lane's every 10th wave: its player's shopping break | After the gate's every 10th wave: only the gate pauses |
+| Clear pays | `50 + 50 × its wave` gold + 1 tree **to that lane's player** | The same formula with the gate's wave **to every player** |
+| News | To that lane's player only | To everyone, one line per clear; no line when a gate's wave starts |
+| Ends | With its boss: no new wave. Monsters still alive pay when they are dead | Same |
+
+- Every number that followed "the wave" follows the lane's wave now: size, HP, damage, kill gold, wave champions, Protectors.
+- **A player who left:** his lane goes on at its own wave, and its clears pay every other player, because they are the ones clearing it. Its news goes to everyone.
+- **A finished lane's player** still earns on the gates (kills, clears) and from the Bank.
+- **Consequence:** a lane does not rest while another is being cleared, so helping a friend costs time on your own lane, whose monsters keep marching. There is no team pause any more.
 
 | Stage | When | Spawns from | Units (front / back) |
 |---|---|---|---|
@@ -89,10 +107,10 @@ Standardized: the **lane stage picks the unit types**, the wave number adds unit
 - **Every faction fights alike:** attack type normal, no spells, no regeneration, same speed and armor. The model and its movement type stay its own: a few fly or hover (frost wyrms, banshees, revenants) or swim (nagas), and those can cross terrain a walker cannot.
 - **A rescale never heals:** a unit keeps its actual HP when its maximum changes, cut only if the new maximum is lower (`ScaleKeepHp`). Applying a scale twice changes nothing. A bonus past the last bit stays at the maximum, it never wraps (`ScaleClamp`; +3 276 700 HP, +81 915 damage). `check_scaling` fails the build if a monster gets weaker with the wave or if a bonus would saturate before wave 80; at the current values none does.
 - Protectors grow with their wave too: their own HP × the factor of their lane, damage + a wave champion's growth.
-- **Minion kill gold = the wave number** (wave 1 → 1 gold, wave 5 → 5), × the level on the gate lanes (×2 … ×5), to
+- **Minion kill gold = the wave number of its lane** (wave 1 → 1 gold, wave 5 → 5), × the level on the gate lanes (×2 … ×5), to
   the killer (`MinionBounty`; wave unit types have built-in bounty 0 via `NO_BOUNTY`). Towers, Nexus, bosses and
   Protectors keep their normal bounty.
-- Gold per wave to every player: `50 + 50*wave` → 100, 150, 200, … (no cap), paid when the wave is **cleared** (with the tree).
+- Gold per wave: `50 + 50*wave` → 100, 150, 200, … (no cap), paid when the lane's wave is **cleared** (with the tree), see the table above for who gets it.
 - **Tower destroyed** (`OnTowerDestroyed`, also the Dark Spire): a **Protector** (the faction champion, 1.5× size,
   +450 HP, gold tint) appears between the ruins and the Nexus and stays leashed there (`ProtectorTick`), and that
   lane's next wave spawns **at once** (already stage 1).
@@ -100,7 +118,7 @@ Standardized: the **lane stage picks the unit types**, the wave number adds unit
 
 ## Levels 2–5 — the gate lanes (shared by everyone, `GATE_LEVELS` in `gen/objects.py`)
 
-Each level opens when the previous level's Nexus falls (Level 2: the first player Nexus). A gate Nexus that falls
+Each level opens when the previous level's Nexus falls (Level 2: the first player Nexus), with its own wave and a scoreboard row (`OpenGateLane`, `BoardAddGate`). A gate Nexus that falls
 raises the level's **boss** from its ruins; waves keep coming from the ruins until the boss dies (= level cleared).
 Higher level = harder.
 
@@ -119,16 +137,16 @@ Higher level = harder.
   `GATE_GEOMETRY` (`gen/layout.py`). Tower in the leg far in front of the Nexus (no range overlap).
 - Tower down → a **Protector** (the level's champion, 1.8× size, level colour) + instant wave.
 - **The team scales shared obstacles, mainly in HP:** gate wave monsters, Protectors, towers, Nexuses and bosses × `1 + 0.35 × (team − 1)` (1 / 2 / 4 / 8 players: ×1, ×1.35, ×2.05, ×3.45; `TEAM_HP_PER_PLAYER`). Their damage does not depend on the team. Personal lanes never do: each player already adds a lane.
-- **The team** (`gTeamCount`) is the number of players at the start of the round. Leaving during the round lowers nothing, because the others can control that champion (`OnPlayerLeave`) and his lane goes on. A player who picked and left before the round began has no lane, no champion and does not count. A real leave has not been tested in a game: the hidden test has one player.
+- **The team** (`gTeamCount`) is the number of players at the start of the round. Leaving during the round lowers nothing, because the others can control that champion (`OnPlayerLeave`) and his lane goes on at its own wave. A player who picked and left before the round began has no lane, no champion and does not count. A real leave has not been tested in a game: the hidden test has one player.
 - Bosses copy their spells/summons from a lane boss (L2 Lich, L3 Tidelord, L4/L5 Pit Lord), armor +2 per level.
 - A restart closes all gates again. **Victory needs all four levels cleared** plus every lane boss.
 
 ## Trees and the Bank
 
-- Every cleared wave (all monsters dead) gives every player **+1 tree** (lumber, top bar).
+- Every cleared wave of your lane (all its monsters dead) gives you **+1 tree** (lumber, top bar); a cleared gate wave gives everyone +1.
 - The **Bank** (secret grove, gold-mine look) sells **Income +100** for **1 tree**: +100 gold every minute,
   stacks without limit (`BANK_ITEM`, `INCOME_STEP`). Restart resets income and trees.
-- **Bank clock (v4.1):** one payment per 60 counted seconds (`BankTick`). Every wave gives the clock 120 s to count (`INCOME_WAVE_SECONDS`), and only the next wave renews that: holding a wave with a last monster, a kill now and then or a long break pays 2 minutes at most, then "Bank stopped until the next wave". The final fight always counts.
+- **Bank clock (v4.1, per player since v4.2):** one payment per 60 counted seconds (`BankTick`). Every wave of your lane gives your clock 120 s to count (`INCOME_WAVE_SECONDS`), and only your next wave renews that: holding a wave with a last monster, a kill now and then or a long break pays 2 minutes at most, then "Bank stopped until your next wave". Once your lane is finished any wave anywhere renews it, because you have nothing left to hold (`BankRenew`). The final fight always counts.
 
 ## The final boss (v4.0, `FINAL_*` in `gen/objects.py`, `StartFinalBoss` … in `gen/castle_logic.j`)
 
@@ -168,7 +186,7 @@ Every Nexus boss drops one EPIC crown at its ruins (purple ping + "EPIC DROP" me
   level: Q/W/E 5 levels each, R 3 (hero level 6 / 11 / 16) = 18 points, so spells are maxed at hero level 18 at the
   earliest. From level 11 a point can also go into **Attributes** (`Xatt`, learn key T): +30 Str/Agi/Int per level,
   100 levels. Past hero level 110 every level-up adds +30 to all three automatically.
-- **Level 2** when the player's first wave is cleared (or at wave 2 for everyone). Every level-up refills HP + mana.
+- **Level 2** when the player's first wave is cleared (or at his wave 2). Every level-up refills HP + mana.
 - Death → revive on the Champion's Circle after `4 + 2*level` s, max 24 s (`StartRevive`). Deaths counted.
 
 ## Champion's Circle shop (per player, `KINDS_DEF` rows 1–3 in `gen/objects.py`)
@@ -206,7 +224,7 @@ Select the castle and buy with a champion anywhere on the plaza (3000 radius). E
 | W | Castle Armor | +3 armor (stacks) |
 | E | Castle Regeneration | +10 HP per second (stacks) |
 | R | Repair Castle | +2000 HP heal (repeatable) |
-| A | Shockwave | 25 % of their max HP to every wave monster within 1100 of the castle; a boss takes 300 + 30 × wave (repeatable) |
+| A | Shockwave | 25 % of their max HP to every wave monster within 1100 of the castle; a boss takes 300 + 30 × the highest wave of any lane (repeatable) |
 
 Stacking upgrades use one hidden ability per buy (global counter, 100 max). Works while the buyer's champion is
 dead. A restart replaces the castle, so upgrades reset. The castle deals no damage on its own.
@@ -266,14 +284,14 @@ anywhere on the map (`Aneu` radius 20 000). Bought items go straight into his in
 
 ## UI and commands
 
-- **Scoreboard** (top right, 1 s refresh): title `m:ss    Wave N    Castle HP / max HP` (game time from the end of
-  champion select, stops at the end; max HP includes Castle Health upgrades). Columns: Player · Lv · Kills · Deaths ·
-  Income (bank gold per minute). The end dialog shows the time ("VICTORY in 23:45!").
+- **Scoreboard** (top right, 1 s refresh): title `m:ss    Castle HP / max HP` (game time from the end of
+  champion select, stops at the end; max HP includes Castle Health upgrades). Columns: Player · Lv · Wave (his lane's, `done` when its boss is dead) · Kills · Deaths ·
+  Income (bank gold per minute). An opened gate adds a row, `Level 2` with its wave. The end dialog shows the time ("VICTORY in 23:45!").
 - **-help** (only to the asker): gold `Commands`, then light-blue command + grey description per line:
   `-zoom 250` zoom out · `-cam` camera follows your hero · `Space` jump to your hero · `-break 60` · `-wave 5`.
 - **Pace settings** (any player, announced to all; `OnConfigChat`): `-break N` = shopping-break length (5–300 s,
-  default 60), `-wave N` = seconds between waves (0–60 s, default 0). No number = show the current values.
-  A countdown already running is shortened at once if it is longer than the new value; kept across *Play again*.
+  default 60), `-wave N` = seconds between waves (0–60 s, default 0), both for every lane. No number = show the current values.
+  A lane's countdown already running is shortened at once if it is longer than the new value; kept across *Play again*.
 - **-zoom N**: 250 = distance 2500 (also accepts the raw distance); `-zoom` alone = normal. Remembered.
 - **Esc / -cam**: camera follows the champion. **Space**: jumps to the champion (quick position kept on him).
 - F9 quests: "Defend your lane" + short tips.

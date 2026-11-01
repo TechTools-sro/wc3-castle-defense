@@ -1,5 +1,19 @@
 # Changelog
 
+## v4.2 — 2026-11-01: every lane has its own wave
+
+- Jiří: "every lane will have its own wave levels! each player will have its own wave level based on how fast he cleans it!" → [docs/gameplay.md](docs/gameplay.md) § Every lane has its own wave
+- **Each lane counts by itself** (`gLaneWave`): its next wave comes when THAT lane is clear, its 10th wave gives that lane its break, and its number sets size, HP, damage and kill gold. A slow player holds back nobody but himself. It used to be one counter, and everyone waited for the last monster on the map.
+- **A clear pays the lane's player only**, `50 + 50 × his wave` gold + 1 tree. It used to pay everyone.
+- **Scoreboard:** a Wave column per player (`done` when the lane's boss is dead), a row per opened gate. The title no longer shows a wave. News and the countdown go to the lane's player only.
+- **Bank:** per player since it hangs on the wave: his own next wave renews it.
+- **Decided without asking Jiří, his to overrule:** a gate starts from the wave of the lane that opened it and comes 30 s after opening. A gate's clear pays everyone. The lane of a player who left goes on and pays the others. A finished lane's Bank is renewed by any wave. No catch-up. Castle Shockwave on a boss uses the highest wave. Level 2 now only comes with your own first clear, not when others clear theirs.
+- `build.py` refuses unknown options: `--help` ran a real build and put the untested map into the game folder, replacing v4.1. Restored at once by checksum; the game was running another map and had neither file open.
+- **Verified, self-test:** 113 PASS, 0 FAIL (`20261101-182958-a-4d9d`, TEST map `26a6386d…`, rebuilt byte-identical before release). 16 new checks with real monsters and the real clear check, forced kills: lanes with their own waves and HP in both directions, who gets paid, the gates, a finished lane, *Play again*. The second lane is a simulated second player. A screenshot shows the Wave column and the Level 2 row.
+- **Verified, bot on one lane (`balance-v42-p`, `balance-v42-s`):** the same as v4.1: Dryad 16 waves, Mountain King 20, Archmage 20, 0 deaths, the same lowest HP in wave 1. Holding a wave back still pays 2 times. So the v4.1 fight tables stand for one lane before the first Nexus.
+- **NOT verified:** a real game with several players, including that nothing desyncs (only display calls are per player: countdown, sound, pings, like the revive countdown). How far fast and slow players drift apart. A gate in a real fight. A real leave. Fun and difficulty as felt.
+- **To watch in a real game:** a lane no longer rests while another is cleared, so helping a friend costs time on your own lane. A slow player's monsters at the castle can end the game for everyone while the fast ones cannot pause.
+
 ## v4.1 — 2026-11-01: stronger monsters, smart scaling
 
 - **Uploaded as catalogue map #78** (HTTP 201, download SHA-256 `354e5f1f…` matches; 29 versions in the family).

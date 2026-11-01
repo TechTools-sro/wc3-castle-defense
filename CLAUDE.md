@@ -49,7 +49,7 @@ tools/balance_probe.py run LABEL --set fight   # real fights, hidden, played by 
 
 ## Versions
 
-- `MAP_VERSION` in `build.py` (now **v4.1**) is in the map name, the file name (`TechToolsCastleDefence_v4.1.w3x`) and
+- `MAP_VERSION` in `build.py` (now **v4.2**) is in the map name, the file name (`TechToolsCastleDefence_v4.2.w3x`) and
   the catalogue title. ⚠️ **Jiří's rule: every feature = a new version (1.2, 1.3, …) AND an upload to the
   catalogue** (LAN players must have the identical file). Bump, build, commit, upload, verify the download's
   SHA-256, record the new entry below + in `CHANGELOG.md`. Install removes older `TechToolsCastleDefence*.w3x`.

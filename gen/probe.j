@@ -212,7 +212,7 @@ function ProbeFinish takes string why returns nothing
         call ProbeWaveLine("open_at_end")
     endif
     call ProbeStats("final")
-    call ProbeLog("event=end why=" + why + " tower_hits=" + I2S(gPrTowerHits) + " nexus_hits=" + I2S(gPrNexusHits) + " wave=" + I2S(gWave) + " deaths=" + I2S(gDeaths[0]) + " taken_total=" + I2S(R2I(gPrTakenAll)))
+    call ProbeLog("event=end why=" + why + " tower_hits=" + I2S(gPrTowerHits) + " nexus_hits=" + I2S(gPrNexusHits) + " wave=" + I2S(gLaneWave[0]) + " deaths=" + I2S(gDeaths[0]) + " taken_total=" + I2S(R2I(gPrTakenAll)))
     call ProbeLog("event=team " + ProbeTeam())
     call TestLog("PASS probe finished: " + why)
     call TestLog("SELFTEST DONE")
@@ -492,11 +492,11 @@ function ProbeHero takes nothing returns nothing
     if hp < mx * 0.4 then
         call ProbeDrink(h)
     endif
-    if gPrMode == 2 and gWave >= gPrStallWave and (gPrStalling or ProbeAlive() <= gPrStallAlive) then
+    if gPrMode == 2 and gLaneWave[0] >= gPrStallWave and (gPrStalling or ProbeAlive() <= gPrStallAlive) then
         // the stall: leave the last monsters alive, stay away from them for good and let the clock run
         if not gPrStalling then
             set gPrStalling = true
-            call ProbeLog("event=stall_start wave=" + I2S(gWave) + " " + ProbeState())
+            call ProbeLog("event=stall_start wave=" + I2S(gLaneWave[0]) + " " + ProbeState())
         endif
         if GetUnitCurrentOrder(h) != 851986 and ProbeDist(x, y, gPrFarX, gPrFarY) > 200.0 then
             call IssuePointOrder(h, "move", gPrFarX, gPrFarY)
@@ -554,11 +554,11 @@ function ProbeTick takes nothing returns nothing
         return
     endif
     call ProbeResolve()
-    if gWave != gPrWave then
+    if gLaneWave[0] != gPrWave then
         if gPrWaveOpen then
             call ProbeWaveLine("next_wave_before_clear")
         endif
-        set gPrWave = gWave
+        set gPrWave = gLaneWave[0]
         set gPrWaveAt = now
         set gPrWaveCount = CountUnitsInGroup(gWaveUnits)
         set gPrWaveOpen = true
@@ -570,7 +570,7 @@ function ProbeTick takes nothing returns nothing
     call ProbeHero()
     call ProbeProgress()
     // the run's limit first: no new purchase then, and the end waits until the last one has settled (ProbeResolve gives up after 2 s)
-    if now >= gPrDuration or (gPrMaxWave > 0 and gWave > gPrMaxWave) then
+    if now >= gPrDuration or (gPrMaxWave > 0 and gLaneWave[0] > gPrMaxWave) then
         if ProbeResolve() then
             call ProbeFinish("limit")
         endif
@@ -582,7 +582,7 @@ function ProbeTick takes nothing returns nothing
     endif
     if now >= gPrBeatAt + 30.0 then
         set gPrBeatAt = now
-        call ProbeLog("event=beat wave=" + I2S(gWave) + " " + ProbeState())
+        call ProbeLog("event=beat wave=" + I2S(gLaneWave[0]) + " " + ProbeState())
         call TestFlush()
     endif
 endfunction

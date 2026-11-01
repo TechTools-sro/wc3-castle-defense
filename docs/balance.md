@@ -6,6 +6,8 @@ What was asked, the rule, and what was really measured. The rules and exact numb
 Jiří, 2026-11-01: stronger monsters and smart scaling, so that a level 1 champion struggles, winning is not trivial, and players think
 about upgrades and cooperate.
 
+**Since v4.2 every lane has its own wave** (Jiří: each player's wave level follows how fast he clears). The numbers below are per wave of one lane. See "Own waves" below for what that does and does not change.
+
 ## The rule (v4.1)
 
 | What | Rule |
@@ -18,15 +20,23 @@ about upgrades and cooperate.
 | Shared gates | HP × (1 + 0.35 (team − 1)), for gate monsters, Protectors, towers, Nexuses and bosses. Damage does not depend on the team |
 | Team | The players at the start of the round. Leaving lowers nothing, because the others control that champion |
 | Rescaling | Never heals: the actual HP stays. The final boss too: v4.0 kept his percentage, which gave him free HP every minute |
-| Bank | At most 120 counted seconds of income per wave, renewed only by the next wave; always during the final boss |
+| Bank | At most 120 counted seconds of income per wave, renewed only by the next wave; always during the final boss. Since v4.2 per player: his own lane's next wave; once his lane is finished any wave |
 | Shop | Health +600, Damage +20, Armor +8 (were +100, +5, +2), so that they compete with the stats that also give them |
 | Unchanged | The base stats of towers, Nexuses and bosses (their HP now also grows with the team, see Shared gates), the final boss's clock growth, wave sizes, kill and wave gold, prices |
+
+## Own waves (v4.2)
+
+- **One player's lane plays as before** until the first Nexus falls: the same formula on the same number, and the same gold and tree per wave. The bot confirms it (seed 1, every coin spent, 420 s, one lane): Dryad 16 waves, Mountain King 20, Archmage 20, 0 deaths, as in v4.1, and the lowest HP in wave 1 is the same number (1239, 1466, 1316). Later waves spawned up to 20 s later or 5 s earlier, with no common direction across the three champions. Holding a wave back: again 2 payments in wave 3, and the last 4 monsters destroyed the castle at 214.6 s (v4.1: 231.7 s). This says nothing about two lanes side by side.
+- **Between players the numbers now spread.** A fast player meets the stronger monsters and earns more; nobody waits. The growth is quadratic, so a lane that runs ahead also meets its own brake. No catch-up was added.
+- **A gate** starts from the wave of the lane that opened it, so at that moment it is as strong as in v4.1 for a solo player. After that it climbs only when it is cleared.
+- **More clears can pay in the same time:** a solo player with his lane and a gate open used to get one payment per joint clear and now gets one per lane. At wave 30 a clear pays 1550 gold while the kills of a Level 2 wave pay up to about 3600, so kill gold still leads.
+- **Not measured:** all of this with several real players, and how far apart fast and slow players drift. A hidden run has one player and the bot does not push to a gate. The self-test shows the mechanics (below), not how they feel. Watch in a real game: a slow player's monsters at the castle while the fast ones cannot pause to help.
 
 ## Three kinds of evidence, never mixed
 
 1. **The model** (`tools/balance_matrix.py [--rev REV]`): formulas over the game's real tables. No pathing, healing or potions; a fixed number of attackers and targets. It shows trends and compares champions. Its loadouts and budgets are not the bot's, so it does not predict a real fight.
 2. **Real fights** (`tools/balance_probe.py`): the production game, hidden, played by a simple bot with ordinary orders and real purchases. A bot is not a player.
-3. **The self-test** (`tools/test_env.py run`): mechanical regression. It gives itself gold and levels, pauses enemies and forces kills, so it says nothing about balance. It does check the rules: a scale applied twice changes nothing, a wounded unit that grows does not heal, the shared HP formula for 1, 2, 4 and 8 players, a real personal spawn with team 1 and a real gate spawn with a simulated team of 4, a player who picked and left (a simulated state), the real first wave after a restart, and the Bank's budget and kill rule. **97 PASS, 0 FAIL** (`wip-selftest-3`, map `3532ceed…`). The release differs from that map only in text: the version, comments and two Bank tooltips.
+3. **The self-test** (`tools/test_env.py run`): mechanical regression. It gives itself gold and levels, pauses enemies and forces kills, so it says nothing about balance. It does check the rules: a scale applied twice changes nothing, a wounded unit that grows does not heal, the shared HP formula for 1, 2, 4 and 8 players, a real personal spawn with team 1 and a real gate spawn with a simulated team of 4, a player who picked and left (a simulated state), the real first wave after a restart, and the Bank's budget, kill rule and renewal. Since v4.2 also the lanes: real monsters of two lanes with their own waves and HP, each lane's next wave coming only when that lane is clear, with the other held back by one living monster; who gets paid; a gate starting from its opener's wave and climbing by itself; a finished lane staying quiet; everything starting over on *Play again*. The second lane is a simulated second player and the kills are forced. **113 PASS, 0 FAIL** (`20261101-182958-a-4d9d`, TEST map `26a6386d…`). v4.1 had 97 of these on map `3532ceed…`.
 
 ## Real fights
 
@@ -142,11 +152,11 @@ Dryad, starter, no further purchases, income 200. From wave 3 she walks away fro
 | Payments of +200 in wave 3 | 7: one at 60 s, then 6 further after 90 s, up to 420 s | 2: at 120 s and 180 s, then the game was over |
 | Castle | 8000 → 4960 at 390 s, about 10 HP per second | 8000 → 0, about 90 HP per second, **destroyed at 231.7 s** |
 
-This real run shows two things: v4.0 paid for as long as a wave stood, and in v4.1 the last monsters of a wave are dangerous to the castle. It does **not** show that a third payment is denied: the castle fell 8 s before the payment at 240 s. The cap of 120 counted seconds and the kill rule are shown by the self-test's mechanical checks of `BankTick`. The renewal by the next wave is in the code (`OnWaveTimer`), with no check of its own. None of this comes from this fight.
+This real run shows two things: v4.0 paid for as long as a wave stood, and in v4.1 the last monsters of a wave are dangerous to the castle. It does **not** show that a third payment is denied: the castle fell 8 s before the payment at 240 s. The cap of 120 counted seconds and the kill rule are shown by the self-test's mechanical checks of `BankTick`. The renewal by a player's next wave has a state check since v4.2 (`BankRenew`). None of this comes from this fight.
 
 ### Evidence
 
-Under `~/games/wc3-test-env/evidence/`: `balance-v40-safe3-dryad` and `balance-v40-safe3` (v4.0), `balance-cand1` and `balance-cand1p` (v4.1), `balance-v40-stall1` and `balance-cand1s3` (the Bank). All passed the log validation. Earlier batches (`balance-calib-v40-bot-limiter`, `balance-safe3-calib`, `balance-v40-safe2`, `balance-cand1s`, `balance-cand1s2`) are calibration of the bot or stalls that did not hold, and are not in the tables. Jiří's own game started during `archmage-progress` of `balance-cand1p` and both Bank runs: they are separate games, but for those three runs the check of zero change in personal files could not apply.
+Under `~/games/wc3-test-env/evidence/`: `balance-v40-safe3-dryad` and `balance-v40-safe3` (v4.0), `balance-cand1` and `balance-cand1p` (v4.1), `balance-v40-stall1` and `balance-cand1s3` (the Bank), `balance-v42-p` and `balance-v42-s` (v4.2, one lane). All passed the log validation. Earlier batches (`balance-calib-v40-bot-limiter`, `balance-safe3-calib`, `balance-v40-safe2`, `balance-cand1s`, `balance-cand1s2`) are calibration of the bot or stalls that did not hold, and are not in the tables. Jiří's own game started during `archmage-progress` of `balance-cand1p` and both Bank runs: they are separate games, but for those three runs the check of zero change in personal files could not apply.
 
 
 ## The model: seven champions, four factions
@@ -352,6 +362,7 @@ Only Dryad, Mountain King and Archmage were measured in real fights. Pit Lord, F
 - **Half the gold** costs 3 to 7 times the loss in the model.
 - **Waves take longer:** 16 to 20 waves in 7 minutes, v4.0 had 20 to 24. The game clock runs further, and the final boss grows with the clock.
 - **Holding a wave back for the Bank no longer pays indefinitely:** at most 120 counted seconds per wave. It still pays within that.
+- **Your wave is your own (v4.2):** clear fast and you climb, and earn, faster than the others. Nobody waits for the slowest any more.
 - **A leak is serious now:** the last 4 monsters of wave 3 destroyed the castle in under 2 minutes. The castle's own numbers are unchanged, so the castle shop matters more.
 
 ## Limits
