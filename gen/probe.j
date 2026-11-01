@@ -165,7 +165,7 @@ function ProbeAlive takes nothing returns integer
 endfunction
 
 function ProbeState takes nothing returns string
-    return "level=" + I2S(GetHeroLevel(gHero[0])) + " xp=" + I2S(GetHeroXP(gHero[0])) + " kills=" + I2S(gKills[0]) + " deaths=" + I2S(gDeaths[0]) + " castle=" + I2S(R2I(GetWidgetLife(gCastle))) + " gold=" + I2S(ProbeGold()) + " spent=" + I2S(gPrSpent) + " earned=" + I2S(ProbeGold() + gPrSpent - 1000) + " income=" + I2S(gIncome[0]) + " trees=" + I2S(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER)) + " alive=" + I2S(ProbeAlive())
+    return "level=" + I2S(GetHeroLevel(gHero[0])) + " xp=" + I2S(GetHeroXP(gHero[0])) + " kills=" + I2S(gKills[0]) + " deaths=" + I2S(gDeaths[0]) + " castle=" + I2S(R2I(GetWidgetLife(gCastle))) + " gold=" + I2S(ProbeGold()) + " spent=" + I2S(gPrSpent) + " earned=" + I2S(ProbeGold() + gPrSpent - 1000) + " pending=" + I2S(gPrPendType) + " income=" + I2S(gIncome[0]) + " trees=" + I2S(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER)) + " alive=" + I2S(ProbeAlive())
 endfunction
 
 // One summary per wave, written once, when it is cleared or when the run ends with it still open. The engine's Preload
@@ -205,6 +205,9 @@ function ProbeFinish takes string why returns nothing
         return
     endif
     set gPrDone = true
+    if gPrPendType != 0 then
+        call ProbeLog("event=buy_pending_at_end item=" + gPrPendName + " price=" + I2S(gPrPendPrice) + " gold_before=" + I2S(gPrPendGold) + " gold=" + I2S(ProbeGold()))
+    endif
     if gPrWaveOpen then
         call ProbeWaveLine("open_at_end")
     endif
@@ -557,6 +560,13 @@ function ProbeTick takes nothing returns nothing
     endif
     call ProbeHero()
     call ProbeProgress()
+    // the run's limit first: no new purchase then, and the end waits until the last one has settled (ProbeResolve gives up after 2 s)
+    if now >= gPrDuration or (gPrMaxWave > 0 and gWave > gPrMaxWave) then
+        if ProbeResolve() then
+            call ProbeFinish("limit")
+        endif
+        return
+    endif
     if gPrMode >= 1 and gPrBuyDone and now >= gPrSpendAt + 1.0 and gHero[0] != null and GetWidgetLife(gHero[0]) > 0.405 then
         set gPrSpendAt = now
         call ProbeSpend()
@@ -565,9 +575,6 @@ function ProbeTick takes nothing returns nothing
         set gPrBeatAt = now
         call ProbeLog("event=beat wave=" + I2S(gWave) + " " + ProbeState())
         call TestFlush()
-    endif
-    if now >= gPrDuration or (gPrMaxWave > 0 and gWave > gPrMaxWave) then
-        call ProbeFinish("limit")
     endif
 endfunction
 

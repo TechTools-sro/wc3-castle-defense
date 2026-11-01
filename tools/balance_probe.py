@@ -128,6 +128,7 @@ def summarize(run, parsed):
             "start": first.get("start"), "ready": first.get("ready"), "waves": parsed["records"], "errors": parsed["errors"],
             "levels": [e for e in events if e.get("event") == "level"], "deaths": [e for e in events if e.get("event") == "death"],
             "tower_hits": [e for e in events if e.get("event") == "tower_hit"], "progress": [e for e in events if e.get("event") in ("tower_destroyed", "nexus_destroyed", "boss_slain", "castle_destroyed")],
+            "pending_at_end": [e for e in events if e.get("event") == "buy_pending_at_end"],
             "buys_ok": [e for e in events if e.get("event") == "buy_ok"], "buys_failed": [e for e in events if e.get("event") in ("buy_failed", "buy_refused")],
             "beats": [e for e in events if e.get("event") == "beat"], "final": last, "end": end, "fail": parsed["fail"], "done": parsed["done"]}
 
@@ -278,6 +279,11 @@ def fixture_log(waves=2, drop=(), replace=None):
     return "\n".join(f'call Preload( "{line}" )' for line in out)
 
 
+def economy_settled(row):
+    """Gold claims of a run: the last spent/earned are exact unless a purchase was still unsettled at the end."""
+    return not row.get("pending_at_end") and not any(w.get("pending") not in (None, "0") for w in row.get("waves", [])[-1:])
+
+
 def fixture_row(text, **extra):
     path = Path(tempfile.mkstemp(suffix=".txt")[1])
     path.write_text(text)
@@ -310,12 +316,16 @@ def cmd_selfcheck(_args):
              ("runner exit not 0", fixture_row(fixture_log(), runner_exit=3), False),
              ("runner verdict not PASS", fixture_row(fixture_log(), verdict="TIMEOUT"), False)]
     bad = 0
+    pending = fixture_row(fixture_log() + '\ncall Preload( "M t=80.0 event=buy_pending_at_end item=F price=103 gold_before=900 gold=797" )')
+    for name, ok in (("a purchase unsettled at the end is reported", pending["pending_at_end"] and not economy_settled(pending)), ("a settled log is settled", economy_settled(fixture_row(fixture_log())))):
+        bad += not ok
+        print(f"{'PASS' if ok else 'FAIL'}  {name}")
     for name, row, wanted in cases:
         problems = validate_row(row)
         ok = (not problems) == wanted
         bad += not ok
         print(f"{'PASS' if ok else 'FAIL'}  {name}  {problems[:1]}")
-    print(f"selfcheck: {len(cases) - bad} of {len(cases)}")
+    print(f"selfcheck: {len(cases) + 2 - bad} of {len(cases) + 2}")
     return 1 if bad else 0
 
 
