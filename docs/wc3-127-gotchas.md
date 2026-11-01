@@ -109,6 +109,16 @@
   a 16:9 canvas, far right. Keep the background **flat**: the 4 tiles are filtered separately, so any colour
   change across a tile edge shows as a seam.
 
+## Playing on several monitors
+
+- **A fullscreen game can open on the wrong monitor and stay there.** GNOME on Wayland, Wine, no `-window`: no title bar, the game holds the mouse, so it can't be dragged. Seen 2026-11-01 on pc1, on the left monitor although the middle one is primary; why it picked left is not proven. `xdotool windowmove <id> 1920 0` moved the running game, fullscreen and with focus, and it stayed there. On pc1, `~/.local/bin/war3` (not in this repo) starts the game and does this. Moving the running game is verified, a fresh start through `war3` is not.
+
+## Measuring
+
+- **The Preload writer cuts a line at 259 characters.** Long log lines lost their last fields without any error: one record = several short lines.
+- `CountUnitsInGroup(gWaveUnits)` counts the dead too, until the next 1 s tick, which also starts the next wave. To see the moment a wave is cleared, count the living.
+- A unit of a model with two attacks: `uaen = 1` leaves attack 1 only, and attack 1 may be useless (`nbal` hits air only, `nhyc` no structures). Set `ua1g` too.
+
 ## Game install / Wine
 
 - **A single-player game pauses when its window loses focus** (most likely cause: the clock froze at 0:11 for a whole

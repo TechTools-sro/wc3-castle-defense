@@ -9,6 +9,7 @@ Start here, then read only what the task needs:
 | Doc | Read it when |
 |---|---|
 | `docs/gameplay.md` | Changing rules, balance, shops, waves, commands, UI text (exact numbers + where each lives) |
+| `docs/balance.md` | Changing monster strength, scaling or the economy: the rule, what was measured, what was not |
 | `docs/architecture.md` | Touching code: build pipeline, file map, JASS function map, object-ID registry, data flow |
 | `docs/wc3-127-gotchas.md` | Anything engine/format related. **Every entry was hit for real — read before "fixing" something odd** |
 | `docs/test-env.md` | Running the map in the real game: the hidden test environment, its outputs, limits and rollback |
@@ -21,6 +22,8 @@ Start here, then read only what the task needs:
 python3 build.py            # dist/TechToolsCastleDefence.w3x + pjass + base-id check + installs into the game
 python3 build.py --test     # dist/TechToolsCastleDefence_TEST.w3x (8 s select, revealed map, scripted self-test)
 tools/test_env.py run       # builds the TEST map, runs the full self-test hidden (safe while he plays); exit 0 = clean. docs/test-env.md
+tools/balance_matrix.py     # balance model, no game
+tools/balance_probe.py run LABEL --set fight   # real fights, hidden, played by a bot. docs/balance.md
 ```
 
 - **Test results file:** the TEST build writes one `PASS ...` / `FAIL ...` line per check (`TestCheck` / `TestLog`,
@@ -46,7 +49,7 @@ tools/test_env.py run       # builds the TEST map, runs the full self-test hidde
 
 ## Versions
 
-- `MAP_VERSION` in `build.py` (now **v4.0**) is in the map name, the file name (`TechToolsCastleDefence_v4.0.w3x`) and
+- `MAP_VERSION` in `build.py` (now **v4.1**) is in the map name, the file name (`TechToolsCastleDefence_v4.1.w3x`) and
   the catalogue title. ⚠️ **Jiří's rule: every feature = a new version (1.2, 1.3, …) AND an upload to the
   catalogue** (LAN players must have the identical file). Bump, build, commit, upload, verify the download's
   SHA-256, record the new entry below + in `CHANGELOG.md`. Install removes older `TechToolsCastleDefence*.w3x`.

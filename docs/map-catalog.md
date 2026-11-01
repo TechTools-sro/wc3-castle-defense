@@ -21,8 +21,7 @@ ruins, then fight through the four shared **gate levels** (2–5). When every bo
    the next wave comes at once and stronger units come out of the Nexus. Nexus down → its boss rises and the
    strongest units come out of the ruins until the boss dies. ⚠️ Towers hit for ~25 000 and Nexuses for ~27 500 per shot (20 000 / 15 000 HP) — every next building and gate
    level hits harder. Lane bosses: 60 000 HP, ~2400 per hit.
-5. **Monsters:** melee 200 HP / 30 damage, ranged 120 HP / 60 damage; ×2 after your tower falls, ×3 in the boss
-   stage. **Kill gold:** a minion pays as much gold as the wave number (wave 5 → 5 gold), double on Level 2, triple on
+5. **Monsters are strong from the start and grow with every wave:** melee 700 HP / 60 damage, ranged 420 HP / 120 damage at wave 1; at wave 10 about 2400 / 145 and 1400 / 295, at wave 20 about 8200 / 450 and 4900 / 900. ×1.5 HP and ×1.25 damage after your tower falls, ×2 and ×1.5 in the boss stage. **Spend your 1000 gold at your Circle before the first wave.** **Kill gold:** a minion pays as much gold as the wave number (wave 5 → 5 gold), double on Level 2, triple on
    Level 3.
 6. **Wave size:** front line (melee) = 4 + 2 per wave, back line (ranged) = +1 per wave (max 40 + 20 per lane). Every 10th wave adds
    weakened champions (1 at wave 10, 2 at wave 20, ...).
@@ -30,7 +29,8 @@ ruins, then fight through the four shared **gate levels** (2–5). When every bo
    tower and Nexus; its monsters pay extra gold per kill.
 8. **Level 3 — the Frozen Gate (NW)**, **Level 4 — the Shadow Gate (SW)** and **Level 5 — the Inferno Gate (far
    SW)** follow, each opening when the previous gate's Nexus falls and each harder (tower, Nexus, monsters, boss),
-   with more gold per kill (×2 … ×5). Every gate Nexus raises a boss. Win = every lane boss and all gate bosses dead.
+   with more gold per kill (×2 … ×5). Every gate Nexus raises a boss. With every lane boss and all gate bosses dead, the final boss rises.
+   Gates are shared, so they have more HP with more players (×1.35 for 2, ×2.05 for 4, ×3.45 for 8): help each other there. The count is the players at the start of the round.
 
 9. **The final boss — Kharazul the World Ender:** rises at the castle 30 s after the last boss falls (no more waves, the
    castle is shielded). 5 000 000+ HP (more with more players) and 20 000+ damage per hit — **all growing with the game
@@ -39,15 +39,15 @@ ruins, then fight through the four shared **gate levels** (2–5). When every bo
 
 ## Shops
 
-- **Champion's Circle** (your own shop, instant, +3 % price per buy): Health +100, Mana +75, Damage +5,
-  Armor +2, Strength +20, Agility +20, Intelligence +20, All stats +10 — bonuses show as green stats — and
+- **Champion's Circle** (your own shop, instant, +3 % price per buy): Health +600, Mana +75, Damage +20,
+  Armor +8, Strength +20, Agility +20, Intelligence +20, All stats +10 — bonuses show as green stats — and
   **Experience +1 level** (250 gold).
 - **The Castle** (select it; 1 tree each): Castle Health +1000, Castle Armor +3, Castle Regeneration +10 HP/s,
-  Repair +2000 HP, Shockwave (damages every monster near the castle).
+  Repair +2000 HP, Shockwave (a quarter of their HP off every wave monster near the castle).
 - **Secret grove** (narrow passage at the SE corner of the plaza; its shops sell to your champion anywhere on the
   map — just select the shop): Fountain of Power (fast HP + mana),
   **Premium Armory** (1000 gold: lifesteal, attack speed, critical strike, bash, evasion, boots, regeneration,
-  mana regeneration — buy the same item again to upgrade it, up to Lv 5), **Bank** (1 tree = +100 gold income every minute), **Apothecary** (potions heal % of max and stack in one slot — even with a full inventory: Healing 50 % HP and Mana 50 % mana for 100 gold, Restoration full HP + mana for 250, Invulnerability 200; staff of teleportation).
+  mana regeneration — buy the same item again to upgrade it, up to Lv 5), **Bank** (1 tree = +100 gold income every minute, up to 2 minutes per wave: holding a wave back stops it; during the final boss it pays all the time), **Apothecary** (potions heal % of max and stack in one slot — even with a full inventory: Healing 50 % HP and Mana 50 % mana for 100 gold, Restoration full HP + mana for 250, Invulnerability 200; staff of teleportation).
 
 ## EPIC loot
 

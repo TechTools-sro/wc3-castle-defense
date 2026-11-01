@@ -15,6 +15,7 @@ into `Maps/` of a WarCraft III 1.27 install. `python3 build.py` installs a fresh
 |---|---|
 | [docs/gameplay.md](docs/gameplay.md) | The spec: round flow, waves, shops, castle, items, commands, UI — with exact numbers |
 | [docs/architecture.md](docs/architecture.md) | Build pipeline, file map, JASS function map, shop data model, object-ID registry |
+| [docs/balance.md](docs/balance.md) | The balance rule, the model and real fights before and after, and what was not measured |
 | [docs/wc3-127-gotchas.md](docs/wc3-127-gotchas.md) | Engine and file-format traps that were hit for real |
 | [docs/test-env.md](docs/test-env.md) | The hidden test environment: run the map's self-test in the real game beside a running client |
 | [docs/techtools-warcraft-tool.md](docs/techtools-warcraft-tool.md) | The TechTools website around this map: VPN, catalogue, accounts, voice, messages |

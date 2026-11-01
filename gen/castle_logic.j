@@ -159,13 +159,18 @@ function CastleShockwave takes nothing returns nothing
     local real cy = GetUnitY(gCastle)
     local real dmg = 300.0 + 30.0 * I2R(gWave)
     call GroupEnumUnitsInRange(g, cx, cy, 1100.0, null)
+    // wave monsters lose a quarter of their max HP, at any wave; anything else (a boss) the fixed amount
     loop
         set u = FirstOfGroup(g)
         exitwhen u == null
         call GroupRemoveUnit(g, u)
         set o = GetPlayerId(GetOwningPlayer(u))
         if o >= 8 and o <= 11 and GetWidgetLife(u) > 0.405 then
-            call UnitDamageTarget(gCastle, u, dmg, true, false, ATTACK_TYPE_MAGIC, DAMAGE_TYPE_MAGIC, WEAPON_TYPE_WHOKNOWS)
+            if IsUnitInGroup(u, gWaveUnits) then
+                call UnitDamageTarget(gCastle, u, 0.25 * GetUnitState(u, UNIT_STATE_MAX_LIFE), true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
+            else
+                call UnitDamageTarget(gCastle, u, dmg, true, false, ATTACK_TYPE_MAGIC, DAMAGE_TYPE_MAGIC, WEAPON_TYPE_WHOKNOWS)
+            endif
         endif
     endloop
     call DestroyGroup(g)
@@ -262,8 +267,7 @@ function AdvanceStatPrice takes integer p, item it returns nothing
     endloop
 endfunction
 
-// Bank: 1 tree buys +gIncomeStep (INCOME_STEP in gen/objects.py, 100) gold income per minute, paid by IncomeTick on every full minute of the
-// game clock (called from OnTick).
+// Bank: 1 tree buys +gIncomeStep (INCOME_STEP in gen/objects.py, 100) gold income per minute, paid by IncomeTick when BankTick has counted a full minute.
 function BuyIncome takes integer p, item it returns nothing
     call RemoveItem(it)
     set gIncome[p] = gIncome[p] + gIncomeStep
@@ -302,6 +306,26 @@ function IncomeTick takes nothing returns nothing
         endif
         set p = p + 1
     endloop
+endfunction
+
+// The Bank's clock: one payment per 60 counted seconds. Every wave gives it gIncomeWaveSeconds to count, and only the next wave
+// renews that, so holding a wave (a stalled last monster, a kill now and then, a long break) pays two minutes at most.
+// The final fight has no waves and always counts. Called every second.
+function BankTick takes nothing returns nothing
+    if gFinalPhase then
+        set gIncomeClock = gIncomeClock + 1
+    elseif gIncomeBudget > 0 then
+        set gIncomeBudget = gIncomeBudget - 1
+        set gIncomeClock = gIncomeClock + 1
+        if gIncomeBudget == 0 then
+            call Msg("|cffffcc00Bank stopped|r until the next wave")
+        endif
+    else
+        return
+    endif
+    if ModuloInteger(gIncomeClock, 60) == 0 then
+        call IncomeTick()
+    endif
 endfunction
 
 // Premium items level up: picking up a shop (Lv 1) premium item while already holding the same item merges
@@ -909,23 +933,139 @@ function LaneStage takes integer L returns integer
     return 0
 endfunction
 
+// ---- Scaling (docs/gameplay.md). n = wave - 1: HP x (1 + gWaveHpGrowth n^2), damage x (1 + gWaveDmgGrowth n^2). Gate lanes also
+// x their level, and in HP x the team: the champions at the start of the round (gTeamCount), so leaving changes nothing.
+function WaveHpFactor takes integer w returns real
+    return 1.0 + gWaveHpGrowth * I2R(w - 1) * I2R(w - 1)
+endfunction
+
+function WaveDmgFactor takes integer w returns real
+    return 1.0 + gWaveDmgGrowth * I2R(w - 1) * I2R(w - 1)
+endfunction
+
+function TeamHpFactor takes integer team returns real
+    return 1.0 + gTeamHpPer * I2R(team - 1)
+endfunction
+
+// HP and damage on top of the unit's own numbers. role: 0 melee, 1 ranged, 2 champion (no stage).
+function ObstacleHpFactor takes integer L returns real
+    if L >= 8 then
+        return WaveHpFactor(gWave) * (1.0 + gGateHpPer * I2R(L - 7)) * TeamHpFactor(gTeamCount)
+    endif
+    return WaveHpFactor(gWave)
+endfunction
+
+function ScaleHpBonus takes integer L, integer role, integer st returns integer
+    local real base = gRoleHp[role]
+    if role < 2 then
+        set base = base * gStageHp[st]
+    endif
+    return R2I(base * (ObstacleHpFactor(L) - 1.0))
+endfunction
+
+function ScaleDmgBonus takes integer L, integer role, integer st returns integer
+    local real base = gRoleDmg[role]
+    local real f = WaveDmgFactor(gWave)
+    if role < 2 then
+        set base = base * gStageDmg[st]
+    endif
+    if L >= 8 then
+        set f = f * (1.0 + gGateDmgPer * I2R(L - 7))
+    endif
+    return R2I(base * (f - 1.0))
+endfunction
+
+// A bonus above the last bit stays at the maximum: it never wraps around to a small number.
+function ScaleClamp takes integer value, integer n returns integer
+    local integer top = 1
+    local integer i = 0
+    loop
+        exitwhen i >= n
+        set top = top * 2
+        set i = i + 1
+    endloop
+    if value > top - 1 then
+        return top - 1
+    elseif value < 0 then
+        return 0
+    endif
+    return value
+endfunction
+
+// Puts exactly this bonus on a unit (in steps; bits it should not have come off), so applying it twice changes nothing.
+function ScaleSetBits takes unit u, integer first, integer n, integer value returns nothing
+    local integer i = 0
+    set value = ScaleClamp(value, n)
+    loop
+        exitwhen i >= n
+        if ModuloInteger(value, 2) == 1 then
+            call UnitAddAbility(u, gScaleBit[first + i])
+        else
+            call UnitRemoveAbility(u, gScaleBit[first + i])
+        endif
+        set value = value / 2
+        set i = i + 1
+    endloop
+endfunction
+
+// Rule: a rescale never heals. The unit keeps its actual HP (cut only if the new maximum is lower).
+function ScaleKeepHp takes unit u, integer hpBonus, integer dmgBonus returns nothing
+    local real hp = GetWidgetLife(u)
+    call ScaleSetBits(u, 0, gScaleHpBits, hpBonus / gScaleHpStep)
+    call ScaleSetBits(u, gScaleHpBits, gScaleDmgBits, dmgBonus / gScaleDmgStep)
+    call SetWidgetLife(u, hp)
+endfunction
+
+// A shared obstacle as it appears: the team's HP on top of its own, at full health.
+function ScaleTeamSpawn takes unit u returns nothing
+    call ScaleKeepHp(u, R2I(GetUnitState(u, UNIT_STATE_MAX_LIFE) * (TeamHpFactor(gTeamCount) - 1.0)), 0)
+    call SetWidgetLife(u, GetUnitState(u, UNIT_STATE_MAX_LIFE))
+endfunction
+
+function ScaleListBits takes integer role, integer first, integer n, integer value returns nothing
+    local integer i = 0
+    set value = ScaleClamp(value, n)
+    loop
+        exitwhen i >= n
+        if ModuloInteger(value, 2) == 1 then
+            set gScaleList[role * 32 + gScaleN[role]] = gScaleBit[first + i]
+            set gScaleN[role] = gScaleN[role] + 1
+        endif
+        set value = value / 2
+        set i = i + 1
+    endloop
+endfunction
+
+// The bits of this wave and stage, worked out once per lane: a wave is many units.
+function ScalePrepare takes integer L, integer st returns nothing
+    local integer role = 0
+    loop
+        exitwhen role > 2
+        set gScaleN[role] = 0
+        call ScaleListBits(role, 0, gScaleHpBits, ScaleHpBonus(L, role, st) / gScaleHpStep)
+        call ScaleListBits(role, gScaleHpBits, gScaleDmgBits, ScaleDmgBonus(L, role, st) / gScaleDmgStep)
+        set role = role + 1
+    endloop
+endfunction
+
 // Waves come out of the lane's tower; once the tower is destroyed, out of the Nexus (or its ruins).
-function SpawnWaveUnit takes integer L, integer ut returns nothing
+function SpawnWaveUnit takes integer L, integer ut, integer role returns nothing
     local integer d = LaneArm(L)
     local real x = gNexusSpawnX[L]
     local real y = gNexusSpawnY[L]
     local unit u
+    local integer b = 0
     if GetWidgetLife(gTower[L]) > 0.405 then
         set x = gTowerSpawnX[L]
         set y = gTowerSpawnY[L]
     endif
     set u = CreateUnit(gInvader[d], ut, x + GetRandomReal(-140.0, 140.0), y + GetRandomReal(-90.0, 90.0), gDirFace[d])
+    loop
+        exitwhen b >= gScaleN[role]
+        call UnitAddAbility(u, gScaleList[role * 32 + b])
+        set b = b + 1
+    endloop
     if L >= 8 then
-        // gate level: its bonus HP / damage and colour
-        call UnitAddAbility(u, gGateHpAbil[L])
-        if gGateDmgAbil[L] != 0 then
-            call UnitAddAbility(u, gGateDmgAbil[L])
-        endif
         call SetUnitVertexColor(u, gGateTintR[L], gGateTintG[L], gGateTintB[L], 255)
     endif
     call SetUnitUserData(u, L * 16 + 1)
@@ -936,12 +1076,15 @@ function SpawnWaveUnit takes integer L, integer ut returns nothing
     endif
     call GroupAddUnit(gWaveUnits, u)
     call IssuePointOrder(u, "attack", gWpX[L * 8 + 1], gWpY[L * 8 + 1])
+    if gTestMode then
+        set gTestLast = u
+    endif
     set u = null
 endfunction
 
-// Standardized waves: the lane STAGE picks the unit types, the wave number only adds units.
+// Standardized waves: the lane STAGE picks the unit types, the wave number adds units and strength (ScalePrepare).
 // Front line (melee) = 4 + 2 x wave, back line (ranged) = 1 x wave (gFrontPer / gBackPer, capped by gFrontMax /
-// gBackMax). Every 10th wave: wave/10 weakened champions.
+// gBackMax). Every 10th wave: wave/10 wave champions.
 function SpawnWave takes integer L returns nothing
     local integer d = LaneArm(L)
     local integer st = LaneStage(L)
@@ -954,28 +1097,38 @@ function SpawnWave takes integer L returns nothing
     if back > gBackMax then
         set back = gBackMax
     endif
+    call ScalePrepare(L, st)
     if gTestMode and L == 0 and gWave <= 2 then
         call TestCheck(front == 4 + 2 * gWave and back == gWave, "wave " + I2S(gWave) + " size: front " + I2S(front) + " (+2 per wave), back " + I2S(back) + " (+1 per wave)")
     endif
     loop
         exitwhen i >= front
-        call SpawnWaveUnit(L, gStageUnit[d * 6 + st * 2])
+        call SpawnWaveUnit(L, gStageUnit[d * 6 + st * 2], 0)
         set i = i + 1
     endloop
     set i = 0
     loop
         exitwhen i >= back
-        call SpawnWaveUnit(L, gStageUnit[d * 6 + st * 2 + 1])
+        call SpawnWaveUnit(L, gStageUnit[d * 6 + st * 2 + 1], 1)
         set i = i + 1
     endloop
     if ModuloInteger(gWave, gChampEvery) == 0 then
         set i = 0
         loop
             exitwhen i >= gWave / gChampEvery
-            call SpawnWaveUnit(L, gWaveChamp[d])
+            call SpawnWaveUnit(L, gWaveChamp[d], 2)
             set i = i + 1
         endloop
     endif
+    if gTestMode and L == 0 and gWave <= 2 and st == 0 and gTestLast != null then
+        // a real wave unit of this wave (the last one spawned: ranged) against the formula, also right after a restart
+        call TestCheck(RAbsBJ(GetUnitState(gTestLast, UNIT_STATE_MAX_LIFE) - gRoleHp[1] * WaveHpFactor(gWave)) <= I2R(gScaleHpStep), "wave " + I2S(gWave) + " round " + I2S(gTestRound) + ": a real ranged monster has the formula's HP (" + I2S(R2I(GetUnitState(gTestLast, UNIT_STATE_MAX_LIFE))) + ")")
+    endif
+endfunction
+
+// Every lane in its own thread: a late wave is hundreds of units and a thread has an operation limit.
+function SpawnWaveThread takes nothing returns nothing
+    call SpawnWave(gSpawnLane)
 endfunction
 
 function OnWaveTimer takes nothing returns nothing
@@ -984,6 +1137,7 @@ function OnWaveTimer takes nothing returns nothing
         return
     endif
     set gWave = gWave + 1
+    set gIncomeBudget = gIncomeWaveSeconds
     if gWave == 2 then
         loop
             exitwhen L >= 8
@@ -995,7 +1149,8 @@ function OnWaveTimer takes nothing returns nothing
     loop
         exitwhen L >= 8
         if gLaneActive[L] and (gLaneState[L] == 0 or gLaneState[L] == 1) then
-            call SpawnWave(L)
+            set gSpawnLane = L
+            call ExecuteFunc("SpawnWaveThread")
         endif
         set L = L + 1
     endloop
@@ -1003,7 +1158,8 @@ function OnWaveTimer takes nothing returns nothing
     loop
         exitwhen L > 11
         if gGateState[L] == 0 or gGateState[L] == 1 then
-            call SpawnWave(L)
+            set gSpawnLane = L
+            call ExecuteFunc("SpawnWaveThread")
         endif
         set L = L + 1
     endloop
@@ -1225,17 +1381,9 @@ function FinalBits takes unit u, integer first, integer n, integer value returns
     endloop
 endfunction
 
-// HP factor by players in the game: 1-2 / 3-5 / 6-8 -> 1 / 2 / 3
+// HP factor by the team at the start of the round: 1-2 / 3-5 / 6-8 -> 1 / 2 / 3
 function FinalPlayerFactor takes nothing returns integer
-    local integer i = 0
-    local integer n = 0
-    loop
-        exitwhen i >= 8
-        if IsPlaying(i) then
-            set n = n + 1
-        endif
-        set i = i + 1
-    endloop
+    local integer n = gTeamCount
     if n >= 6 then
         return 3
     elseif n >= 3 then
@@ -1252,17 +1400,23 @@ function FinalDamage takes integer m returns integer
     return gFinalDmgBase + gFinalDmgPerMin * m
 endfunction
 
-// His stats for the current minute of the game clock; the HP percentage stays. Spell tier +1 every gFinalTierEvery minutes.
+// His stats for the current minute of the game clock. Growing never heals: his actual HP stays, only the first time he is
+// full. (Keeping the percentage would give him free HP every minute.) Spell tier +1 every gFinalTierEvery minutes.
 function FinalApplyStats takes nothing returns nothing
     local unit b = gFinalBoss
     local integer m = gGameTime / 60
     local integer t = m / gFinalTierEvery
     local integer s = 0
-    local real pct = GetWidgetLife(b) / GetUnitState(b, UNIT_STATE_MAX_LIFE)
+    local real hp = GetWidgetLife(b)
+    local boolean fresh = gFinalTier < 0
     call FinalBits(b, 0, gFinalHpBits, (FinalMaxHp(m) - gFinalHpUnit) / gFinalHpStep)
     call FinalBits(b, gFinalHpBits, gFinalDmgBits, gFinalDmgPerMin * m / gFinalDmgStep)
     call FinalBits(b, gFinalHpBits + gFinalDmgBits, gFinalArmorBits, m / gFinalArmorEvery)
-    call SetWidgetLife(b, pct * GetUnitState(b, UNIT_STATE_MAX_LIFE))
+    if fresh then
+        call SetWidgetLife(b, GetUnitState(b, UNIT_STATE_MAX_LIFE))
+    else
+        call SetWidgetLife(b, hp)
+    endif
     if t > gFinalTiers - 1 then
         set t = gFinalTiers - 1
     endif
@@ -1916,9 +2070,7 @@ function OnTick takes nothing returns nothing
     endif
     if gStarted and not gGameOver then
         set gGameTime = gGameTime + 1     // game clock: from the end of champion select, stops at the end
-        if ModuloInteger(gGameTime, 60) == 0 then
-            call IncomeTick()             // bank income is paid on every full minute of the game clock (1:00, 2:00, ...)
-        endif
+        call BankTick()
     endif
     call ForGroup(gWaveUnits, function WaveUnitTick)
     if gWaitingClear and not gGameOver and CountUnitsInGroup(gWaveUnits) == 0 then
@@ -2079,12 +2231,10 @@ function OnTowerDestroyed takes integer L returns nothing
     call UnitAddAbility(p, 'AIlf')
     call SetUnitScale(p, 1.5, 1.5, 1.5)
     call SetUnitVertexColor(p, 255, 220, 120, 255)
+    // as strong as the wave it belongs to
+    call ScaleKeepHp(p, R2I(GetUnitState(p, UNIT_STATE_MAX_LIFE) * (ObstacleHpFactor(L) - 1.0)), ScaleDmgBonus(L, 2, 0))
     if L >= 8 then
-        // gate Protector: the level's bonus HP / damage and colour
-        call UnitAddAbility(p, gGateHpAbil[L])
-        if gGateDmgAbil[L] != 0 then
-            call UnitAddAbility(p, gGateDmgAbil[L])
-        endif
+        // gate Protector: the level's colour
         call SetUnitScale(p, 1.8, 1.8, 1.8)
         call SetUnitVertexColor(p, gGateTintR[L], gGateTintG[L], gGateTintB[L], 255)
     endif
@@ -2141,6 +2291,8 @@ function OpenGateLane takes integer L returns nothing
     call ModifyGateBJ(bj_GATEOPERATION_OPEN, gGate[L])
     set gTower[L] = CreateUnit(gInvader[d], gTurretType[d], gTowerX[L], gTowerY[L], gDirFace[d])
     set gNexus[L] = CreateUnit(gInvader[d], gBaseType[d], gNexusX[L], gNexusY[L], gDirFace[d])
+    call ScaleTeamSpawn(gTower[L])
+    call ScaleTeamSpawn(gNexus[L])
     call PingMinimapEx(gGateX[L], gGateY[L], 6.0, 255, 60, 60, true)
     call PingMinimapEx(gNexusX[L], gNexusY[L], 6.0, 255, 60, 60, true)
     call StartSound(bj_questWarningSound)
@@ -2154,6 +2306,7 @@ function OnGateNexusDestroyed takes integer L returns nothing
     set gGateState[L] = 1
     set gBossTick[L] = 0
     set gBoss[L] = CreateUnit(gInvader[d], gBossType[d * 3 + 1], gNexusX[L], gNexusY[L], gDirFace[d])
+    call ScaleTeamSpawn(gBoss[L])
     call DestroyEffect(AddSpecialEffect("Objects\\Spawnmodels\\Other\\NeutralBuildingExplosion\\NeutralBuildingExplosion.mdl", gNexusX[L], gNexusY[L]))
     call DestroyEffect(AddSpecialEffect("Abilities\\Spells\\Human\\MassTeleport\\MassTeleportTarget.mdl", gNexusX[L], gNexusY[L]))
     call PingMinimap(gNexusX[L], gNexusY[L], 6.0)
@@ -2632,6 +2785,112 @@ function TestFinalBitSum takes integer first, integer n returns integer
     return v
 endfunction
 
+// The bonus a unit really carries, in steps (no game function reads a unit's damage).
+function TestScaleBits takes unit u, integer first, integer n returns integer
+    local integer i = n - 1
+    local integer v = 0
+    loop
+        exitwhen i < 0
+        set v = v * 2
+        if GetUnitAbilityLevel(u, gScaleBit[first + i]) > 0 then
+            set v = v + 1
+        endif
+        set i = i - 1
+    endloop
+    return v
+endfunction
+
+// A monster's death must not touch the Bank's budget: the death handler reads nothing of it, this keeps the check explicit.
+function OnUnitDeathBudgetCheck takes nothing returns nothing
+    local unit u = CreateUnit(Player(8), gStageUnit[0], gHallX, gHallY - 2200.0, 0.0)
+    call KillUnit(u)
+    set u = null
+endfunction
+
+// Scaling rules on a real unit, far from the fight. State tests: nothing here is a fight. Team sizes are the formula's values,
+// not real players (a hidden run has one), and a real player leaving is not exercised here.
+function TestScaling takes nothing returns nothing
+    local unit u = CreateUnit(Player(8), gStageUnit[0], gHallX, gHallY - 2000.0, 0.0)
+    local real base = GetUnitState(u, UNIT_STATE_MAX_LIFE)
+    local real one
+    local integer goldBefore = GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)
+    local integer incomeBefore = gIncome[0]
+    local integer budgetBefore = gIncomeBudget
+    local integer clockBefore = gIncomeClock
+    local integer waveBefore = gWave
+    local integer teamBefore = gTeamCount
+    local integer hpBits
+    local integer dmgBits
+    call PauseUnit(u, true)
+    call TestCheck(RAbsBJ(WaveHpFactor(1) - 1.0) < 0.001 and RAbsBJ(WaveDmgFactor(1) - 1.0) < 0.001, "wave 1 scales nothing")
+    call TestCheck(WaveHpFactor(2) > WaveDmgFactor(2) and WaveHpFactor(20) > WaveHpFactor(10) and WaveDmgFactor(20) > WaveDmgFactor(10), "HP grows faster than damage: wave 10 x" + R2SW(WaveHpFactor(10), 1, 2) + " / x" + R2SW(WaveDmgFactor(10), 1, 2))
+    call TestCheck(RAbsBJ(TeamHpFactor(1) - 1.0) < 0.001 and RAbsBJ(TeamHpFactor(2) - 1.35) < 0.001 and RAbsBJ(TeamHpFactor(4) - 2.05) < 0.001 and RAbsBJ(TeamHpFactor(8) - 3.45) < 0.001, "shared HP for 1 / 2 / 4 / 8 players: formula values")
+    call TestCheck(gTeamCount == 1, "team count in this hidden run: " + I2S(gTeamCount))
+    if gTestRound == 0 then
+        call TestCheck(gHero[1] == null and GetUnitTypeId(gTestPreLeft) == 0 and not gLaneActive[1], "picked and left before the round (state): no champion, no lane, not counted")
+    endif
+    call ScaleKeepHp(u, 1000, 50)
+    set one = GetUnitState(u, UNIT_STATE_MAX_LIFE)
+    call ScaleKeepHp(u, 1000, 50)
+    call TestCheck(RAbsBJ(one - (base + 1000.0)) < 1.0 and RAbsBJ(GetUnitState(u, UNIT_STATE_MAX_LIFE) - one) < 1.0, "applying a scale twice changes nothing: max HP " + I2S(R2I(one)))
+    call SetWidgetLife(u, 100.0)
+    call ScaleKeepHp(u, 3000, 50)
+    call TestCheck(GetUnitState(u, UNIT_STATE_MAX_LIFE) > one and RAbsBJ(GetWidgetLife(u) - 100.0) < 1.0, "a wounded unit that grows does not heal: HP " + I2S(R2I(GetWidgetLife(u))) + " of " + I2S(R2I(GetUnitState(u, UNIT_STATE_MAX_LIFE))))
+    call SetWidgetLife(u, GetUnitState(u, UNIT_STATE_MAX_LIFE))
+    call ScaleKeepHp(u, 0, 0)
+    call TestCheck(RAbsBJ(GetUnitState(u, UNIT_STATE_MAX_LIFE) - base) < 1.0 and GetWidgetLife(u) <= base + 1.0, "scaling back down cuts HP to the new maximum")
+    // saturation: far above the last bit it holds the maximum, HP read back, damage by the bits themselves
+    call ScaleKeepHp(u, 2000000000, 2000000000)
+    set one = GetUnitState(u, UNIT_STATE_MAX_LIFE)
+    call TestCheck(RAbsBJ(one - (base + I2R(ScaleClamp(2000000000, gScaleHpBits) * gScaleHpStep))) < 1.0 and GetUnitAbilityLevel(u, gScaleBit[gScaleHpBits + gScaleDmgBits - 1]) > 0 and GetUnitAbilityLevel(u, gScaleBit[gScaleHpBits]) > 0, "a bonus past the last bit saturates, no wrap: max HP " + I2S(R2I(one)))
+    call ScaleKeepHp(u, ScaleClamp(2000000000, gScaleHpBits) * gScaleHpStep + gScaleHpStep, 0)
+    call TestCheck(RAbsBJ(GetUnitState(u, UNIT_STATE_MAX_LIFE) - one) < 1.0, "one step above the maximum: still the maximum")
+    call RemoveUnit(u)
+    set u = null
+    // real units through the production path: a personal lane, then a shared gate with a simulated team of 4
+    set gWave = 30
+    call ScalePrepare(0, 0)
+    call SpawnWaveUnit(0, gStageUnit[0], 0)
+    set one = gRoleHp[0] * WaveHpFactor(30)
+    set hpBits = ScaleHpBonus(0, 0, 0) / gScaleHpStep
+    set dmgBits = ScaleDmgBonus(0, 0, 0) / gScaleDmgStep
+    call TestCheck(hpBits > 1 and dmgBits > 1 and RAbsBJ(GetUnitState(gTestLast, UNIT_STATE_MAX_LIFE) - one) <= I2R(gScaleHpStep) and TestScaleBits(gTestLast, gScaleHpBits, gScaleDmgBits) == dmgBits, "wave 30, own lane, a spawned melee monster: HP " + I2S(R2I(GetUnitState(gTestLast, UNIT_STATE_MAX_LIFE))) + " of formula " + I2S(R2I(one)) + ", damage bonus " + I2S(dmgBits * gScaleDmgStep))
+    call GroupRemoveUnit(gWaveUnits, gTestLast)
+    call RemoveUnit(gTestLast)
+    set gTeamCount = 4
+    call ScalePrepare(8, 1)
+    call SpawnWaveUnit(8, gStageUnit[8 * 0 + 4 * 6 + 2], 0)
+    set one = gRoleHp[0] * gStageHp[1] * WaveHpFactor(30) * (1.0 + gGateHpPer) * TeamHpFactor(4)
+    set dmgBits = ScaleDmgBonus(8, 0, 1) / gScaleDmgStep
+    call TestCheck(RAbsBJ(GetUnitState(gTestLast, UNIT_STATE_MAX_LIFE) - one) <= I2R(gScaleHpStep) and TestScaleBits(gTestLast, gScaleHpBits, gScaleDmgBits) == dmgBits, "wave 30, Level 2, stage 1, team of 4 (simulated): HP " + I2S(R2I(GetUnitState(gTestLast, UNIT_STATE_MAX_LIFE))) + " of formula " + I2S(R2I(one)))
+    call GroupRemoveUnit(gWaveUnits, gTestLast)
+    call RemoveUnit(gTestLast)
+    set gTestLast = null
+    set gWave = waveBefore
+    set gTeamCount = teamBefore
+    // the Bank's clock, in state: it counts exactly the budget, kills do not renew it, the next wave does, the minute pays once
+    set gIncome[0] = 100
+    set gIncomeBudget = 2
+    set gIncomeClock = 58
+    call BankTick()
+    call TestCheck(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD) == goldBefore and gIncomeClock == 59 and gIncomeBudget == 1, "Bank: a counted second, no payment yet")
+    call BankTick()
+    call TestCheck(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD) == goldBefore + 100 and gIncomeClock == 60 and gIncomeBudget == 0, "Bank: the last second of the budget pays the full minute once")
+    call BankTick()
+    call BankTick()
+    call TestCheck(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD) == goldBefore + 100 and gIncomeClock == 60, "Bank: a used-up budget stands still, no gold")
+    call OnUnitDeathBudgetCheck()
+    call TestCheck(gIncomeBudget == 0, "Bank: a kill does not renew the budget")
+    set gFinalPhase = true
+    call BankTick()
+    call TestCheck(gIncomeClock == 61, "Bank: the final fight always counts")
+    set gFinalPhase = false
+    call SetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD, goldBefore)
+    set gIncome[0] = incomeBefore
+    set gIncomeBudget = budgetBefore
+    set gIncomeClock = clockBefore
+endfunction
+
 function TestStep takes nothing returns nothing
     local integer L
     local integer c
@@ -2644,6 +2903,8 @@ function TestStep takes nothing returns nothing
     if gTestClock == 5 then
         call FogEnable(false)
         call FogMaskEnable(false)
+        // test fixture only: the mechanical checks need the round to last, and their fixtures do not defend the castle
+        call SetUnitInvulnerable(gCastle, true)
     elseif gTestClock == 10 then
         call SetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD, 2000)
         call SelectUnitForPlayerSingle(gLaneMarker[0], Player(0))
@@ -2753,6 +3014,7 @@ function TestStep takes nothing returns nothing
             endloop
         endif
     elseif gTestClock == 15 then
+        call TestScaling()
         if IssueImmediateOrderById(gLaneMarker[0], gStatItem[1]) then
             call Msg("[TEST] tome #2 via shop order: accepted")
         elseif IssueNeutralImmediateOrderById(Player(0), gLaneMarker[0], gStatItem[1]) then
@@ -2898,6 +3160,9 @@ function TestStep takes nothing returns nothing
         // one gate level per step: kill the previous level's boss, then this level's tower + Nexus (boss rises)
         set L = 8 + (gTestClock - 60) / 5
         call Msg("[TEST] gates L2=" + I2S(gGateState[8]) + " L3=" + I2S(gGateState[9]) + " L4=" + I2S(gGateState[10]) + " L5=" + I2S(gGateState[11]))
+        if L == 11 then
+            call SetUnitInvulnerable(gCastle, false)    // the fixture ends right before the last boss falls
+        endif
         if gBoss[L] != null then
             call KillUnit(gBoss[L])
         endif
@@ -2907,6 +3172,7 @@ function TestStep takes nothing returns nothing
             call KillUnit(gNexus[L + 1])
         else
             call TestCheck(gFinalPhase and not gGameOver, "every lane boss + all 4 gate levels cleared -> the final boss awakens, no victory yet")
+            // the final phase shields the castle by itself (StartFinalBoss): nothing of the fixture may be left to prove that
             call TestFlush()
         endif
     elseif gTestClock == 80 then
@@ -2939,15 +3205,17 @@ function TestStep takes nothing returns nothing
         call TestLog("Storm Bolt order at the final boss accepted = " + TestB2S(IssueTargetOrder(gHero[0], "creepthunderbolt", gFinalBoss)))
     elseif gTestClock == 90 then
         call TestCheck(gTestStunRemoved > 0 and GetUnitAbilityLevel(gFinalBoss, 'BPSE') == 0, "stun immune: a real Storm Bolt hit him, the stun was gone at once (" + I2S(gTestStunRemoved) + " removed)")
-        // half HP, then jump the game clock 5 minutes: he must grow and keep his HP percentage
+        // half HP, then jump the game clock 5 minutes: he must grow and his actual HP must not jump
         call SetWidgetLife(gFinalBoss, GetUnitState(gFinalBoss, UNIT_STATE_MAX_LIFE) * 0.5)
+        set gTestFinalLife = GetWidgetLife(gFinalBoss)
         set gTestFinalTier = gFinalTier
         set gTestFinalHp = GetUnitState(gFinalBoss, UNIT_STATE_MAX_LIFE)
         set gGameTime = gGameTime + 300
         call TestFlush()
     elseif gTestClock == 95 then
         call TestCheck(GetUnitState(gFinalBoss, UNIT_STATE_MAX_LIFE) > gTestFinalHp, "5 minutes later his max HP grew: " + I2S(R2I(gTestFinalHp)) + " -> " + I2S(R2I(GetUnitState(gFinalBoss, UNIT_STATE_MAX_LIFE))) + " (minute " + I2S(gFinalMinute) + ")")
-        call TestCheck(GetWidgetLife(gFinalBoss) / GetUnitState(gFinalBoss, UNIT_STATE_MAX_LIFE) < 0.55, "growing did not heal him (" + I2S(R2I(100.0 * GetWidgetLife(gFinalBoss) / GetUnitState(gFinalBoss, UNIT_STATE_MAX_LIFE))) + " % HP)")
+        // 5 s of his 500 HP/s regeneration are allowed; keeping the percentage would add 625 000 HP
+        call TestCheck(GetWidgetLife(gFinalBoss) <= gTestFinalLife + 5000.0, "growing did not heal him: HP " + I2S(R2I(gTestFinalLife)) + " -> " + I2S(R2I(GetWidgetLife(gFinalBoss))))
         call TestCheck(gFinalTier == gTestFinalTier + 1, "his spells went up a tier (" + I2S(gTestFinalTier) + " -> " + I2S(gFinalTier) + ")")
         call TestCheck(TestFinalBitSum(gFinalHpBits, gFinalDmgBits) * gFinalDmgStep == gFinalDmgPerMin * gFinalMinute, "his damage follows the minute: +" + I2S(TestFinalBitSum(gFinalHpBits, gFinalDmgBits) * gFinalDmgStep))
         call TestCheck(TestFinalBitSum(gFinalHpBits + gFinalDmgBits, gFinalArmorBits) == gFinalMinute / gFinalArmorEvery, "his armor follows the minute: +" + I2S(TestFinalBitSum(gFinalHpBits + gFinalDmgBits, gFinalArmorBits)))
@@ -2978,11 +3246,24 @@ function StartGame takes nothing returns nothing
     endif
     set gStarted = true
     set gGameTime = 0
+    set gIncomeBudget = gIncomeWaveSeconds
+    set gIncomeClock = 0
+    set gTeamCount = 0
     loop
         exitwhen i >= 8
         set gLaneActive[i] = IsPlaying(i)
+        if gLaneActive[i] then
+            set gTeamCount = gTeamCount + 1
+        elseif gHero[i] != null then
+            // picked, then left before the round began: no lane and not counted, so no champion either
+            call RemoveUnit(gHero[i])
+            set gHero[i] = null
+        endif
         set i = i + 1
     endloop
+    if gTeamCount < 1 then
+        set gTeamCount = 1
+    endif
     set i = 0
     loop
         exitwhen i >= 8
@@ -3017,6 +3298,7 @@ function StartGame takes nothing returns nothing
     endif
     call CreateBoard()
     call Msg("|cffffcc00Defend your lane!|r   |cffffcc00-help|r = commands")
+    call Msg("|cff4fc3ffSpend your gold now|r at your Champion's Circle: the first wave is strong.")
 endfunction
 
 //---------------------------------------------------------------------------
@@ -3132,6 +3414,11 @@ endfunction
 
 // Test build: player 1 buys a hero through the real tavern sale path.
 function TestBuyOrder takes nothing returns nothing
+    // the state of a player who picked and left before the round: a champion on a slot that is not playing
+    if gTestRound == 0 then
+        set gHero[1] = CreateUnit(Player(1), gHeroPool[1], gHeroX[1], gHeroY[1], 0.0)
+        set gTestPreLeft = gHero[1]
+    endif
     // round 1: the Dryad; round 2: the Archmage (a standard hero through the real tavern sale)
     if IssueNeutralImmediateOrderById(Player(0), gTavern[0], gHeroPool[gTestRound * 4]) then
         call Msg("[TEST] P1 buy champion #1 from the Hall of Champions: accepted")

@@ -70,48 +70,134 @@ FACTIONS = [
 GATE_LEVELS = [
     {"level": 2, "lane": 8, "arm": 4, "name": "The Dark Gate", "color": "|cffff4040", "dir": "north-east",
      "base": ("unp2", "Dark Citadel"), "turret": ("uzg1", "Dark Spire"),
-     "stages": [("ngh2", "uabo"), ("ninf", "nbal"), ("ninf", "nbal")], "champion": "nrvd",
+     "stages": [("uabo", "ngh2"), ("ninf", "nbal"), ("ninf", "nbal")], "champion": "nrvd",
      "nexus": (40000, 15, (38400, 4, 50)), "tower": (32500, 8, (34995, 1, 10)), "tint": (255, 90, 90),
-     "unit_hp": 300, "unit_dmg": 0, "gold": 500, "nexus_scale": 1.2, "tower_scale": 1.5,
+     "gold": 500, "nexus_scale": 1.2, "tower_scale": 1.5,
      "boss": (0, "Malgrath the Dark Lich", 3, 1.5, 2.4)},
     {"level": 3, "lane": 9, "arm": 5, "name": "The Frozen Gate", "color": "|cff80dfff", "dir": "north-west",
      "base": ("uaod", "Frozen Throne"), "turret": ("uzg1", "Frozen Spire"),
-     "stages": [("nsoc", "ufro"), ("nbal", "ninf"), ("nbal", "ninf")], "champion": "nlrv",
+     "stages": [("nsoc", "ufro"), ("ninf", "nbal"), ("ninf", "nbal")], "champion": "nlrv",
      "nexus": (75000, 20, (49400, 4, 50)), "tower": (50000, 12, (44995, 1, 10)), "tint": (140, 200, 255),
-     "unit_hp": 500, "unit_dmg": 10, "gold": 1000, "nexus_scale": 1.6, "tower_scale": 1.7,
+     "gold": 1000, "nexus_scale": 1.6, "tower_scale": 1.7,
      "boss": (2, "Kel'Thar the Frozen Tide", 5, 2.0, 2.5)},
     {"level": 4, "lane": 10, "arm": 6, "name": "The Shadow Gate", "color": "|cffc080ff", "dir": "south-west",
      "base": ("ndmg", "Shadow Portal"), "turret": ("ntx2", "Shadow Spire"),
-     "stages": [("ninf", "nerw"), ("nbal", "nhyc"), ("nbal", "nhyc")], "champion": "nina",
+     "stages": [("ninf", "nerw"), ("ninf", "nhyc"), ("ninf", "nhyc")], "champion": "nina",
      "nexus": (125000, 25, (65900, 4, 50)), "tower": (75000, 15, (59995, 1, 10)), "tint": (200, 120, 255),
-     "unit_hp": 1000, "unit_dmg": 25, "gold": 2000, "nexus_scale": 1.4, "tower_scale": 1.6,
+     "gold": 2000, "nexus_scale": 1.4, "tower_scale": 1.6,
      "boss": (1, "Azgaroth the Shadow Lord", 8, 3.0, 2.2)},
     {"level": 5, "lane": 11, "arm": 7, "name": "The Inferno Gate", "color": "|cffff9020", "dir": "far south-west",
      "base": ("ofrt", "Inferno Fortress"), "turret": ("owtw", "Inferno Tower"),
      "stages": [("nrvd", "ufro"), ("nlrv", "nbal"), ("nlrv", "nbal")], "champion": "nggr",
      "nexus": (200000, 30, (87900, 4, 50)), "tower": (105000, 18, (79995, 1, 10)), "tint": (255, 160, 60),
-     "unit_hp": 2000, "unit_dmg": 50, "gold": 3000, "nexus_scale": 1.4, "tower_scale": 1.8,
+     "gold": 3000, "nexus_scale": 1.4, "tower_scale": 1.8,
      "boss": (1, "Infernus the World Breaker", 12, 4.0, 2.8)},
 ]
 GATE_ARMS = [g["arm"] for g in GATE_LEVELS]
 
-# Standardized wave units: every faction's stage units are copies with the same stats (built-in bounty 0, the
-# script pays kill gold). Stage 1 (tower down) x2, stage 2 (Nexus down / boss alive) x3.
-WAVE_MELEE_HP, WAVE_MELEE_DMG = 200, 30
-WAVE_RANGED_HP, WAVE_RANGED_DMG = 120, 60
-WAVE_STAGE_MULT = [1, 2, 3]
+# Standardized wave units (v4.1, Jiri: stronger monsters, predictable scaling). Every faction's units are copies with the
+# same combat values: only the model differs. Melee role = the front line, ranged role = the back line.
+WAVE_MELEE_HP, WAVE_MELEE_DMG = 700, 60
+WAVE_RANGED_HP, WAVE_RANGED_DMG = 420, 120
+WAVE_MELEE_COOLDOWN, WAVE_RANGED_COOLDOWN = 1.5, 1.8
+WAVE_MELEE_ARMOR, WAVE_RANGED_ARMOR = 2, 0
+WAVE_MELEE_RANGE, WAVE_RANGED_RANGE = 100, 500
+WAVE_ATTACK_TYPE, WAVE_SPEED = "normal", 270
+WAVE_TARGETS = "ground,structure,debris,item,ward"     # attack 1 of every wave monster (some models keep the ground attack in attack 2)
+# Only the movement type stays the model's own: a few fly or hover (frost wyrms, banshees, revenants) or swim (nagas). Everything else is equal.
+WAVE_SAME = [("uaen", I, 1), ("ua1t", S, WAVE_ATTACK_TYPE), ("ua1g", S, WAVE_TARGETS), ("umvs", I, WAVE_SPEED), ("uabi", S, ""),
+             ("uhpr", U, 0.0), ("uhrt", S, "none"), ("udty", S, "medium")]
+WAVE_STAGE_HP = [1.0, 1.5, 2.0]        # stage 1 = tower down, stage 2 = Nexus down
+WAVE_STAGE_DMG = [1.0, 1.25, 1.5]
+# Growth by the wave number, n = wave - 1: HP x (1 + WAVE_HP_GROWTH n^2), damage x (1 + WAVE_DMG_GROWTH n^2). HP grows faster.
+WAVE_HP_GROWTH, WAVE_DMG_GROWTH = 0.03, 0.018
+# Gate levels 2-5: +25 % HP and +10 % damage per level above 1. Only shared obstacles scale with the team, mainly in HP.
+GATE_HP_PER_LEVEL, GATE_DMG_PER_LEVEL = 0.25, 0.10
+TEAM_HP_PER_PLAYER = 0.35              # shared gates: HP x (1 + 0.35 (team - 1)); team = champions at the start of the round
+# The Bank pays for at most this many seconds per wave, renewed only by the next wave: 2 payments at most, however long a wave is held.
+INCOME_WAVE_SECONDS = 120
+# Scaling goes through hidden item-bonus abilities, one per bit.
+# A bonus above the last bit stays at the maximum (saturates, never wraps): +3 276 700 HP, +81 915 damage.
+SCALE_HP_BITS, SCALE_HP_STEP = 15, 100
+SCALE_DMG_BITS, SCALE_DMG_STEP = 14, 5
+
+
+def wave_hp_factor(wave):
+    return 1.0 + WAVE_HP_GROWTH * (wave - 1) ** 2
+
+
+def wave_dmg_factor(wave):
+    return 1.0 + WAVE_DMG_GROWTH * (wave - 1) ** 2
+
+
+def team_hp_factor(team):
+    return 1.0 + TEAM_HP_PER_PLAYER * (team - 1)
+
+
+def scaled_value(base, factor, step, bits):
+    """What the script gives a unit: the bonus rounded down to its step, at most the top of the bits."""
+    steps = min(int(base * (factor - 1.0)) // step, (1 << bits) - 1)
+    return base + steps * step
+
+
+def scale_bit_ids():
+    return [f"Xwh{i:x}" for i in range(SCALE_HP_BITS)] + [f"Xwd{i:x}" for i in range(SCALE_DMG_BITS)]
+
+
+def scale_abilities():
+    out = [("AIlf", f"Xwh{i:x}", [("Ilif", I, 1, 1, SCALE_HP_STEP << i)]) for i in range(SCALE_HP_BITS)]
+    out += [("AIat", f"Xwd{i:x}", [("Iatt", I, 1, 1, SCALE_DMG_STEP << i)]) for i in range(SCALE_DMG_BITS)]
+    return out
+
+
+def wave_unit_combat(arm, stage, ranged, wave, team):
+    """(HP, damage, cooldown, armor, attack type) of one wave monster: the numbers the script produces. Arms 4-7 are gate levels."""
+    hp, dmg = (WAVE_RANGED_HP, WAVE_RANGED_DMG) if ranged else (WAVE_MELEE_HP, WAVE_MELEE_DMG)
+    gate_hp = gate_dmg = 1.0
+    if arm >= len(FACTIONS):
+        above = arm - len(FACTIONS) + 1
+        gate_hp = (1 + GATE_HP_PER_LEVEL * above) * team_hp_factor(team)
+        gate_dmg = 1 + GATE_DMG_PER_LEVEL * above
+    return (scaled_value(hp * WAVE_STAGE_HP[stage], wave_hp_factor(wave) * gate_hp, SCALE_HP_STEP, SCALE_HP_BITS),
+            scaled_value(dmg * WAVE_STAGE_DMG[stage], wave_dmg_factor(wave) * gate_dmg, SCALE_DMG_STEP, SCALE_DMG_BITS),
+            WAVE_RANGED_COOLDOWN if ranged else WAVE_MELEE_COOLDOWN, WAVE_RANGED_ARMOR if ranged else WAVE_MELEE_ARMOR, WAVE_ATTACK_TYPE)
+
+
+def wave_champion_combat(arm, wave, team):
+    gate_hp = gate_dmg = 1.0
+    if arm >= len(FACTIONS):
+        above = arm - len(FACTIONS) + 1
+        gate_hp = (1 + GATE_HP_PER_LEVEL * above) * team_hp_factor(team)
+        gate_dmg = 1 + GATE_DMG_PER_LEVEL * above
+    base = WAVE_CHAMP_DMG[0] + WAVE_CHAMP_DMG[1] * (WAVE_CHAMP_DMG[2] + 1) / 2
+    return (scaled_value(WAVE_CHAMP_HP, wave_hp_factor(wave) * gate_hp, SCALE_HP_STEP, SCALE_HP_BITS),
+            scaled_value(base, wave_dmg_factor(wave) * gate_dmg, SCALE_DMG_STEP, SCALE_DMG_BITS), WAVE_MELEE_COOLDOWN, WAVE_CHAMP_ARMOR, WAVE_ATTACK_TYPE)
+
+
+def check_scaling():
+    """Fails the build if a wave monster ever got weaker with the wave, or the bits run out before wave 80 for the strongest
+    monster of any role (Level 5, stage 2, 8 players): compared before the saturation, which would hide it."""
+    for arm in (0, len(FACTIONS) + len(GATE_LEVELS) - 1):
+        for stage in range(3):
+            for ranged in (0, 1):
+                for team in (1, 8):
+                    last = (0, 0)
+                    for wave in range(1, 151):
+                        hp, dmg, *_ = wave_unit_combat(arm, stage, ranged, wave, team)
+                        assert hp >= last[0] and dmg >= last[1], (arm, stage, ranged, wave, team)
+                        last = (hp, dmg)
+    above = len(GATE_LEVELS)
+    hp_factor = wave_hp_factor(80) * (1 + GATE_HP_PER_LEVEL * above) * team_hp_factor(8)
+    dmg_factor = wave_dmg_factor(80) * (1 + GATE_DMG_PER_LEVEL * above)
+    champion_dmg = WAVE_CHAMP_DMG[0] + WAVE_CHAMP_DMG[1] * (WAVE_CHAMP_DMG[2] + 1) / 2
+    for base_hp, base_dmg in ((WAVE_MELEE_HP * WAVE_STAGE_HP[2], WAVE_MELEE_DMG * WAVE_STAGE_DMG[2]),
+                              (WAVE_RANGED_HP * WAVE_STAGE_HP[2], WAVE_RANGED_DMG * WAVE_STAGE_DMG[2]), (WAVE_CHAMP_HP, champion_dmg)):
+        assert int(base_hp * (hp_factor - 1)) // SCALE_HP_STEP < (1 << SCALE_HP_BITS), base_hp
+        assert int(base_dmg * (dmg_factor - 1)) // SCALE_DMG_STEP < (1 << SCALE_DMG_BITS), base_dmg
 
 
 def wave_unit_id(arm, stage, ranged):      # q<arm><stage><m|r>, e.g. q00m = Scourge stage-0 melee
     return f"q{arm}{stage}{'r' if ranged else 'm'}"
-
-
-def gate_hp_abil(lane):
-    return f"Xv{lane:02d}"
-
-
-def gate_dmg_abil(lane):
-    return f"Xz{lane:02d}"
 
 
 # Wave size (same for every lane and stage): front line = melee, back line = ranged.
@@ -121,7 +207,7 @@ WAVE_BACK_PER = 1            # back  = 1 x wave      (wave 1 -> 1)      v3.4, Ji
 WAVE_FRONT_MAX, WAVE_BACK_MAX = 40, 20     # per lane, keeps the lanes playable late (was 30 / 15)
 # Champions join every 10th wave: wave 10 -> 1, wave 20 -> 2, ... per lane, as weakened copies (nc{d}0).
 WAVE_CHAMP_EVERY = 10
-WAVE_CHAMP_HP, WAVE_CHAMP_ARMOR, WAVE_CHAMP_DMG, WAVE_CHAMP_SCALE = 800, 2, (30, 1, 8), 1.0
+WAVE_CHAMP_HP, WAVE_CHAMP_ARMOR, WAVE_CHAMP_DMG, WAVE_CHAMP_SCALE = 2100, 3, (89, 1, 1), 1.0     # v4.1: three melee HP, 1.5 melee damage
 
 # Champion select (v2.6, Jiri): ONE champion - the Dryad, a spear thrower (custom hero DRYAD_ID on the Priestess of
 # the Moon, Dryad model + spear missile). Every player plays her. Her 3 skills are passive "level holders" (AEev
@@ -373,10 +459,10 @@ CB = "ReplaceableTextures\\CommandButtons\\"
 STAT_ICON = {"str": CB + "BTNCDStr.blp", "agi": CB + "BTNCDAgi.blp", "int": CB + "BTNCDInt.blp"}   # imported (gen/icons.py)
 # item-bonus ability fields (AbilityMetaData.slk): Iagi = data 1, Iint = data 2, Istr = data 3
 KINDS_DEF = [
-    {"item": "Ih", "name": "Health", "base": "AIlf", "fields": [("Ilif", 1)], "value": 100, "key": "Q", "icon": CB + "BTNHeal.blp", "abil": "Xh"},
+    {"item": "Ih", "name": "Health", "base": "AIlf", "fields": [("Ilif", 1)], "value": 600, "key": "Q", "icon": CB + "BTNHeal.blp", "abil": "Xh"},
     {"item": "Im", "name": "Mana", "base": "AImb", "fields": [("Iman", 1)], "value": 75, "key": "W", "icon": CB + "BTNBrilliance.blp", "abil": "Xm"},
-    {"item": "Id", "name": "Damage", "base": "AIat", "fields": [("Iatt", 1)], "value": 5, "key": "E", "icon": CB + "BTNAttack.blp", "abil": "Xd"},
-    {"item": "Ir", "name": "Armor", "base": "AId1", "fields": [("Idef", 1)], "value": 2, "key": "R", "icon": CB + "BTNDefend.blp", "abil": "Xa"},
+    {"item": "Id", "name": "Damage", "base": "AIat", "fields": [("Iatt", 1)], "value": 20, "key": "E", "icon": CB + "BTNAttack.blp", "abil": "Xd"},
+    {"item": "Ir", "name": "Armor", "base": "AId1", "fields": [("Idef", 1)], "value": 8, "key": "R", "icon": CB + "BTNDefend.blp", "abil": "Xa"},
     {"item": "Is", "name": "Strength", "base": "AIs1", "fields": [("Istr", 3)], "value": STAT_PER_LEVEL, "key": "A", "icon": STAT_ICON["str"], "abil": "Xs"},
     {"item": "Ia", "name": "Agility", "base": "AIa1", "fields": [("Iagi", 1)], "value": STAT_PER_LEVEL, "key": "S", "icon": STAT_ICON["agi"], "abil": "Xg"},
     {"item": "Ii", "name": "Intelligence", "base": "AIi1", "fields": [("Iint", 2)], "value": STAT_PER_LEVEL, "key": "D", "icon": STAT_ICON["int"], "abil": "Xi"},
@@ -401,7 +487,7 @@ KINDS_DEF += [
     {"item": "Ic", "name": "Repair Castle", "type": "castleheal", "value": 2000, "repeat": True,
      "key": "R", "slot": (3, 0), "icon": CB + "BTNRepair.blp", "effect": "Heals the castle +2000 HP"},
     {"item": "Iw", "name": "Shockwave", "type": "castleshock", "value": 300, "repeat": True,
-     "key": "A", "slot": (0, 1), "icon": CB + "BTNShockWave.blp", "effect": "Shockwave: 300 + 30 per wave damage to all monsters near the castle"},
+     "key": "A", "slot": (0, 1), "icon": CB + "BTNShockWave.blp", "effect": "Shockwave: 25% of their max HP to all wave monsters near the castle"},
 ]
 CASTLE_TREE_COST = 1          # every castle upgrade costs 1 tree (lumber), no gold
 KINDS = len(KINDS_DEF)
@@ -685,14 +771,17 @@ def custom_units():
         for st, pair in enumerate(f["stages"]):
             for ranged, model_unit in enumerate(pair):
                 hp, dmg = (WAVE_RANGED_HP, WAVE_RANGED_DMG) if ranged else (WAVE_MELEE_HP, WAVE_MELEE_DMG)
-                m = WAVE_STAGE_MULT[st]
                 units.append((model_unit, wave_unit_id(arm, st, ranged), [
-                    ("uhpm", I, hp * m), ("ua1b", I, dmg * m - 1), ("ua1d", I, 1), ("ua1s", I, 1)] + NO_BOUNTY))
+                    ("uhpm", I, int(hp * WAVE_STAGE_HP[st])), ("ua1b", I, int(dmg * WAVE_STAGE_DMG[st]) - 1), ("ua1d", I, 1), ("ua1s", I, 1),
+                    ("ua1c", U, WAVE_RANGED_COOLDOWN if ranged else WAVE_MELEE_COOLDOWN),
+                    ("ua1w", S, "missile" if ranged else "normal"), ("ua1r", I, WAVE_RANGED_RANGE if ranged else WAVE_MELEE_RANGE),
+                    ("udef", I, WAVE_RANGED_ARMOR if ranged else WAVE_MELEE_ARMOR)] + WAVE_SAME + NO_BOUNTY))
     # weakened wave champions (every 10th wave): half damage, about half HP, smaller model
     for d, f in enumerate(FACTIONS + GATE_LEVELS):
         units.append((f["champion"], wave_champion_id(d), [
             ("uhpm", I, WAVE_CHAMP_HP), ("udef", I, WAVE_CHAMP_ARMOR), ("ua1b", I, WAVE_CHAMP_DMG[0]),
-            ("ua1d", I, WAVE_CHAMP_DMG[1]), ("ua1s", I, WAVE_CHAMP_DMG[2]), ("usca", R, WAVE_CHAMP_SCALE)] + NO_BOUNTY))
+            ("ua1d", I, WAVE_CHAMP_DMG[1]), ("ua1s", I, WAVE_CHAMP_DMG[2]), ("usca", R, WAVE_CHAMP_SCALE),
+            ("ua1c", U, WAVE_MELEE_COOLDOWN), ("ua1w", S, "normal"), ("ua1r", I, WAVE_MELEE_RANGE)] + WAVE_SAME + NO_BOUNTY))
     return units
 
 
@@ -708,7 +797,7 @@ ATTR_REQ_LEVEL = 11
 def hero_base_armor(hero_id):
     """Base armor of a hero in the game's data (Units\\UnitBalance.slk `def`; the Dryad is a copy of its base unit)."""
     base = {DRYAD_ID: "Emoo"}.get(hero_id, hero_id)
-    return float(_ref_slk("Units_UnitBalance.slk")[base]["def"])
+    return float(_ref_slk("Units_UnitBalance.slk")[base]["def"]) - 2.0     # MiscGame AgiDefenseBase = -2
 
 
 def _ref_slk(name):
@@ -898,8 +987,8 @@ def custom_items():
     out.append(("tst2", BANK_ITEM, [
         ("unam", S, f"Income +{INCOME_STEP}"), ("iico", S, CB + "BTNChestOfGold.blp"), ("uhot", S, "Q"),
         ("utip", S, f"|cffffcc00Income +{INCOME_STEP}|r (|cffffcc00Q|r)"),
-        ("utub", S, f"+{INCOME_STEP} gold every minute|n|n|cffff8c00Costs {INCOME_TREE_COST} tree|r"),
-        ("ides", S, f"+{INCOME_STEP} gold every minute"), ("iabi", S, ""),
+        ("utub", S, f"+{INCOME_STEP} gold every minute|n|cff4fc3ffUp to {INCOME_WAVE_SECONDS // 60} minutes per wave, renewed by the next wave. Always during the final boss.|r|n|n|cffff8c00Costs {INCOME_TREE_COST} tree|r"),
+        ("ides", S, f"+{INCOME_STEP} gold every minute, up to {INCOME_WAVE_SECONDS // 60} minutes per wave"), ("iabi", S, ""),
         ("igol", I, 0), ("ilum", I, INCOME_TREE_COST), ("isto", I, 20), ("istr", I, 1), ("isst", I, 0),
         ("ubpx", I, 0), ("ubpy", I, 0)]))
     for i, (name, base, icon, _ab, _f, _vals, effect) in enumerate(PREMIUM_DEF):
@@ -934,10 +1023,7 @@ def custom_abilities():
     out += final_boss_abilities()
     for (_lvl, _iid, aid, _name, bonus, _icon) in EPIC_ITEMS:      # epic crown: +all stats (green)
         out.append(("AIx1", aid, [("Iagi", I, 1, 1, bonus), ("Iint", I, 1, 2, bonus), ("Istr", I, 1, 3, bonus)]))
-    for g in GATE_LEVELS:        # per gate level: bonus HP (and damage) for its wave units and Protector
-        out.append(("AIlf", gate_hp_abil(g["lane"]), [("Ilif", I, 1, 1, g["unit_hp"])]))
-        if g["unit_dmg"]:
-            out.append(("AIat", gate_dmg_abil(g["lane"]), [("Iatt", I, 1, 1, g["unit_dmg"])]))
+    out += scale_abilities()
     vt = {"U": U, "I": I}
     for i, (_n, _b, _i, abase, fields, vals, _e) in enumerate(PREMIUM_DEF):
         for L in range(1, PREMIUM_LEVELS + 1):

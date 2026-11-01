@@ -35,7 +35,7 @@ if TEST and PROBE is not None:
     sys.exit("--probe and --test cannot be combined: --test changes the timers and runs TestStep")
 # VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
 # map name (game list, lobby, loading screen), the file name and the catalogue title.
-MAP_VERSION = "4.0"
+MAP_VERSION = "4.1"
 MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else "TechToolsCastleDefence_PROBE.w3x" if PROBE is not None else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
@@ -303,8 +303,29 @@ globals
     integer array gGateState
     string array gGateDir
     integer array gGateGold
-    integer array gGateHpAbil
-    integer array gGateDmgAbil
+    real gWaveHpGrowth = 0.0
+    real gWaveDmgGrowth = 0.0
+    real gGateHpPer = 0.0
+    real gGateDmgPer = 0.0
+    real gTeamHpPer = 0.0
+    real array gRoleHp
+    real array gRoleDmg
+    real array gStageHp
+    real array gStageDmg
+    integer array gScaleBit
+    integer gScaleHpBits = 0
+    integer gScaleDmgBits = 0
+    integer gScaleHpStep = 1
+    integer gScaleDmgStep = 1
+    integer array gScaleList
+    integer array gScaleN
+    integer gTeamCount = 1
+    integer gSpawnLane = 0
+    integer gIncomeBudget = 0
+    integer gIncomeWaveSeconds = 120
+    integer gIncomeClock = 0
+    unit gTestLast = null
+    unit gTestPreLeft = null
     integer array gGateTintR
     integer array gGateTintG
     integer array gGateTintB
@@ -404,6 +425,7 @@ globals
     real gTestFinalCastle = 0.0
     integer array gTestFinalCast
     real gTestFinalHp = 0.0
+    real gTestFinalLife = 0.0
     integer gTestVolleySpears = 0
     integer gTestVolleyFirst = 0
     unit gTestTau = null
@@ -743,8 +765,6 @@ def build_script():
         a(f"    set gGateState[{lane}] = -1")
         a(f"    set gGateDir[{lane}] = {jstr(g['dir'])}")
         a(f"    set gGateGold[{lane}] = {g['gold']}")
-        a(f"    set gGateHpAbil[{lane}] = '{OB.gate_hp_abil(lane)}'")
-        a(f"    set gGateDmgAbil[{lane}] = {repr(OB.gate_dmg_abil(lane)) if g['unit_dmg'] else 0}")
         r_, g_, b_ = g["tint"]
         a(f"    set gGateTintR[{lane}] = {r_}")
         a(f"    set gGateTintG[{lane}] = {g_}")
@@ -837,6 +857,25 @@ def build_script():
     a(f"    set gWaveInterval = {jr(WAVE_INTERVAL)}")
     a(f"    set gWaveBreak = {jr(WAVE_BREAK)}")
     a(f"    set gBreakEvery = {BREAK_EVERY}")
+    a(f"    set gWaveHpGrowth = {OB.WAVE_HP_GROWTH}")
+    a(f"    set gWaveDmgGrowth = {OB.WAVE_DMG_GROWTH}")
+    a(f"    set gGateHpPer = {OB.GATE_HP_PER_LEVEL}")
+    a(f"    set gGateDmgPer = {OB.GATE_DMG_PER_LEVEL}")
+    a(f"    set gTeamHpPer = {OB.TEAM_HP_PER_PLAYER}")
+    a(f"    set gIncomeWaveSeconds = {OB.INCOME_WAVE_SECONDS}")
+    role_hp = [OB.WAVE_MELEE_HP, OB.WAVE_RANGED_HP, OB.WAVE_CHAMP_HP]
+    role_dmg = [OB.WAVE_MELEE_DMG, OB.WAVE_RANGED_DMG, OB.WAVE_CHAMP_DMG[0] + OB.WAVE_CHAMP_DMG[1]]
+    for r in range(3):
+        a(f"    set gRoleHp[{r}] = {float(role_hp[r])}")
+        a(f"    set gRoleDmg[{r}] = {float(role_dmg[r])}")
+        a(f"    set gStageHp[{r}] = {OB.WAVE_STAGE_HP[r]}")
+        a(f"    set gStageDmg[{r}] = {OB.WAVE_STAGE_DMG[r]}")
+    for i, bit in enumerate(OB.scale_bit_ids()):
+        a(f"    set gScaleBit[{i}] = '{bit}'")
+    a(f"    set gScaleHpBits = {OB.SCALE_HP_BITS}")
+    a(f"    set gScaleDmgBits = {OB.SCALE_DMG_BITS}")
+    a(f"    set gScaleHpStep = {OB.SCALE_HP_STEP}")
+    a(f"    set gScaleDmgStep = {OB.SCALE_DMG_STEP}")
     a(f"    set gTestMode = {'true' if TEST else 'false'}")
     a("endfunction")
     a("")
@@ -1000,7 +1039,7 @@ def misc_constants(game):
     return ("\r\n".join(out) + "\r\n").encode("latin1")
 
 
-REQUIRED_SCRIPT_DATA = ["set gFinalType = ", "set gFinalBit[0] = ", "set gFinalSpell[0] = ", "set gFinalHpBase = ", "set gGloveFam = ", "set gDryadDmgPt = ", "set gVolleyAbil = ", "set gSkPer = ", "set gSkFx2[0] = ", "set gBankItem = ", "set gIncomeStep = ", "set gPremItem[1] = ", "set gPremCount = ",
+REQUIRED_SCRIPT_DATA = ["set gScaleBit[0] = ", "set gWaveHpGrowth = ", "set gTeamHpPer = ", "set gIncomeWaveSeconds = ", "set gFinalType = ", "set gFinalBit[0] = ", "set gFinalSpell[0] = ", "set gFinalHpBase = ", "set gGloveFam = ", "set gDryadDmgPt = ", "set gVolleyAbil = ", "set gSkPer = ", "set gSkFx2[0] = ", "set gBankItem = ", "set gIncomeStep = ", "set gPremItem[1] = ", "set gPremCount = ",
                         "set gShopFxCount = ", "set gDevCount = ", "set gAttrPerLevel = ", "set gReachItem = ",
                         "set gGateState[11] = ", "set gStageUnit[0] = ", "set gEpicItem[5] = ", "set gStatItem[0] = ", "set gHeroPool[0] = ",
                         "set gPotCount = ", "set gSpearAbil = ", "set gSwiftAbil[5] = ", "set gSpearDummy = ",
@@ -1197,6 +1236,7 @@ def main():
     pjass(script_path)
     check_script_data(script)
     check_object_bases()
+    OB.check_scaling()
 
     art = SP.render()
     files = {

@@ -46,7 +46,7 @@ Invader of arm `d` = Player(8 + d): 0 North **The Scourge**, 1 East **The Burnin
    is chaos/universal (no second armour reduction).
 2. **Start.** Hero appears on the player's **Champion's Circle** (lane entrance), lane hint (coloured circle,
    floating "Name's lane", minimap ping). One message: "Defend your lane! -help = commands".
-   Starting gold **1000** (`SetupChampionSelect`).
+   Starting gold **1000** (`SetupChampionSelect`). A second message tells players to spend it at the Circle: the first wave is strong.
 3. **Waves.** First wave 30 s after the pick (`FIRST_WAVE_DELAY`). The next countdown starts only when **every
    wave monster on every lane is dead**: then **at once** (`WAVE_INTERVAL` = 0 s since v3.5), or a **1 min break after every
    10th wave** (`WAVE_BREAK`, `BREAK_EVERY`). The timer is hidden while monsters are alive.
@@ -63,7 +63,7 @@ Only active lanes (player present) have monsters, a base and an open gate; empty
 
 ## Waves (`SpawnWave`, `LaneStage` in `gen/castle_logic.j`)
 
-Standardized: the **lane stage picks the unit types**, the wave number only adds units.
+Standardized: the **lane stage picks the unit types**, the wave number adds units and strength.
 
 | Stage | When | Spawns from | Units (front / back) |
 |---|---|---|---|
@@ -73,11 +73,22 @@ Standardized: the **lane stage picks the unit types**, the wave number only adds
 | — | boss slain | — | the lane stops |
 
 - **Front line** (melee) = `4 + 2 × wave` (wave 1 → 6, +2 per wave, max 40). **Back line** (ranged) = `wave`
-  (+1 per wave, max 20) — `WAVE_FRONT_PER` / `WAVE_BACK_PER`, `WAVE_FRONT_MAX` / `WAVE_BACK_MAX`. Every 10th wave adds **wave/10 weakened champions** per lane (800 HP, armor 2, 30+1d8, normal size; `nc{d}0`,
+  (+1 per wave, max 20) — `WAVE_FRONT_PER` / `WAVE_BACK_PER`, `WAVE_FRONT_MAX` / `WAVE_BACK_MAX`. Every 10th wave adds **wave/10 wave champions** per lane (base 2100 HP, armor 3, 90 damage, normal size, growing like the rest; `nc{d}0`,
   `WAVE_CHAMP_*`), announced one wave before. Constants `WAVE_*` in `gen/objects.py`.
-- **Standardized unit stats** (`WAVE_*` in `gen/objects.py`): melee 200 HP / 30 damage, ranged 120 HP / 60 damage;
-  stage 1 ×2, stage 2 ×3. Each faction/stage only changes the model (`stages` = model units; the spawned types are
-  custom copies `q<arm><stage><m|r>`). Gate levels add their bonus HP/damage on top.
+- **Monsters scale by the wave (v4.1, Jiří: stronger monsters, predictable scaling), with `n = wave − 1`:** HP × (1 + 0.03 n²), damage × (1 + 0.018 n²). HP grows faster than damage.
+  `WAVE_*` in `gen/objects.py`, `ScaleHpBonus` / `ScaleDmgBonus` in the script. The added bonus is rounded down to steps of 100 HP and 5 damage.
+
+  | | Wave 1 HP / damage | Wave 5 | Wave 10 | Wave 20 |
+  |---|---|---|---|---|
+  | Melee | 700 / 60 | 1000 / 75 | 2400 / 145 | 8200 / 445 |
+  | Ranged | 420 / 120 | 620 / 150 | 1420 / 290 | 4920 / 895 |
+  | Wave champion | 2100 / 90 | 3100 / 115 | 7200 / 220 | 24800 / 670 |
+
+  Melee: every 1.5 s, range 100, armor 2. Ranged: every 1.8 s, range 500, armor 0. Wave champion: every 1.5 s, armor 3.
+- **Tower down ×1.5 HP, ×1.25 damage. Nexus down ×2 HP, ×1.5 damage** (`WAVE_STAGE_HP`, `WAVE_STAGE_DMG`), for melee and ranged; a wave champion has no stage factor.
+- **Every faction fights alike:** attack type normal, no spells, no regeneration, same speed and armor. The model and its movement type stay its own: a few fly or hover (frost wyrms, banshees, revenants) or swim (nagas), and those can cross terrain a walker cannot.
+- **A rescale never heals:** a unit keeps its actual HP when its maximum changes, cut only if the new maximum is lower (`ScaleKeepHp`). Applying a scale twice changes nothing. A bonus past the last bit stays at the maximum, it never wraps (`ScaleClamp`; +3 276 700 HP, +81 915 damage). `check_scaling` fails the build if a monster gets weaker with the wave or if a bonus would saturate before wave 80; at the current values none does.
+- Protectors grow with their wave too: their own HP × the factor of their lane, damage + a wave champion's growth.
 - **Minion kill gold = the wave number** (wave 1 → 1 gold, wave 5 → 5), × the level on the gate lanes (×2 … ×5), to
   the killer (`MinionBounty`; wave unit types have built-in bounty 0 via `NO_BOUNTY`). Towers, Nexus, bosses and
   Protectors keep their normal bounty.
@@ -98,7 +109,7 @@ Higher level = harder.
 | Where | NE | NW | SW (mirror of L2) | far SW, a chamber behind the L4 base |
 | Tower HP / dmg | 32 500 / ~35 000 | 50 000 / ~45 000 | 75 000 / ~60 000 | 105 000 / ~80 000 |
 | Nexus HP / dmg | 40 000 / ~38 500 | 75 000 / ~49 500 | 125 000 / ~66 000 | 200 000 / ~88 000 |
-| Wave bonus HP / dmg | +300 / — | +500 / +10 | +1000 / +25 | +2000 / +50 |
+| Wave monsters | HP ×1.25, damage ×1.1 | ×1.5, ×1.2 | ×1.75, ×1.3 | ×2, ×1.4 |
 | Boss (×lane boss HP; HP / dmg) | Malgrath the Dark Lich ×3; 180 000 / ~3350 | Kel'Thar the Frozen Tide ×5; 300 000 / ~4300 | Azgaroth the Shadow Lord ×8; 480 000 / ~6200 | Infernus the World Breaker ×12; 720 000 / ~8100 |
 | Kill gold per minion | 2 × wave | 3 × wave | 4 × wave | 5 × wave |
 | Nexus down / boss slain | +500 / +500 | +1000 / +1000 | +2000 / +2000 | +3000 / +3000 |
@@ -106,7 +117,9 @@ Higher level = harder.
 - Lanes 8–11 / arms 4–7 in the script (`OpenGateLane`, `OnGateNexusDestroyed`, `OnGateBossSlain`, `gGateState`:
   -1 closed, 0 open, 1 boss alive, 2 cleared), all owned by the Scourge computer (Player 9). Geometry per lane in
   `GATE_GEOMETRY` (`gen/layout.py`). Tower in the leg far in front of the Nexus (no range overlap).
-- Tower down → a **Protector** (the level's champion, 1.8× size, +level HP/damage, level colour) + instant wave.
+- Tower down → a **Protector** (the level's champion, 1.8× size, level colour) + instant wave.
+- **The team scales shared obstacles, mainly in HP:** gate wave monsters, Protectors, towers, Nexuses and bosses × `1 + 0.35 × (team − 1)` (1 / 2 / 4 / 8 players: ×1, ×1.35, ×2.05, ×3.45; `TEAM_HP_PER_PLAYER`). Their damage does not depend on the team. Personal lanes never do: each player already adds a lane.
+- **The team** (`gTeamCount`) is the number of players at the start of the round. Leaving during the round lowers nothing, because the others can control that champion (`OnPlayerLeave`) and his lane goes on. A player who picked and left before the round began has no lane, no champion and does not count. A real leave has not been tested in a game: the hidden test has one player.
 - Bosses copy their spells/summons from a lane boss (L2 Lich, L3 Tidelord, L4/L5 Pit Lord), armor +2 per level.
 - A restart closes all gates again. **Victory needs all four levels cleared** plus every lane boss.
 
@@ -114,8 +127,8 @@ Higher level = harder.
 
 - Every cleared wave (all monsters dead) gives every player **+1 tree** (lumber, top bar).
 - The **Bank** (secret grove, gold-mine look) sells **Income +100** for **1 tree**: +100 gold every minute,
-  stacks without limit (`BANK_ITEM`, `INCOME_STEP`). Paid on every full minute of the game clock (1:00, 2:00, …;
-  `IncomeTick` from `OnTick`). Restart resets income and trees.
+  stacks without limit (`BANK_ITEM`, `INCOME_STEP`). Restart resets income and trees.
+- **Bank clock (v4.1):** one payment per 60 counted seconds (`BankTick`). Every wave gives the clock 120 s to count (`INCOME_WAVE_SECONDS`), and only the next wave renews that: holding a wave with a last monster, a kill now and then or a long break pays 2 minutes at most, then "Bank stopped until the next wave". The final fight always counts.
 
 ## The final boss (v4.0, `FINAL_*` in `gen/objects.py`, `StartFinalBoss` … in `gen/castle_logic.j`)
 
@@ -125,9 +138,8 @@ Higher level = harder.
   good, the castle is shielded (invulnerable), a 30 s warning runs (`FINAL_DELAY`), then he rises south of the castle
   (`FINAL_BOSS_POS`). **His death wins the game** (`OnFinalBossDead`). He is leashed to the plaza and the lane entrances
   (`FINAL_LEASH` 1700 from the castle), so revived champions are back quickly.
-- **Stats follow the game clock**, minute m, at spawn and on every new minute of the fight (`FinalApplyStats`; the HP %
-  stays, so growing does not heal him):
-  - max HP = (5 000 000 + 250 000 × m) × 1 / 2 / 3 for 1–2 / 3–5 / 6–8 players, rounded down to 100 000; regen 500 HP/s
+- **Stats follow the game clock**, minute m, at spawn and on every new minute of the fight (`FinalApplyStats`). **Growing never heals him (v4.1):** his actual HP stays, only his maximum rises. (Keeping the percentage, as before, gave him free HP every minute.)
+  - max HP = (5 000 000 + 250 000 × m) × 1 / 2 / 3 for a team of 1–2 / 3–5 / 6–8, rounded down to 100 000; regen 500 HP/s
   - damage = 20 000 + 1000 × m chaos, every 1.2 s; armor = 30 + m / 2
   - spell tier +1 every 5 minutes (10 tiers); he goes up via "bit" abilities (`FinalBits`, steps 100 000 HP / 100 damage / 1 armor)
 - **Stuns don't hold him:** `FinalImmuneTick` (0.05 s) removes the stun buffs at once and shows "Stun immune!".
@@ -163,16 +175,17 @@ Every Nexus boss drops one EPIC crown at its ruins (purple ping + "EPIC DROP" me
 
 | Slot | Key | Item | Gives | Base price |
 |---|---|---|---|---|
-| 1,1 | Q | Health | +100 max HP | 100 |
+| 1,1 | Q | Health | +600 max HP | 100 |
 | 2,1 | W | Mana | +75 max mana | 100 |
-| 3,1 | E | Damage | +5 damage | 100 |
-| 4,1 | R | Armor | +2 armor | 100 |
+| 3,1 | E | Damage | +20 damage | 100 |
+| 4,1 | R | Armor | +8 armor | 100 |
 | 1,2 | A | Strength | +20 Str | 100 |
 | 2,2 | S | Agility | +20 Agi | 100 |
 | 3,2 | D | Intelligence | +20 Int | 100 |
 | 4,2 | F | All stats | +10 Str/Agi/Int | 100 |
 | 1,3 | Z | Experience | +1 level: XP = 100 × (level + 1), the game's NeedHeroXP step (kind type 2, `AdvanceStatPrice`) | 250 |
 
+- **Why these values (v4.1):** a buy of a stat gives Strength +500 HP, Agility +6 armor and +40 % attack speed, and the primary stat also +20 damage. Health and Armor give more of their one thing than the stat that also gives it, so a champion who does not need the stat's other half has a real choice from the first coin. Damage equals a primary stat's damage without its side effects: for a Strength or Agility champion his primary stat stays better until its price has risen. Mana and off-primary Intelligence still give nothing a champion can use (every skill is passive).
 - Instant: each buy adds a hidden item-bonus ability copy → shows as a **green +N**, base stats untouched.
 - Every buy +3 % for that player and kind (`STAT_PRICE_GROWTH` 1.03), 100 steps (`STAT_TIERS`, the most 2-digit ids
   allow; the script indexes `kind * gKindStride (128) + step`). The buy counts **at once**,
@@ -193,9 +206,9 @@ Select the castle and buy with a champion anywhere on the plaza (3000 radius). E
 | W | Castle Armor | +3 armor (stacks) |
 | E | Castle Regeneration | +10 HP per second (stacks) |
 | R | Repair Castle | +2000 HP heal (repeatable) |
-| A | Shockwave | 300 + 30 × wave magic damage to every monster within 1100 of the castle (repeatable) |
+| A | Shockwave | 25 % of their max HP to every wave monster within 1100 of the castle; a boss takes 300 + 30 × wave (repeatable) |
 
-Stacking upgrades use one hidden ability per buy (global counter, 40 max). Works while the buyer's champion is
+Stacking upgrades use one hidden ability per buy (global counter, 100 max). Works while the buyer's champion is
 dead. A restart replaces the castle, so upgrades reset. The castle deals no damage on its own.
 ⚠️ The castle is owned by the neutral-extra player (15); its shop carries both a neutral-building (`Xcsh`, `Aneu`)
 and an allied shop-sharing (`Xcs2`, `Aall`) buyer ability — the `Aall`-only version could not be used in-game.
@@ -207,7 +220,7 @@ anywhere on the map (`Aneu` radius 20 000). Bought items go straight into his in
 
 - **Fountain of Power**: 2 % max HP + 2 % max mana per second.
 - **Bank**: trees → passive income (see above).
-- **Premium Armory** — 8 simple items, **1000 gold** each, stock 3, restock 30 s (`PREMIUM_DEF`), hotkeys
+- **Premium Armory** — 8 simple items, **1000 gold** each (`PREMIUM_DEF`), hotkeys
   Q W E R / A S D F, stock 5 (`PREMIUM_STOCK`, restock 30 s) so Lv 5 can be bought in one go. **Upgradable to Lv 5:** buying an item you already hold merges both into the next level
   (`MergePremium`: two items of one family in an inventory become one at the summed level, checked on buy, on
   pickup and every 0.2 s from `GrabTick`); levels above Lv 5 are refunded. Lv 1 → Lv 5:
@@ -223,8 +236,8 @@ anywhere on the map (`Aneu` radius 20 000). Bought items go straight into his in
   | Troll Heart | +15 HP/s | +10 | +55 |
   | Arcane Mask | +150 % mana regen | +50 % | +350 % |
 
-- **Long Reach** — **not sold since v2.6** (the only champion, the Dryad, is ranged). The code stays (`REACH_*`,
-  `TryReach`: +150 attack range once, melee champions only, ranged buyers refunded) for a future melee champion.
+- **Long Reach** — **not sold since v2.6**, when the Dryad was the only champion. Melee champions came later and it was not brought back. The code stays (`REACH_*`,
+  `TryReach`: +150 attack range once, melee champions only, ranged buyers refunded).
 - **Apothecary** (`SHOPS["apothecary"]`, stock 8, restock 10 s): potions are sold as **power-up tokens** `Ipo1`–`Ipo4`
   (`POTION_TOKENS`; a power-up is sold even to a full inventory, a normal item is refused). A token adds **one charge**
   to the potion the champion carries, or puts the potion into a free slot, or refunds when the inventory is full and
