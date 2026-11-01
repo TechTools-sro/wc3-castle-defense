@@ -2164,6 +2164,27 @@ function TestStep takes nothing returns nothing
         else
             call Msg("|cffff0000[TEST] tome #1: both orders REJECTED|r")
         endif
+        if gTestRound == 1 then
+            call TestCheck(GetUnitTypeId(gHero[0]) == gHeroPool[4], "round 2: the Archmage bought through the tavern (" + GetUnitName(gHero[0]) + ")")
+            call SetHeroLevel(gHero[0], 9, false)
+            set L = 0
+            loop
+                exitwhen L >= 5
+                call SelectHeroSkill(gHero[0], gSkAbil[3 * 4])
+                set L = L + 1
+            endloop
+            call SelectHeroSkill(gHero[0], gSkAbil[3 * 4 + 1])
+            call SelectHeroSkill(gHero[0], gSkAbil[3 * 4 + 2])
+            set gLastHit[0] = 0.0
+            set gTestAoe[4] = 0
+            set L = 0
+            loop
+                exitwhen L >= 5
+                set u = CreateUnit(Player(8), 'hfoo', GetUnitX(gHero[0]) + 300.0 * Cos(L * 0.6), GetUnitY(gHero[0]) + 300.0 * Sin(L * 0.6), 0.0)
+                set L = L + 1
+            endloop
+            call IssueTargetOrder(gHero[0], "attack", u)
+        endif
         if gTestRound == 0 then
             call TestCheck(GetUnitTypeId(gHero[0]) == gHeroPool[0], "champion is the Dryad (" + GetUnitName(gHero[0]) + ")")
             call SetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD, 20000)
@@ -2293,6 +2314,9 @@ function TestStep takes nothing returns nothing
         call IssueNeutralImmediateOrderById(Player(0), gArmoryShop, gPremItem[1])
         call IssueNeutralImmediateOrderById(Player(0), gArmoryShop, gPremItem[1])
     elseif gTestClock == 20 then
+        if gTestRound == 1 then
+            call TestCheck(gLastHit[0] > 0.0 and gTestAoe[4] > 0, "round 2: the player's Archmage fights with AoE (last hit " + I2S(R2I(gLastHit[0])) + ", " + I2S(gTestAoe[4]) + " AoE effects, Blizzard " + I2S(GetUnitAbilityLevel(gHero[0], gSkAbil[12])) + ")")
+        endif
         call PanCameraToTimed(gNexusX[0], gNexusY[0] - 650.0, 0.0)
         call ForGroup(gFirstWave, function TestKillEnum)
         if gTestRound == 0 then
@@ -2547,7 +2571,8 @@ endfunction
 
 // Test build: player 1 buys a hero through the real tavern sale path.
 function TestBuyOrder takes nothing returns nothing
-    if IssueNeutralImmediateOrderById(Player(0), gTavern[0], gHeroPool[0]) then
+    // round 1: the Dryad; round 2: the Archmage (a standard hero through the real tavern sale)
+    if IssueNeutralImmediateOrderById(Player(0), gTavern[0], gHeroPool[gTestRound * 4]) then
         call Msg("[TEST] P1 buy champion #1 from the Hall of Champions: accepted")
     else
         call Msg("|cffff0000[TEST] P1 buy champion #1 from the Hall of Champions: REJECTED|r")

@@ -23,6 +23,8 @@
   and is applied after the revive; remote buy while dead refused with no gold taken; full inventory: Healing Potion
   stacks to 3, a new potion type refunds; drinking heals 50 % and keeps the stack; **stress:** 4 × 60 wave-20 monsters
   on one lane, 182 killed in 19 s, game kept running; victory after every boss and all 4 gates.
+- Self-test round 2 now buys the **Archmage through the tavern** (a standard hero, the real sale path) and checks the
+  player-owned AoE champion fights with AoE: PASS (39 PASS, 0 FAIL in the full run). Test-only change, no new upload.
 
 ## v3.3 — 2026-11-01: premium stock 5, the double-slot shop bug, an in-game self-test
 
