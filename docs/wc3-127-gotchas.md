@@ -27,11 +27,12 @@
   every restock. Give every sold item an explicit slot.
 - Buying a **permanent** item from a neutral shop fires **no** "picked up" event (power-ups fire "used", which is why
   tomes and castle upgrades worked) — premium-item merges never ran. A **remote** purchase from a neutral shop (buyer
-  far away, large `Aneu` radius) even leaves the item on the ground at the shop. Catch `EVENT_PLAYER_UNIT_SELL_ITEM` (it does fire for neutral shops) and hand the
-  item to `GetBuyingUnit()` (`OnItemSold`). This silently broke the Bank once shops became remote.
-  ⚠️ Premium merges still failed in play after that (v1.3–v1.7, cause not pinned down in-game) → since v1.8 the merge does
-  not depend on any shop event: `GrabTick` sweeps every champion's inventory every 0.2 s (`MergePremium`).
-  Same story for potion stacking (two slots of the same potion after buying, v1.7–v2.9) → `MergePotions` in the sweep (v3.0).
+  far away, large `Aneu` radius) even leaves the item on the ground at the shop. `EVENT_PLAYER_UNIT_SELL_ITEM` does fire
+  for neutral shops, but ⚠️ **never `UnitAddItem` the sold item inside it** (verified in-game, v3.3): when the buyer is in
+  range the game delivers the item right AFTER the event, so adding it too puts the **same item handle into two
+  inventory slots** (1 potion order = 2 slots; a merge sweep then deleted it; 1 premium buy counted as 2 levels).
+  `OnItemSold` only queues the item; `PendingTick` (0.2 s) hands over what is still on the ground and not owned
+  (`IsItemOwned`). Merges (`MergePremium`, `MergePotions`) run in the 0.2 s `GrabTick` sweep and skip `ib == ia`.
 - A player buys from an allied player's shop through `Aall` (Shop Sharing); its `Neu1`/`aran` set the radius.
 - Tavern heroes: `usst` = 0 or they unlock only after 120–135 s; `ureq` = "" or the Altar (`TALT`) requirement
   greys out the neutral tavern; a scripted tavern buy needs ~2 s after the buyer unit is placed.

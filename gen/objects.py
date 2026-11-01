@@ -158,6 +158,7 @@ PREMIUM_PRICE = 1000
 # Each level = its own item type + ability with stronger values; only Lv 1 is sold.
 #   (name, base item, icon, ability base, [(field, type, data ptr)], values(L) -> [one per field], effect(L) -> text)
 PREMIUM_LEVELS = 5
+PREMIUM_STOCK = 5            # = PREMIUM_LEVELS, so Lv 5 can be bought in one go (v3.3, Jiri; was 3)
 PREMIUM_DEF = [
     ("Vampire Fang", "modt", "BTNMaskOfDeath", "AIva", [("Ivam", "U", 1)],
      lambda L: [0.30 + 0.10 * (L - 1)], lambda L: f"{30 + 10 * (L - 1)}% lifesteal"),
@@ -663,7 +664,7 @@ def custom_items():
                     ("iabi", S, premium_abil_id(i, L)), ("igol", I, PREMIUM_PRICE), ("ilum", I, 0)]
             if L == 1:      # the shop item
                 mods += [("uhot", S, key), ("utip", S, f"|cffffcc00{name}|r (|cffffcc00{key}|r)"),
-                         ("isto", I, 3), ("istr", I, 30), ("isst", I, 0), ("ubpx", I, i % 4), ("ubpy", I, i // 4)]
+                         ("isto", I, PREMIUM_STOCK), ("istr", I, 30), ("isst", I, 0), ("ubpx", I, i % 4), ("ubpy", I, i // 4)]
             else:
                 mods += [("utip", S, f"|cffffcc00{name}|r  |cff4fc3ffLv {L}|r")]
             out.append((base, premium_item_id(i, L), mods))

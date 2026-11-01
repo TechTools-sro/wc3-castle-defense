@@ -1,5 +1,21 @@
 # Changelog
 
+## v3.3 — 2026-11-01: premium stock 5, the double-slot shop bug, an in-game self-test
+
+- **Uploaded as catalogue map #35** (HTTP 201 — the first upload past 20 a day, thanks to techtools-4 `9b1d3cc0`; download SHA-256 `53e1fdd5…` matches). Carries v3.0–v3.2 too.
+
+- Jiří: premium stock 3 → **5** (`PREMIUM_STOCK`) so Lv 5 can be bought at once; and "test every feature in-game".
+- **In-game test found the real shop bug:** one potion order put the **same item into two inventory slots** (then the
+  stack sweep deleted it). Cause: `OnItemSold` called `UnitAddItem` although the game delivers the item right after
+  the event. Now `OnItemSold` only queues sold items and `PendingTick` (0.2 s) hands over only remote buys still on the
+  ground; `MergePotions` / `MergePremium` skip a duplicated handle. This was also why one premium buy could count as
+  two levels and why potions "filled 2 slots".
+- **Self-test:** the TEST build writes PASS/FAIL lines to `CustomMapData\TestResults\cd_test.txt` (Preload writer).
+  **Verified in-game (Wine, run ≥ 170 s), all PASS:** champion = Dryad; Extra Spear Lv 5; Swift Throw 3 = hidden attack
+  speed 1–3; 18 extra-spear hits; 5 fire-bonus hits; 2 Healing Potions = 1 slot × 2 charges; Mana Potion bought;
+  1 Vampire Fang = Lv 1, 4 more = Lv 5; Experience buy 12 → 13; dead buy steps the price 2 → 3 and the bonus waits
+  for the revive (applied 2 of 3); round 2: Level 2 gate opened, Bank income 10; no new BlizzardError crash folder.
+
 ## v3.2 — 2026-11-01: no splash on the Dryad, all spears fly together
 
 - Jiří: remove her splash damage; she should attack with several spears at once. The splash came from the hidden fire

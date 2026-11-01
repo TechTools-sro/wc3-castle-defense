@@ -18,8 +18,14 @@ Start here, then read only what the task needs:
 ```bash
 python3 build.py            # dist/TechToolsCastleDefence.w3x + pjass + base-id check + installs into the game
 python3 build.py --test     # dist/TechToolsCastleDefence_TEST.w3x (8 s select, revealed map, scripted self-test)
-tools/run_test.sh 'Maps\Test\TechToolsCastleDefence_TEST.w3x' <outdir> 40   # Wine run + screenshots
+tools/run_test.sh 'Maps\Test\TechToolsCastleDefence_TEST.w3x' <outdir> 170  # Wine run + screenshots
 ```
+
+- **Test results file:** the TEST build writes one `PASS ...` / `FAIL ...` line per check (`TestCheck` / `TestLog`,
+  flushed by `TestFlush` through the Preload writer) to
+  `/home/novakj/games/warcraft3/CustomMapData/TestResults/cd_test.txt` — read it with
+  `grep -o 'Preload( "[^"]*" )' …`. Loading takes 35–80 s under Wine, so run ≥ 170 s. ⚠️ Jiří: **every feature must
+  be verified in-game** — add a `TestCheck` for it in `TestStep` (round 0 = shop/champion checks, round 1 = lanes/gates).
 
 - The game lives in `/home/novakj/games/warcraft3` (`WC3_DIR`); the map installs to `Maps/CustomMaps/`.
   Test copies go to `Maps/Test/` — **delete that folder when done**.
@@ -36,15 +42,15 @@ tools/run_test.sh 'Maps\Test\TechToolsCastleDefence_TEST.w3x' <outdir> 40   # Wi
 
 ## Versions
 
-- `MAP_VERSION` in `build.py` (now **v3.2**) is in the map name, the file name (`TechToolsCastleDefence_v3.2.w3x`) and
+- `MAP_VERSION` in `build.py` (now **v3.3**) is in the map name, the file name (`TechToolsCastleDefence_v3.3.w3x`) and
   the catalogue title. ⚠️ **Jiří's rule: every feature = a new version (1.2, 1.3, …) AND an upload to the
   catalogue** (LAN players must have the identical file). Bump, build, commit, upload, verify the download's
   SHA-256, record the new entry below + in `CHANGELOG.md`. Install removes older `TechToolsCastleDefence*.w3x`.
 
 ## Published
 
-- Catalogue (uploaded as `brainbot`): newest first — **v2.9 = https://techtools.cz/tools/warcraft3/#map/34** (current),
-  v2.8 = #33, v2.7 = #32, v2.6 = #31, v2.5 = #30, v2.4 = #29, v2.3 = #28, v2.2 = #27, v2.1 = #26, v2.0 = #25, v1.9 = #24, v1.8 = #23, v1.7 = #22, v1.6 = #21, v1.5 = #20, v1.4 = #19, v1.3 = #18,
+- Catalogue (uploaded as `brainbot`): newest first — **v3.3 = https://techtools.cz/tools/warcraft3/#map/35** (current; v3.0–v3.2 were never uploaded),
+  v2.9 = #34, v2.8 = #33, v2.7 = #32, v2.6 = #31, v2.5 = #30, v2.4 = #29, v2.3 = #28, v2.2 = #27, v2.1 = #26, v2.0 = #25, v1.9 = #24, v1.8 = #23, v1.7 = #22, v1.6 = #21, v1.5 = #20, v1.4 = #19, v1.3 = #18,
   v1.2 = #17 and v1.1 = #16 (both have the broken Bank / upgrades), unversioned = #3 (stale; only an admin can
   delete old entries).
   Upload = `POST /warcraft3-api/maps` (multipart `file`, `title`, `players`, `description`, `doc=@docs/map-catalog.md`)

@@ -178,7 +178,7 @@ anywhere on the map (`Aneu` radius 20 000). Bought items go straight into his in
 - **Fountain of Power**: 2 % max HP + 2 % max mana per second.
 - **Bank**: trees → passive income (see above).
 - **Premium Armory** — 8 simple items, **1000 gold** each, stock 3, restock 30 s (`PREMIUM_DEF`), hotkeys
-  Q W E R / A S D F. **Upgradable to Lv 5:** buying an item you already hold merges both into the next level
+  Q W E R / A S D F, stock 5 (`PREMIUM_STOCK`, restock 30 s) so Lv 5 can be bought in one go. **Upgradable to Lv 5:** buying an item you already hold merges both into the next level
   (`MergePremium`: two items of one family in an inventory become one at the summed level, checked on buy, on
   pickup and every 0.2 s from `GrabTick`); levels above Lv 5 are refunded. Lv 1 → Lv 5:
 

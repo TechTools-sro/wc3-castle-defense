@@ -336,7 +336,7 @@ function MergePremium takes unit h returns boolean
             loop
                 exitwhen b >= 6
                 set ib = UnitItemInSlot(h, b)
-                if ib != null and PremiumFamily(GetItemTypeId(ib)) == fam then
+                if ib != null and ib != ia and PremiumFamily(GetItemTypeId(ib)) == fam then
                     set L = PremiumLevel(GetItemTypeId(ia), fam) + PremiumLevel(GetItemTypeId(ib), fam)
                     call RemoveItem(ib)
                     call RemoveItem(ia)
@@ -426,7 +426,7 @@ function MergePotions takes unit h returns nothing
             loop
                 exitwhen b >= 6
                 set ib = UnitItemInSlot(h, b)
-                if ib != null and GetItemTypeId(ib) == GetItemTypeId(ia) then
+                if ib != null and ib != ia and GetItemTypeId(ib) == GetItemTypeId(ia) then
                     call SetItemCharges(ia, GetItemCharges(ia) + IMaxBJ(GetItemCharges(ib), 1))
                     call RemoveItem(ib)
                 endif
@@ -466,20 +466,14 @@ function OnItemSold takes nothing returns nothing
             call BuyIncome(p, it)
         elseif TryReach(p, it) then
             // Long Reach applied
-        elseif StackPotion(b, it) then
-            // potion merged into the one the champion already carries
-        else
-            // a premium item always goes to the champion (whoever the shop picked as buyer)
-            if gHero[p] != null and PremiumFamily(GetItemTypeId(it)) >= 0 then
-                set b = gHero[p]
-            endif
-            if GetItemTypeId(it) != 0 and not UnitHasItem(b, it) then
-                if not UnitAddItem(b, it) then
-                    call SetItemPosition(it, GetUnitX(b), GetUnitY(b))
-                endif
-            endif
-            call MergePremiumAll(gHero[p])
-            call MergePotions(gHero[p])
+        elseif gPendN < 64 then
+            // NEVER add the item here: when the buyer is in range the game puts it into the inventory right after
+            // this event, and adding it too put the SAME item into two slots (verified in-game, v3.3: 1 potion
+            // order = 2 slots, then the stack sweep removed it). The 0.2 s sweep (PendingTick) hands over only what
+            // is still on the ground (remote buys); MergePotions / MergePremium stack and upgrade afterwards.
+            set gPendItem[gPendN] = it
+            set gPendP[gPendN] = p
+            set gPendN = gPendN + 1
         endif
     endif
     set it = null
@@ -534,6 +528,33 @@ function GrabTomeEnum takes nothing returns nothing
     set it = null
 endfunction
 
+// Bought items from the neutral shops: once the game has delivered them (owned) nothing to do; still on the ground
+// (remote buy) -> into the buyer's champion, or next to him when the inventory is full.
+function PendingTick takes nothing returns nothing
+    local integer i = gPendN - 1
+    local item it
+    local unit h
+    loop
+        exitwhen i < 0
+        set it = gPendItem[i]
+        set h = gHero[gPendP[i]]
+        if GetItemTypeId(it) != 0 and not IsItemOwned(it) and h != null and GetWidgetLife(h) > 0.405 then
+            if not UnitAddItem(h, it) then
+                call SetItemPosition(it, GetUnitX(h), GetUnitY(h))
+            endif
+        endif
+        if GetItemTypeId(it) == 0 or IsItemOwned(it) or (h != null and GetWidgetLife(h) > 0.405) then
+            set gPendN = gPendN - 1
+            set gPendItem[i] = gPendItem[gPendN]
+            set gPendP[i] = gPendP[gPendN]
+            set gPendItem[gPendN] = null
+        endif
+        set i = i - 1
+    endloop
+    set it = null
+    set h = null
+endfunction
+
 // Champion dead: a circle buy lands on the ground or in the dead champion's inventory and is never "used" ->
 // count it directly (price steps at once, the bonus follows on revive via ApplyBought).
 function GrabDeadEnum takes nothing returns nothing
@@ -543,6 +564,7 @@ endfunction
 function GrabTick takes nothing returns nothing
     local integer p = 0
     local integer s
+    call PendingTick()
     loop
         exitwhen p >= 8
         if gHero[p] != null and gCircleRect[p] != null and GetWidgetLife(gHero[p]) <= 0.405 then
@@ -1126,6 +1148,7 @@ function OnDamaged takes nothing returns nothing
             set gDmgLock = false
         endif
         call UnitApplyTimedLife(src, 'BTLF', 0.1)
+        set gTestSpearHits = gTestSpearHits + 1
     elseif src == gHero[p] and dmg > 0.0 then
         set gLastHit[p] = dmg
         set f = GetUnitAbilityLevel(src, gFireSkill)
@@ -1134,6 +1157,7 @@ function OnDamaged takes nothing returns nothing
             call UnitDamageTarget(src, tgt, dmg * I2R(gFirePct * f) / 100.0, true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
             set gDmgLock = false
             call DestroyEffect(AddSpecialEffectTarget("Abilities\\Weapons\\FireBallMissile\\FireBallMissile.mdl", tgt, "chest"))
+            set gTestFireHits = gTestFireHits + 1
         endif
     endif
     set src = null
@@ -1770,8 +1794,77 @@ function TestKillEnum takes nothing returns nothing
     call KillUnit(GetEnumUnit())
 endfunction
 
+// Test build: results go to the screen AND to <game>\TestResults\cd_test.txt (Preload file writer), so a run can be
+// checked by reading a file instead of screenshots. One line per check: "PASS ..." / "FAIL ...".
+function TestLog takes string s returns nothing
+    call Msg("|cff00ffff[TEST]|r " + s)
+    set gTestLog[gTestLogN] = s
+    set gTestLogN = gTestLogN + 1
+endfunction
+
+function TestCheck takes boolean ok, string s returns nothing
+    if ok then
+        call TestLog("PASS " + s)
+    else
+        call TestLog("FAIL " + s)
+    endif
+endfunction
+
+function TestFlush takes nothing returns nothing
+    local integer i = 0
+    call PreloadGenClear()
+    call PreloadGenStart()
+    loop
+        exitwhen i >= gTestLogN
+        call Preload(gTestLog[i])
+        set i = i + 1
+    endloop
+    call PreloadGenEnd("TestResults\\cd_test.txt")
+endfunction
+
+// slots holding item type id, and their total charges
+function TestSlots takes unit h, integer id returns integer
+    local integer s = 0
+    local integer n = 0
+    loop
+        exitwhen s >= 6
+        if GetItemTypeId(UnitItemInSlot(h, s)) == id then
+            set n = n + 1
+        endif
+        set s = s + 1
+    endloop
+    return n
+endfunction
+
+function TestCharges takes unit h, integer id returns integer
+    local integer s = 0
+    local integer n = 0
+    loop
+        exitwhen s >= 6
+        if GetItemTypeId(UnitItemInSlot(h, s)) == id then
+            set n = n + GetItemCharges(UnitItemInSlot(h, s))
+        endif
+        set s = s + 1
+    endloop
+    return n
+endfunction
+
+function TestPremLevel takes unit h returns integer
+    local integer s = 0
+    local integer best = 0
+    loop
+        exitwhen s >= 6
+        if UnitItemInSlot(h, s) != null and PremiumLevel(GetItemTypeId(UnitItemInSlot(h, s)), 0) > best then
+            set best = PremiumLevel(GetItemTypeId(UnitItemInSlot(h, s)), 0)
+        endif
+        set s = s + 1
+    endloop
+    return best
+endfunction
+
 function TestStep takes nothing returns nothing
     local integer L
+    local unit u
     set gTestClock = gTestClock + 5
     call Msg("|cff00ffff[TEST]|r t=" + I2S(gTestClock) + "  wave=" + I2S(gWave))
     if gTestClock == 5 then
@@ -1787,6 +1880,44 @@ function TestStep takes nothing returns nothing
         else
             call Msg("|cffff0000[TEST] tome #1: both orders REJECTED|r")
         endif
+        if gTestRound == 0 then
+            call TestCheck(GetUnitTypeId(gHero[0]) == gHeroPool[0], "champion is the Dryad (" + GetUnitName(gHero[0]) + ")")
+            call SetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD, 20000)
+            call SetHeroLevel(gHero[0], 12, false)
+            set L = 0
+            loop
+                exitwhen L >= 5
+                call SelectHeroSkill(gHero[0], gSpearAbil)
+                set L = L + 1
+            endloop
+            set L = 0
+            loop
+                exitwhen L >= 3
+                call SelectHeroSkill(gHero[0], gSwiftSkill)
+                call SelectHeroSkill(gHero[0], gFireSkill)
+                set L = L + 1
+            endloop
+            if IssueNeutralImmediateOrderById(Player(0), gApoShop, 'phea') then
+                call TestLog("potion order 1 accepted")
+            else
+                call TestLog("potion order 1 REJECTED")
+            endif
+            call TestLog("potions after order 1: slots " + I2S(TestSlots(gHero[0], 'phea')) + " charges " + I2S(TestCharges(gHero[0], 'phea')))
+            if IssueNeutralImmediateOrderById(Player(0), gApoShop, 'phea') then
+                call TestLog("potion order 2 accepted")
+            else
+                call TestLog("potion order 2 REJECTED")
+            endif
+            call IssueNeutralImmediateOrderById(Player(0), gApoShop, 'pman')
+            call IssueNeutralImmediateOrderById(Player(0), gArmoryShop, gPremItem[1])
+            set L = 0
+            loop
+                exitwhen L >= 4
+                set u = CreateUnit(Player(8), 'hfoo', GetUnitX(gHero[0]) + 250.0 * Cos(L * 0.5), GetUnitY(gHero[0]) + 250.0 * Sin(L * 0.5), 0.0)
+                set L = L + 1
+            endloop
+            call IssueTargetOrder(gHero[0], "attack", u)
+        endif
     elseif gTestClock == 15 then
         if IssueImmediateOrderById(gLaneMarker[0], gStatItem[1]) then
             call Msg("[TEST] tome #2 via shop order: accepted")
@@ -1794,6 +1925,35 @@ function TestStep takes nothing returns nothing
             call Msg("[TEST] tome #2 via neutral order: accepted")
         else
             call Msg("|cffff0000[TEST] tome #2: both orders REJECTED|r")
+        endif
+        if gTestRound == 0 then
+            call TestCheck(GetUnitAbilityLevel(gHero[0], gSpearAbil) == 5, "Extra Spear level 5 (is " + I2S(GetUnitAbilityLevel(gHero[0], gSpearAbil)) + ")")
+            call TestCheck(GetUnitAbilityLevel(gHero[0], gSwiftAbil[1]) > 0 and GetUnitAbilityLevel(gHero[0], gSwiftAbil[3]) > 0 and GetUnitAbilityLevel(gHero[0], gSwiftAbil[4]) == 0, "Swift Throw 3 = hidden attack speed 1-3")
+            call TestCheck(gTestSpearHits > 0, "extra spears flew and hit: " + I2S(gTestSpearHits))
+            call TestCheck(gTestFireHits > 0, "fire bonus hits: " + I2S(gTestFireHits))
+            set L = 0
+            loop
+                exitwhen L >= 6
+                if UnitItemInSlot(gHero[0], L) != null then
+                    call TestLog("slot " + I2S(L) + ": " + GetItemName(UnitItemInSlot(gHero[0], L)) + " x" + I2S(GetItemCharges(UnitItemInSlot(gHero[0], L))))
+                endif
+                set L = L + 1
+            endloop
+            call TestCheck(TestSlots(gHero[0], 'phea') == 1 and TestCharges(gHero[0], 'phea') == 2, "2 healing potions stack in 1 slot (slots " + I2S(TestSlots(gHero[0], 'phea')) + ", charges " + I2S(TestCharges(gHero[0], 'phea')) + ")")
+            call TestCheck(TestSlots(gHero[0], 'pman') == 1, "mana potion bought (slots " + I2S(TestSlots(gHero[0], 'pman')) + ")")
+            call TestCheck(TestPremLevel(gHero[0]) == 1, "1 Vampire Fang buy = Lv 1 (is Lv " + I2S(TestPremLevel(gHero[0])) + ")")
+            set L = 0
+            loop
+                exitwhen L >= 4
+                call IssueNeutralImmediateOrderById(Player(0), gArmoryShop, gPremItem[1])
+                set L = L + 1
+            endloop
+            set gTestLvl = GetHeroLevel(gHero[0])
+            if IssueImmediateOrderById(gLaneMarker[0], gStatItem[8 * gKindStride + KindNext(0, 8)]) then
+                call TestLog("XP buy order accepted")
+            else
+                call TestLog("FAIL XP buy order rejected")
+            endif
         endif
     elseif gTestClock == 30 then
         call SetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER, 5)
@@ -1820,8 +1980,26 @@ function TestStep takes nothing returns nothing
     elseif gTestClock == 20 then
         call PanCameraToTimed(gNexusX[0], gNexusY[0] - 650.0, 0.0)
         call ForGroup(gFirstWave, function TestKillEnum)
+        if gTestRound == 0 then
+            call TestCheck(GetHeroLevel(gHero[0]) == gTestLvl + 1, "Experience buy = +1 level (" + I2S(gTestLvl) + " -> " + I2S(GetHeroLevel(gHero[0])) + ")")
+            call TestCheck(TestPremLevel(gHero[0]) == 5, "4 more Vampire Fang buys (stock 5) = Lv 5 (is Lv " + I2S(TestPremLevel(gHero[0])) + ")")
+            call TestCheck(TestSlots(gHero[0], 'phea') == 1 and TestCharges(gHero[0], 'phea') == 2, "potions still stacked: slots " + I2S(TestSlots(gHero[0], 'phea')) + ", charges " + I2S(TestCharges(gHero[0], 'phea')))
+            // buy a stat while the champion is dead: the price must step at once
+            set gTestNext = gStatNext[0]
+            call KillUnit(gHero[0])
+            if IssueImmediateOrderById(gLaneMarker[0], gStatItem[KindNext(0, 0)]) then
+                call TestLog("dead buy: shop order accepted")
+            elseif IssueNeutralImmediateOrderById(Player(0), gLaneMarker[0], gStatItem[KindNext(0, 0)]) then
+                call TestLog("dead buy: neutral order accepted")
+            else
+                call TestLog("dead buy: both orders rejected (no buyer while dead)")
+            endif
+        endif
     elseif gTestClock == 25 then
         if gTestRound == 0 then
+            call TestCheck(gStatNext[0] == gTestNext + 1 or gStatNext[0] == gTestNext, "dead buy: price step " + I2S(gTestNext) + " -> " + I2S(gStatNext[0]) + " (same = the shop refused the buy, nothing paid)")
+            call TestCheck(gStatApplied[0] <= gStatNext[0], "dead buy: bonus waits for the revive (applied " + I2S(gStatApplied[0]) + " of " + I2S(gStatNext[0]) + ")")
+            call TestFlush()
             set gTestRound = 1
             call ExecuteFunc("CDRestart")
             return
@@ -1831,6 +2009,8 @@ function TestStep takes nothing returns nothing
         call KillUnit(gNexus[0])
     elseif gTestClock == 40 then
         call PanCameraToTimed(gGateX[8] + 800.0, gGateY[8], 0.0)
+        call TestLog("round 2: gate L2=" + I2S(gGateState[8]) + " L3=" + I2S(gGateState[9]) + " income=" + I2S(gIncome[0]))
+        call TestFlush()
         call Msg("[TEST] gate states L2=" + I2S(gGateState[8]) + " L3=" + I2S(gGateState[9]) + "   income=" + I2S(gIncome[0]) + "   Fang Lv2 slot=" + I2S(GetInventoryIndexOfItemTypeBJ(gHero[0], gPremItem[2])) + "   reach=" + I2S(GetPlayerTechCount(Player(0), gReachTech, true)))
     elseif gTestClock == 45 then
         call KillUnit(gBoss[0])

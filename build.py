@@ -30,7 +30,7 @@ GAME_DIR = os.environ.get("WC3_DIR", "/home/novakj/games/warcraft3")
 TEST = "--test" in sys.argv
 # VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
 # map name (game list, lobby, loading screen), the file name and the catalogue title.
-MAP_VERSION = "3.2"
+MAP_VERSION = "3.3"
 MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
@@ -349,6 +349,10 @@ globals
     integer gReachPrice = 1500
     unit gBankShop = null
     unit gArmoryShop = null
+    unit gApoShop = null
+    item array gPendItem
+    integer array gPendP
+    integer gPendN = 0
     integer gIncomeStep = 100
     real array gHeroX
     real array gHeroY
@@ -433,6 +437,12 @@ globals
     // ---- state ----
     integer gTestClock = 0
     integer gTestRound = 0
+    string array gTestLog
+    integer gTestLogN = 0
+    integer gTestSpearHits = 0
+    integer gTestFireHits = 0
+    integer gTestLvl = 0
+    integer gTestNext = 0
     player gKingdom = null
     integer gWave = 0
     integer gElapsed = 0
@@ -685,6 +695,8 @@ def build_script():
             a(f"    set gBankShop = CreateUnit(p, '{uid}', {jr(x)}, {jr(y)}, 270.0)")
         elif kind == "armory":
             a(f"    set gArmoryShop = CreateUnit(p, '{uid}', {jr(x)}, {jr(y)}, 270.0)")
+        elif kind == "apothecary":
+            a(f"    set gApoShop = CreateUnit(p, '{uid}', {jr(x)}, {jr(y)}, 270.0)")
         else:
             a(f"    call CreateUnit(p, '{uid}', {jr(x)}, {jr(y)}, 270.0)")
     for k, ((tid, _, _), (dx, dy)) in enumerate(zip(OB.TAVERNS, LY.HALL_TAVERNS)):
