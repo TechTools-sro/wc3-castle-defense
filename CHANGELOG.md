@@ -1,5 +1,24 @@
 # Changelog
 
+## v3.6 — 2026-11-01: every champion has 4 spells — Q, W, E and an R ultimate
+
+- **Uploaded as catalogue map #73** (HTTP 201, download SHA-256 `196cb49f…` matches; 24 versions in the family).
+
+- Jiří: "all champions should have 4 spells! Q, W, E, R!" (the Dryad had only Q W E).
+- **R = ultimate, 3 levels at hero level 6 / 11 / 16** (`R_LEVELS`, `R_REQ_LEVEL`, `R_LEVEL_SKIP`, `skill_levels`), a
+  passive `AEev` level holder like Q/W/E, learn key R, command-card slot (3, 2). The build asserts that every
+  champion's skills are exactly Q, W, E, R.
+- **Storm** (new kind 6) for the 6 AoE champions — Avatar (MK), Stampede (TC), Inferno (PL), Flame Strike (AM), Frost
+  Wyrm (Lich), Thunderstorm (FS): every 5th primary hit deals 100 / 200 / 300 % of the hit to the target and every
+  enemy within 650 (`STORM_*`), a big effect on the target and a small one on every victim (`SKILL_FX2`,
+  `AoeDamageFx`). **Spear Storm** (kind 7) for the Dryad: every 4th throw +3 / 6 / 9 spears through `SpearVolley`
+  (other enemies in her range; spares at the target only if it survives them).
+- Hero tooltips list the skills from the data (`skills_line`); `check_fx` now fails the build on a missing effect model.
+- Self-test: 4 skills per champion (`gSkPer`); test heroes level 16 with R 3; their targets are paused Taurens so the
+  5th-hit storm surely fires; new checks: every AoE champion's storm fired, the Dryad's Spear Storm volleys.
+- **Verified:** pjass + build checks (normal + TEST), generated R data (3 levels, 6/11/16, key R, slot (3, 2)).
+  ⚠️ **Not run in-game yet** — Jiří was playing.
+
 ## v3.5 — 2026-11-01: Dryad multishot fixed, waves without a gap, Attributes +30, Bank +100
 
 - **Uploaded as catalogue map #72** (HTTP 201, download SHA-256 `efb0530c…` matches; 23 versions in the family).

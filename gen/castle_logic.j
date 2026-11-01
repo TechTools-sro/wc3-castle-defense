@@ -1192,8 +1192,9 @@ endfunction
 // unit (players 8-11) is registered on gDmgTrig when it enters the map; DmgRebuild starts a fresh trigger when too
 // many dead units piled up. Effects run on a champion's PRIMARY hit only (the unit it started the attack on,
 // gAtkTarget from OnAttacked) - never on splash / bounce victims or on our own damage (gDmgLock):
-//   innate cleave (gChampCleave %) and the skill kinds of gSk* (1 bonus, 2 blast, 3 nova every 3rd hit, 5 speed);
-//   kind 4 = the Dryad's flying extra spears (OnAttacked + the dummy branch of OnDamaged).
+//   innate cleave (gChampCleave %) and the skill kinds of gSk* (1 bonus, 2 blast, 3 nova every 3rd hit, 5 speed,
+//   6 = the R storm every gStormEvery-th hit); kinds 4 / 7 = the Dryad's flying extra spears / Spear Storm (OnAttacked +
+//   the dummy branch of OnDamaged). Every champion has gSkPer (4) skills Q W E R: gSk index = gSkPer * champion + slot.
 //---------------------------------------------------------------------------
 function ChampIndex takes integer t returns integer
     local integer c = 0
@@ -1221,8 +1222,9 @@ function ChampBonusPct takes unit h returns integer
     return b
 endfunction
 
-// amount to every living enemy (players 8-11) within rad of (x, y) except skip; how many were hit.
-function AoeDamage takes unit src, unit skip, real x, real y, real rad, real amount returns integer
+// amount to every living enemy (players 8-11) within rad of (x, y) except skip, the effect fx (if any) on each
+// victim; how many were hit.
+function AoeDamageFx takes unit src, unit skip, real x, real y, real rad, real amount, string fx returns integer
     local unit u
     local integer o
     local integer n = 0
@@ -1234,11 +1236,18 @@ function AoeDamage takes unit src, unit skip, real x, real y, real rad, real amo
         set o = GetPlayerId(GetOwningPlayer(u))
         if u != skip and o >= 8 and o <= 11 and GetWidgetLife(u) > 0.405 then
             call UnitDamageTarget(src, u, amount, true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
+            if fx != "" then
+                call DestroyEffect(AddSpecialEffectTarget(fx, u, "origin"))
+            endif
             set n = n + 1
         endif
     endloop
     set u = null
     return n
+endfunction
+
+function AoeDamage takes unit src, unit skip, real x, real y, real rad, real amount returns integer
+    return AoeDamageFx(src, skip, x, y, rad, amount, "")
 endfunction
 
 // An extra spear's damage: the Dryad's last real hit (+ bonus %), or a level-1 estimate before her first hit.
@@ -1382,6 +1391,20 @@ function OnDamaged takes nothing returns nothing
                     call DestroyEffect(AddSpecialEffect(gSkFx[k], x, y))
                     set gTestAoe[c] = gTestAoe[c] + 1
                 endif
+            elseif gSkKind[k] == 6 then
+                // R storm: every gStormEvery-th hit, the target and every enemy around it (big effect + one per victim)
+                set gStormCount[c * 8 + p] = gStormCount[c * 8 + p] + 1
+                if ModuloInteger(gStormCount[c * 8 + p], gStormEvery) == 0 then
+                    if GetWidgetLife(tgt) > 0.405 then
+                        call UnitDamageTarget(src, tgt, amount, true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
+                    endif
+                    call DestroyEffect(AddSpecialEffect(gSkFx[k], x, y))
+                    if gSkFx2[k] != "" then
+                        call DestroyEffect(AddSpecialEffectTarget(gSkFx2[k], tgt, "origin"))
+                    endif
+                    call AoeDamageFx(src, tgt, x, y, gSkRad[k], amount, gSkFx2[k])
+                    set gTestStorm[c] = gTestStorm[c] + 1
+                endif
             endif
         endif
         set k = k + 1
@@ -1392,13 +1415,15 @@ function OnDamaged takes nothing returns nothing
 endfunction
 
 // Every champion: remember the unit it starts an attack on (its PRIMARY target, see OnDamaged).
-// Dryad Extra Spear: one more spear per level, SEEN flying together with hers at other enemies in her range (SpearVolley).
+// Dryad Extra Spear: one more spear per level, SEEN flying together with hers at other enemies in her range (SpearVolley);
+// Spear Storm (R): every gVolleyEvery-th throw gVolleyPer more spears per level.
 function OnAttacked takes nothing returns nothing
     local unit a = GetAttacker()
     local unit tgt = GetTriggerUnit()
     local integer p
     local integer c
     local integer n = 0
+    local integer L
     if a != null then
         set p = GetPlayerId(GetOwningPlayer(a))
         if p < 8 then
@@ -1408,6 +1433,14 @@ function OnAttacked takes nothing returns nothing
             endif
             if a == gHero[p] then
                 set n = GetUnitAbilityLevel(a, gSpearAbil)
+                set L = GetUnitAbilityLevel(a, gVolleyAbil)
+                if L > 0 then
+                    set gVolleyCount[p] = gVolleyCount[p] + 1
+                    if ModuloInteger(gVolleyCount[p], gVolleyEvery) == 0 then
+                        set n = n + gVolleyPer * L
+                        set gTestVolley = gTestVolley + 1
+                    endif
+                endif
             endif
         endif
     endif
@@ -2187,11 +2220,11 @@ function TestStep takes nothing returns nothing
             set L = 0
             loop
                 exitwhen L >= 5
-                call SelectHeroSkill(gHero[0], gSkAbil[3 * 4])
+                call SelectHeroSkill(gHero[0], gSkAbil[gSkPer * 4])
                 set L = L + 1
             endloop
-            call SelectHeroSkill(gHero[0], gSkAbil[3 * 4 + 1])
-            call SelectHeroSkill(gHero[0], gSkAbil[3 * 4 + 2])
+            call SelectHeroSkill(gHero[0], gSkAbil[gSkPer * 4 + 1])
+            call SelectHeroSkill(gHero[0], gSkAbil[gSkPer * 4 + 2])
             set gLastHit[0] = 0.0
             set gTestAoe[4] = 0
             set L = 0
@@ -2205,7 +2238,7 @@ function TestStep takes nothing returns nothing
         if gTestRound == 0 then
             call TestCheck(GetUnitTypeId(gHero[0]) == gHeroPool[0], "champion is the Dryad (" + GetUnitName(gHero[0]) + ")")
             call SetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD, 20000)
-            call SetHeroLevel(gHero[0], 12, false)
+            call SetHeroLevel(gHero[0], 16, false)
             set L = 0
             loop
                 exitwhen L >= 5
@@ -2217,6 +2250,7 @@ function TestStep takes nothing returns nothing
                 exitwhen L >= 3
                 call SelectHeroSkill(gHero[0], gSwiftSkill)
                 call SelectHeroSkill(gHero[0], gFireSkill)
+                call SelectHeroSkill(gHero[0], gVolleyAbil)
                 set L = L + 1
             endloop
             if IssueNeutralImmediateOrderById(Player(0), gApoShop, gPotToken[0]) then
@@ -2235,7 +2269,8 @@ function TestStep takes nothing returns nothing
             set L = 0
             loop
                 exitwhen L >= 4
-                set u = CreateUnit(Player(8), 'hfoo', GetUnitX(gHero[0]) + 250.0 * Cos(L * 0.5), GetUnitY(gHero[0]) + 250.0 * Sin(L * 0.5), 0.0)
+                set u = CreateUnit(Player(8), 'otau', GetUnitX(gHero[0]) + 250.0 * Cos(L * 0.5), GetUnitY(gHero[0]) + 250.0 * Sin(L * 0.5), 0.0)
+                call PauseUnit(u, true)
                 set L = L + 1
             endloop
             call IssueTargetOrder(gHero[0], "attack", u)
@@ -2246,24 +2281,28 @@ function TestStep takes nothing returns nothing
                 // owned by an EMPTY slot (player 2): a shop sells to the closest unit with an inventory, so test heroes of
                 // player 1 would take player 1's purchases
                 set gTestChamp[c] = CreateUnit(Player(1), gChampType[c], 1000.0 * Cos(c * 1.0472), 1000.0 * Sin(c * 1.0472), 0.0)
-                call SetHeroLevel(gTestChamp[c], 12, false)
+                call SetHeroLevel(gTestChamp[c], 16, false)
                 set L = 0
                 loop
                     exitwhen L >= 15
-                    // Q x5, W x4, E x3 (12 points): skill k of champion c = gSk index 3c + (0..2)
+                    // Q x5, W x4, E x3, R x3 (15 points at level 16): skill s of champion c = gSk index gSkPer * c + s
                     if L < 5 then
-                        call SelectHeroSkill(gTestChamp[c], gSkAbil[3 * c])
+                        call SelectHeroSkill(gTestChamp[c], gSkAbil[gSkPer * c])
                     elseif L < 9 then
-                        call SelectHeroSkill(gTestChamp[c], gSkAbil[3 * c + 1])
+                        call SelectHeroSkill(gTestChamp[c], gSkAbil[gSkPer * c + 1])
                     elseif L < 12 then
-                        call SelectHeroSkill(gTestChamp[c], gSkAbil[3 * c + 2])
+                        call SelectHeroSkill(gTestChamp[c], gSkAbil[gSkPer * c + 2])
+                    else
+                        call SelectHeroSkill(gTestChamp[c], gSkAbil[gSkPer * c + 3])
                     endif
                     set L = L + 1
                 endloop
+                // 6 paused Taurens (1300 HP, they don't fight back): enough hits for the R storm every 5th hit
                 set L = 0
                 loop
                     exitwhen L >= 6
-                    set u = CreateUnit(Player(8), 'hfoo', GetUnitX(gTestChamp[c]) + 200.0 * Cos(L * 1.0472), GetUnitY(gTestChamp[c]) + 200.0 * Sin(L * 1.0472), 0.0)
+                    set u = CreateUnit(Player(8), 'otau', GetUnitX(gTestChamp[c]) + 200.0 * Cos(L * 1.0472), GetUnitY(gTestChamp[c]) + 200.0 * Sin(L * 1.0472), 0.0)
+                    call PauseUnit(u, true)
                     set L = L + 1
                 endloop
                 call IssueTargetOrder(gTestChamp[c], "attack", u)
@@ -2332,7 +2371,7 @@ function TestStep takes nothing returns nothing
         call IssueNeutralImmediateOrderById(Player(0), gArmoryShop, gPremItem[1])
     elseif gTestClock == 20 then
         if gTestRound == 1 then
-            call TestCheck(gLastHit[0] > 0.0 and gTestAoe[4] > 0, "round 2: the player's Archmage fights with AoE (last hit " + I2S(R2I(gLastHit[0])) + ", " + I2S(gTestAoe[4]) + " AoE effects, Blizzard " + I2S(GetUnitAbilityLevel(gHero[0], gSkAbil[12])) + ")")
+            call TestCheck(gLastHit[0] > 0.0 and gTestAoe[4] > 0, "round 2: the player's Archmage fights with AoE (last hit " + I2S(R2I(gLastHit[0])) + ", " + I2S(gTestAoe[4]) + " AoE effects, Blizzard " + I2S(GetUnitAbilityLevel(gHero[0], gSkAbil[gSkPer * 4])) + ")")
         endif
         call PanCameraToTimed(gNexusX[0], gNexusY[0] - 650.0, 0.0)
         call ForGroup(gFirstWave, function TestKillEnum)
@@ -2340,6 +2379,7 @@ function TestStep takes nothing returns nothing
             call TestCheck(GetHeroLevel(gHero[0]) == gTestLvl + 1, "Experience buy = +1 level (" + I2S(gTestLvl) + " -> " + I2S(GetHeroLevel(gHero[0])) + ")")
             call TestCheck(TestPremLevel(gHero[0]) == 5, "4 more Vampire Fang buys (stock 5) = Lv 5 (is Lv " + I2S(TestPremLevel(gHero[0])) + ")")
             call TestCheck(TestSlots(gHero[0], 'phea') == 1 and TestCharges(gHero[0], 'phea') == 2, "potions still stacked: slots " + I2S(TestSlots(gHero[0], 'phea')) + ", charges " + I2S(TestCharges(gHero[0], 'phea')))
+            call TestCheck(GetUnitAbilityLevel(gHero[0], gVolleyAbil) == 3 and gTestVolley > 0, "Spear Storm (R) Lv 3: " + I2S(gTestVolley) + " volleys (every 4th throw +9 spears), spear hits " + I2S(gTestSpearHits))
             // buy a stat while the champion is dead: the price must step at once
             set gTestNext = gStatNext[0]
             call KillUnit(gHero[0])
@@ -2361,6 +2401,7 @@ function TestStep takes nothing returns nothing
             loop
                 exitwhen c >= gChampN
                 call TestCheck(gTestPrim[c] > 0 and gTestAoe[c] > 0, GetUnitName(gTestChamp[c]) + ": " + I2S(gTestPrim[c]) + " hits, " + I2S(gTestAoe[c]) + " AoE effects, " + I2S(gTestEv[c]) + " damage events, " + I2S(gTestBonus[c]) + " bonus hits")
+                call TestCheck(GetUnitAbilityLevel(gTestChamp[c], gSkAbil[gSkPer * c + 3]) == 3 and gTestStorm[c] > 0, GetUnitName(gTestChamp[c]) + " R Lv 3: " + I2S(gTestStorm[c]) + " storms in " + I2S(gTestPrim[c]) + " hits")
                 set c = c + 1
             endloop
             call TestCheck(gTestEv[4] > gTestPrim[4] and gTestEv[5] > gTestPrim[5] and gTestEv[6] > gTestPrim[6], "ranged champions' native splash / bounce hits more than the target (Archmage " + I2S(gTestEv[4]) + "/" + I2S(gTestPrim[4]) + ", Lich " + I2S(gTestEv[5]) + "/" + I2S(gTestPrim[5]) + ", Far Seer " + I2S(gTestEv[6]) + "/" + I2S(gTestPrim[6]) + ")")

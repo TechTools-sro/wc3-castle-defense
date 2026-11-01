@@ -30,7 +30,7 @@ GAME_DIR = os.environ.get("WC3_DIR", "/home/novakj/games/warcraft3")
 TEST = "--test" in sys.argv
 # VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
 # map name (game list, lobby, loading screen), the file name and the catalogue title.
-MAP_VERSION = "3.5"
+MAP_VERSION = "3.6"
 MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
@@ -350,7 +350,17 @@ globals
     integer array gSkPct
     real array gSkRad
     string array gSkFx
+    string array gSkFx2
     integer gSkN = 0
+    integer gSkPer = 4
+    integer gStormEvery = 5
+    integer array gStormCount
+    integer gVolleyAbil = 0
+    integer gVolleyPer = 3
+    integer gVolleyEvery = 4
+    integer array gVolleyCount
+    integer array gTestStorm
+    integer gTestVolley = 0
     real gCleaveRad = 250.0
     unit array gAtkTarget
     integer array gHitCount
@@ -610,7 +620,13 @@ def build_script():
         a(f"    set gSkPct[{k}] = {pct}")
         a(f"    set gSkRad[{k}] = {jr(rad)}")
         a(f"    set gSkFx[{k}] = {jstr(OB.FX[fx])}")
+        a(f"    set gSkFx2[{k}] = {jstr(OB.FX[OB.SKILL_FX2.get(aid, '')])}")
     a(f"    set gSkN = {len(OB.ALL_SKILLS)}")
+    a(f"    set gSkPer = {OB.SKILLS_PER_CHAMPION}")
+    a(f"    set gStormEvery = {OB.STORM_EVERY}")
+    a(f"    set gVolleyAbil = '{OB.DRYAD_SKILLS[3][0]}'")
+    a(f"    set gVolleyPer = {OB.DRYAD_SKILLS[3][5]}")
+    a(f"    set gVolleyEvery = {OB.VOLLEY_EVERY}")
     a(f"    set gCleaveRad = {jr(OB.CLEAVE_RAD)}")
     a(f"    set gSpearRange = {jr(OB.SPEAR_RANGE)}")
     a(f"    set gSpearDummy = '{OB.SPEAR_DUMMY}'")
@@ -889,7 +905,7 @@ def misc_constants(game):
     return ("\r\n".join(out) + "\r\n").encode("latin1")
 
 
-REQUIRED_SCRIPT_DATA = ["set gBankItem = ", "set gIncomeStep = ", "set gPremItem[1] = ", "set gPremCount = ",
+REQUIRED_SCRIPT_DATA = ["set gVolleyAbil = ", "set gSkPer = ", "set gSkFx2[0] = ", "set gBankItem = ", "set gIncomeStep = ", "set gPremItem[1] = ", "set gPremCount = ",
                         "set gShopFxCount = ", "set gDevCount = ", "set gAttrPerLevel = ", "set gReachItem = ",
                         "set gGateState[11] = ", "set gStageUnit[0] = ", "set gEpicItem[5] = ", "set gStatItem[0] = ", "set gHeroPool[0] = ",
                         "set gPotCount = ", "set gSpearAbil = ", "set gSwiftAbil[5] = ", "set gSpearDummy = ",
@@ -926,6 +942,14 @@ def check_icons(game, files):
             missing.append(p)
     if missing:
         sys.exit("Icons not found in the game or the map: " + ", ".join(missing))
+
+
+def check_fx(game, files):
+    """Every special-effect model the script plays (objects.FX) must exist - a wrong path plays nothing at all."""
+    missing = [p for p in sorted(set(OB.FX.values()))
+               if p and p not in files and not game.read(p[:-4] + ".mdx")]     # .mdl in data = .mdx in the MPQs
+    if missing:
+        sys.exit("Effect models not found in the game: " + ", ".join(missing))
 
 
 def check_object_bases():
@@ -987,6 +1011,7 @@ def main():
     files.update(IC.stat_icons(game))                          # Str / Agi / Int shop icons
     files["war3mapMisc.txt"] = misc_constants(game)            # gameplay constants: hero max level
     check_icons(game, files)
+    check_fx(game, files)
     out = os.path.join(ROOT, "dist", MAP_FILE)
     # header 'max players' = HUMAN slots only (Legion TD: 8 humans + 2 computers -> 8). Writing 12 here
     # made the lobby treat the 4 invader computers as open, editable slots.

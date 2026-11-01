@@ -133,7 +133,11 @@ DRYAD_ID = "Edry"
 #   blast  = every hit: pct % per level of the hit to every enemy within rad of the target
 #   nova   = every 3rd hit: pct % per level of the hit to every enemy within rad of the target (big area)
 #   spears = the Dryad's extra flying spears (OnAttacked);  speed = +20 % attack speed per level (hidden AIsx)
-SKILL_KIND = {"bonus": 1, "blast": 2, "nova": 3, "spears": 4, "speed": 5}
+#   R = the ultimate (v3.6, Jiri: "all champions should have 4 spells Q, W, E, R"), 3 levels at hero level 6 / 11 / 16:
+#   storm  = every STORM_EVERY-th hit: pct % per level of the hit to the target and EVERY enemy within rad of it
+#            (a big effect on the target + a small one on every victim, SKILL_FX2)
+#   volley = the Dryad's Spear Storm: every VOLLEY_EVERY-th throw, pct more spears per level (SpearVolley)
+SKILL_KIND = {"bonus": 1, "blast": 2, "nova": 3, "spears": 4, "speed": 5, "storm": 6, "volley": 7}
 FX = {"fire": "Abilities\\Weapons\\FireBallMissile\\FireBallMissile.mdl",
       "thunder": "Abilities\\Spells\\Human\\Thunderclap\\ThunderClapCaster.mdl",
       "stomp": "Abilities\\Spells\\Orc\\WarStomp\\WarStompCaster.mdl",
@@ -146,43 +150,60 @@ FX = {"fire": "Abilities\\Weapons\\FireBallMissile\\FireBallMissile.mdl",
       "frost": "Abilities\\Spells\\Undead\\FrostNova\\FrostNovaTarget.mdl",
       "decay": "Abilities\\Spells\\Undead\\DeathandDecay\\DeathandDecayTarget.mdl",
       "chain": "Abilities\\Weapons\\FarseerMissile\\FarseerMissile.mdl",
-      "quake": "Abilities\\Spells\\Orc\\EarthQuake\\EarthQuakeTarget.mdl", "": ""}
+      "quake": "Abilities\\Spells\\Orc\\EarthQuake\\EarthQuakeTarget.mdl",
+      "monsoon": "Abilities\\Spells\\Other\\Monsoon\\MonsoonBoltTarget.mdl",
+      "stampede": "Abilities\\Spells\\Other\\Stampede\\StampedeMissileDeath.mdl",
+      "infernal": "Units\\Demon\\Infernal\\InfernalBirth.mdl",
+      "flamestrike": "Abilities\\Spells\\Human\\FlameStrike\\FlameStrike1.mdl",
+      "wyrm": "Abilities\\Weapons\\FrostWyrmMissile\\FrostWyrmMissile.mdl",
+      "purge": "Abilities\\Spells\\Orc\\Purge\\PurgeBuffTarget.mdl", "": ""}
 BLAST_RAD, NOVA_RAD, CLEAVE_RAD = 300, 450, 250
+STORM_RAD, STORM_EVERY, VOLLEY_EVERY = 650, 5, 4
+R_LEVELS, R_REQ_LEVEL, R_LEVEL_SKIP = 3, 6, 5        # the ultimate: hero level 6, 11, 16
 #   skills: (id, name, key, icon, kind, pct per level, radius, fx key)
 DRYAD_SKILLS = [
     ("Xesp", "Extra Spear", "Q", "BTNEnvenomedSpear", "spears", 0, 0, ""),
     ("Xswt", "Swift Throw", "W", "BTNBerserkForTrolls", "speed", 20, 0, ""),
     ("Xfsp", "Fire Spears", "E", "BTNSearingArrows", "bonus", 20, 0, "fire"),
+    ("Xdsr", "Spear Storm", "R", "BTNFanOfKnives", "volley", 3, 0, ""),
 ]
 # v3.4 (Jiri): 6 more champions built to clear the big waves - every attack hits an AREA from level 1
 # (melee: innate cleave; ranged: splash / bounce missiles), and their skills scale the area damage.
 #   (hero, attack, innate cleave %, tavern button, tooltip, skills)
 AOE_CHAMPIONS = [
-    ("Hmkg", "melee", 30, (1, 0), "Melee AoE: cleave on every hit. |cffffcc00Q|r Thunder Clap, |cffffcc00W|r Storm Hammer, |cffffcc00E|r Battle Fury.", [
+    ("Hmkg", "melee", 30, (1, 0), "Melee AoE: cleave on every hit.", [
         ("Xz1q", "Thunder Clap", "Q", "BTNThunderclap", "nova", 40, NOVA_RAD, "thunder"),
         ("Xz1w", "Storm Hammer", "W", "BTNStormBolt", "bonus", 20, 0, "bolt"),
-        ("Xz1e", "Battle Fury", "E", "BTNBash", "speed", 20, 0, "")]),
-    ("Otch", "melee", 30, (2, 0), "Melee AoE: cleave on every hit. |cffffcc00Q|r Shockwave, |cffffcc00W|r War Stomp, |cffffcc00E|r Endurance.", [
+        ("Xz1e", "Battle Fury", "E", "BTNBash", "speed", 20, 0, ""),
+        ("Xz1r", "Avatar", "R", "BTNAvatar", "storm", 100, STORM_RAD, "thunder")]),
+    ("Otch", "melee", 30, (2, 0), "Melee AoE: cleave on every hit.", [
         ("Xz2q", "Shockwave", "Q", "BTNShockWave", "blast", 20, BLAST_RAD, "dust"),
         ("Xz2w", "War Stomp", "W", "BTNWarStomp", "nova", 40, NOVA_RAD, "stomp"),
-        ("Xz2e", "Endurance", "E", "BTNCommand", "speed", 20, 0, "")]),
-    ("Nplh", "melee", 40, (3, 0), "Melee AoE: big cleave on every hit. |cffffcc00Q|r Rain of Fire, |cffffcc00W|r Howl, |cffffcc00E|r Doom Strike.", [
+        ("Xz2e", "Endurance", "E", "BTNCommand", "speed", 20, 0, ""),
+        ("Xz2r", "Stampede", "R", "BTNStampede", "storm", 100, STORM_RAD, "stomp")]),
+    ("Nplh", "melee", 40, (3, 0), "Melee AoE: big cleave on every hit.", [
         ("Xz3q", "Rain of Fire", "Q", "BTNFire", "nova", 40, NOVA_RAD, "rainfire"),
         ("Xz3w", "Howl of Terror", "W", "BTNHowlOfTerror", "bonus", 20, 0, ""),
-        ("Xz3e", "Doom Strike", "E", "BTNDoom", "blast", 20, BLAST_RAD, "doom")]),
-    ("Hamg", "splash", 0, (0, 1), "Ranged AoE: splash bolts. |cffffcc00Q|r Blizzard, |cffffcc00W|r Arcane Power, |cffffcc00E|r Brilliance.", [
+        ("Xz3e", "Doom Strike", "E", "BTNDoom", "blast", 20, BLAST_RAD, "doom"),
+        ("Xz3r", "Inferno", "R", "BTNInfernal", "storm", 100, STORM_RAD, "infernal")]),
+    ("Hamg", "splash", 0, (0, 1), "Ranged AoE: splash bolts.", [
         ("Xz4q", "Blizzard", "Q", "BTNBlizzard", "nova", 40, NOVA_RAD, "blizzard"),
         ("Xz4w", "Arcane Power", "W", "BTNStarfall", "bonus", 20, 0, "arcane"),
-        ("Xz4e", "Brilliance", "E", "BTNBrilliance", "speed", 20, 0, "")]),
-    ("Ulic", "splash", 0, (1, 1), "Ranged AoE: splash frost bolts. |cffffcc00Q|r Frost Nova, |cffffcc00W|r Death and Decay, |cffffcc00E|r Dark Ritual.", [
+        ("Xz4e", "Brilliance", "E", "BTNBrilliance", "speed", 20, 0, ""),
+        ("Xz4r", "Flame Strike", "R", "BTNWallOfFire", "storm", 100, STORM_RAD, "flamestrike")]),
+    ("Ulic", "splash", 0, (1, 1), "Ranged AoE: splash frost bolts.", [
         ("Xz5q", "Frost Nova", "Q", "BTNGlacier", "blast", 20, BLAST_RAD, "frost"),
         ("Xz5w", "Death and Decay", "W", "BTNDeathAndDecay", "nova", 40, NOVA_RAD, "decay"),
-        ("Xz5e", "Dark Ritual", "E", "BTNDarkRitual", "bonus", 20, 0, "")]),
-    ("Ofar", "bounce", 0, (2, 1), "Ranged AoE: lightning jumps to 4 enemies. |cffffcc00Q|r Chain Lightning, |cffffcc00W|r Earthquake, |cffffcc00E|r Spirit Wolf.", [
+        ("Xz5e", "Dark Ritual", "E", "BTNDarkRitual", "bonus", 20, 0, ""),
+        ("Xz5r", "Frost Wyrm", "R", "BTNFrostWyrm", "storm", 100, STORM_RAD, "frost")]),
+    ("Ofar", "bounce", 0, (2, 1), "Ranged AoE: lightning jumps to 4 enemies.", [
         ("Xz6q", "Chain Lightning", "Q", "BTNChainLightning", "blast", 20, BLAST_RAD, "chain"),
         ("Xz6w", "Earthquake", "W", "BTNEarthquake", "nova", 40, NOVA_RAD, "quake"),
-        ("Xz6e", "Spirit Wolf", "E", "BTNSpiritWolf", "speed", 20, 0, "")]),
+        ("Xz6e", "Spirit Wolf", "E", "BTNSpiritWolf", "speed", 20, 0, ""),
+        ("Xz6r", "Thunderstorm", "R", "BTNMonsoon", "storm", 100, STORM_RAD, "purge")]),
 ]
+# storm skills: the small effect played on EVERY victim (gSkFx2); the big one (fx key above) plays on the target
+SKILL_FX2 = {"Xz1r": "monsoon", "Xz2r": "stampede", "Xz3r": "doom", "Xz4r": "fire", "Xz5r": "wyrm", "Xz6r": "monsoon"}
 SPLASH_TARGETS = "ground,air,structure,enemy"
 CHAMP_SPLASH = [("ua1w", S, "msplash"), ("ua1f", I, 100), ("ua1h", I, 200), ("ua1q", I, 300),
                 ("uhd1", U, 0.6), ("uqd1", U, 0.3), ("ua1p", S, SPLASH_TARGETS)]
@@ -191,8 +212,20 @@ CHAMP_BOUNCE = [("ua1w", S, "mbounce"), ("utc1", I, 4), ("udl1", U, 0.2), ("ua1f
 ALL_CHAMPIONS = [("Edry", 0, None)] + [(h, cl, sk) for (h, _a, cl, _b, _t, sk) in AOE_CHAMPIONS]
 
 
+def skills_line(skills):
+    """'|cffffcc00Q|r Thunder Clap, ... |cffffcc00R|r Avatar.' - the hero tooltip's skill list."""
+    return ", ".join(f"|cffffcc00{key}|r {name}" for (_a, name, key, *_r) in skills) + "."
+
+
+def skill_levels(key):
+    """(levels, required hero level, level skip): Q/W/E 5 levels from hero level 1 (every 2nd level), R 3 levels 6/11/16."""
+    return (R_LEVELS, R_REQ_LEVEL, R_LEVEL_SKIP) if key == "R" else (DRYAD_SKILL_LEVELS, 1, 2)
+
+
 def skill_tip(kind, pct, L):
-    return {"bonus": f"+{pct * L}% damage on every hit",
+    return {"storm": f"Every {STORM_EVERY}th hit: {pct * L}% damage to every enemy in a huge area",
+            "volley": f"Every {VOLLEY_EVERY}th throw: +{pct * L} spears at other enemies in range",
+            "bonus": f"+{pct * L}% damage on every hit",
             "blast": f"Every hit: {pct * L}% damage to enemies around the target",
             "nova": f"Every 3rd hit: {pct * L}% damage in a big area",
             "speed": f"+{pct * L}% attack speed",
@@ -200,7 +233,9 @@ def skill_tip(kind, pct, L):
 
 
 def skill_research(kind, pct):
-    return {"bonus": f"Each level: +{pct}% damage on every hit.",
+    return {"storm": f"Ultimate. Each level: +{pct}% damage to every enemy in a huge area around the target, every {STORM_EVERY}th hit.",
+            "volley": f"Ultimate. Each level: +{pct} spears at other enemies in range, every {VOLLEY_EVERY}th throw.",
+            "bonus": f"Each level: +{pct}% damage on every hit.",
             "blast": f"Each level: +{pct}% damage to enemies around the target, every hit.",
             "nova": f"Each level: +{pct}% damage in a big area, every 3rd hit.",
             "speed": f"Each level: +{pct}% attack speed.",
@@ -222,6 +257,10 @@ ALL_CHAMPIONS[0] = (DRYAD_ID, 0, DRYAD_SKILLS)
 TAVERNS = [("tvc0", "Hall of Champions", [DRYAD_ID] + [c[0] for c in AOE_CHAMPIONS])]
 ALL_HEROES = [DRYAD_ID] + [c[0] for c in AOE_CHAMPIONS]
 ALL_SKILLS = [sk for (_h, _c, skills) in ALL_CHAMPIONS for sk in skills]
+SKILLS_PER_CHAMPION = 4
+for (_h, _c, _skills) in ALL_CHAMPIONS:      # Jiri (v3.6): every champion has exactly Q, W, E and R, in that order
+    assert [sk[2] for sk in _skills] == ["Q", "W", "E", "R"], f"{_h}: skills must be Q, W, E, R"
+assert all(sk[0] in SKILL_FX2 for sk in ALL_SKILLS if sk[4] == "storm"), "every storm skill needs its SKILL_FX2 effect"
 
 # Premium Armory (secret grove): 8 simple, special items for 1000 gold each. Each = a real base item (class/model)
 # + one custom ability cloned from a real item ability with a stronger value.
@@ -567,8 +606,8 @@ def custom_units():
     return units
 
 
-# Hero levels: practically unlimited (MAX_HERO_LEVEL in war3mapMisc.txt). Spells are maxed at level 10
-# (3+3+3+1 points); from level 11 every skill point goes into "Attributes" (+3 Str/Agi/Int per level).
+# Hero levels: practically unlimited (MAX_HERO_LEVEL in war3mapMisc.txt). Q/W/E have 5 levels, R 3 (hero level
+# 6/11/16); from level 11 a skill point can also go into "Attributes" (+ATTR_PER_LEVEL Str/Agi/Int per level).
 MAX_HERO_LEVEL = 1000
 ATTR_ABIL = "Xatt"            # custom hero ability based on 'Aamk' (Attribute Bonus)
 ATTR_PER_LEVEL = 30           # Jiri (v3.5): +30 Str/Agi/Int per Attributes level
@@ -592,7 +631,7 @@ def attribute_ability():
             ("abpx", I, 0, 0, 2), ("abpy", I, 0, 0, 1),
             ("aart", S, 0, 0, CB + "BTNStatUp.blp"), ("arar", S, 0, 0, CB + "BTNStatUp.blp"),
             ("aret", S, 0, 0, "|cffffcc00[T]|r Learn |cffffcc00Attributes|r - Level %d"),
-            ("arut", S, 0, 0, f"+{ATTR_PER_LEVEL} Strength, Agility and Intelligence per level.|n|cffff8c00From hero level {ATTR_REQ_LEVEL} (spells maxed).|r")]
+            ("arut", S, 0, 0, f"+{ATTR_PER_LEVEL} Strength, Agility and Intelligence per level.|n|cffff8c00From hero level {ATTR_REQ_LEVEL}.|r")]
     for lvl in range(1, ATTR_LEVELS + 1):
         v = ATTR_PER_LEVEL * lvl
         mods += [("Iagi", I, lvl, 1, v), ("Iint", I, lvl, 2, v), ("Istr", I, lvl, 3, v),
@@ -622,7 +661,7 @@ def original_unit_mods():
                 ("ua1g", S, _hero_targets_with_air(h)),
                 ("uhab", S, ",".join(sk[0] for sk in skills) + "," + ATTR_ABIL),
                 ("upgr", S, _hero_upgrades_with_reach(h, False)),
-                ("ubpx", I, bx), ("ubpy", I, by), ("utub", S, tip)]
+                ("ubpx", I, bx), ("ubpy", I, by), ("utub", S, tip + " " + skills_line(skills))]
         if attack == "splash":
             mods += CHAMP_SPLASH
         elif attack == "bounce":
@@ -648,22 +687,23 @@ def dryad_hero():
         ("uhab", S, ",".join(sk[0] for sk in DRYAD_SKILLS) + "," + ATTR_ABIL),
         ("upgr", S, _hero_upgrades_with_reach(base, False)),
         ("ubpx", I, 0), ("ubpy", I, 0), ("utip", S, "|cffffcc00Dryad|r"),
-        ("utub", S, "Throws spears. |cffffcc00Q|r Extra Spear, |cffffcc00W|r Swift Throw, |cffffcc00E|r Fire Spears.")])
+        ("utub", S, "Throws spears. " + skills_line(DRYAD_SKILLS))])
 
 
 def dryad_abilities():
-    """Every champion's 3 learnable skills (passive AEev level holders, effects in the script) + the hidden helpers."""
+    """Every champion's 4 learnable skills (passive AEev level holders, effects in the script) + the hidden helpers."""
     out = []
     for (aid, name, key, icon, kind, pct, _rad, _fx) in ALL_SKILLS:
-        i = "QWE".index(key)
+        i = "QWER".index(key)
+        levels, req, skip = skill_levels(key)
         tip = (lambda L, kind=kind, pct=pct: skill_tip(kind, pct, L))
-        research = skill_research(kind, pct)
-        mods = [("aher", I, 0, 0, 1), ("alev", I, 0, 0, DRYAD_SKILL_LEVELS), ("arlv", I, 0, 0, 1), ("alsk", I, 0, 0, 2),
+        research = skill_research(kind, pct) + (f"|n|cffff8c00From hero level {req} ({req} / {req + skip} / {req + 2 * skip}).|r" if key == "R" else "")
+        mods = [("aher", I, 0, 0, 1), ("alev", I, 0, 0, levels), ("arlv", I, 0, 0, req), ("alsk", I, 0, 0, skip),
                 ("aart", S, 0, 0, CB + icon + ".blp"), ("arar", S, 0, 0, CB + icon + ".blp"),
                 ("ahky", S, 0, 0, key), ("arhk", S, 0, 0, key),
                 ("abpx", I, 0, 0, i), ("abpy", I, 0, 0, 2), ("arpx", I, 0, 0, i), ("arpy", I, 0, 0, 0),
                 ("aret", S, 0, 0, f"|cffffcc00[{key}]|r Learn {name} - Level %d"), ("arut", S, 0, 0, research)]
-        for L in range(1, DRYAD_SKILL_LEVELS + 1):
+        for L in range(1, levels + 1):
             mods += [("Eev1", U, L, 1, 0.0), ("atp1", S, L, 0, f"|cffffcc00[{key}]|r {name} - Level {L}"),
                      ("aub1", S, L, 0, tip(L))]
         out.append(("AEev", aid, mods))

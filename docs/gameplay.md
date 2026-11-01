@@ -19,22 +19,25 @@ Invader of arm `d` = Player(8 + d): 0 North **The Scourge**, 1 East **The Burnin
 1. **Champion select** (45 s, `SELECT_TIME`). Camera on the Hall of Champions: **one** tavern with **7 champions**
    (`TAVERNS`; stock 8 each, so several players may pick the same one). An invisible helper unit does the buying (no
    walking). A big gold **"Select a Champion"** floats over the hall for players who haven't picked. Time out → a
-   random champion (untaken first). Every champion has 3 passive skills on **Q W E** (5 levels each, `AEev` copies with
-   0 % evasion = level holders) + **Attributes** on T; the script does every effect.
+   random champion (untaken first). Every champion has 4 passive skills on **Q W E R** (`AEev` copies with 0 % evasion
+   = level holders; Q/W/E 5 levels from hero level 1, **R = ultimate, 3 levels at hero level 6 / 11 / 16**,
+   `skill_levels`; the build asserts Q, W, E, R for every champion) + **Attributes** on T; the script does every effect.
 
-   | Champion | Attack | Q | W | E |
-   |---|---|---|---|---|
-   | **Dryad** (`Edry`, custom: Priestess base, Dryad model, high spear 700 / arc 0.25) | ranged, single target | Extra Spear: +1 **flying** spear per level, thrown together with hers at another enemy **within her own range** (full damage; spare spears hit the main target only when it survives them all) | Swift Throw: speed | Fire Spears: bonus (fire burst on every spear) |
-   | **Mountain King** (`Hmkg`) | melee, innate **cleave 30 %** | Thunder Clap: nova | Storm Hammer: bonus | Battle Fury: speed |
-   | **Tauren Chieftain** (`Otch`) | melee, innate **cleave 30 %** | Shockwave: blast | War Stomp: nova | Endurance: speed |
-   | **Pit Lord** (`Nplh`) | melee, innate **cleave 40 %** | Rain of Fire: nova | Howl of Terror: bonus | Doom Strike: blast |
-   | **Archmage** (`Hamg`) | ranged **splash** (100 / 200 / 300, 60 % / 30 %) | Blizzard: nova | Arcane Power: bonus | Brilliance: speed |
-   | **Lich** (`Ulic`) | ranged **splash** | Frost Nova: blast | Death and Decay: nova | Dark Ritual: bonus |
-   | **Far Seer** (`Ofar`) | ranged **bounce** to 4 enemies (−20 % per jump) | Chain Lightning: blast | Earthquake: nova | Spirit Wolf: speed |
+   | Champion | Attack | Q | W | E | R (ultimate) |
+   |---|---|---|---|---|---|
+   | **Dryad** (`Edry`, custom: Priestess base, Dryad model, high spear 700 / arc 0.25) | ranged, single target | Extra Spear: +1 **flying** spear per level, thrown together with hers at another enemy **within her own range** (full damage; spare spears hit the main target only when it survives them all) | Swift Throw: speed | Fire Spears: bonus (fire burst on every spear) | Spear Storm: volley |
+   | **Mountain King** (`Hmkg`) | melee, innate **cleave 30 %** | Thunder Clap: nova | Storm Hammer: bonus | Battle Fury: speed | Avatar: storm (lightning on every victim) |
+   | **Tauren Chieftain** (`Otch`) | melee, innate **cleave 30 %** | Shockwave: blast | War Stomp: nova | Endurance: speed | Stampede: storm |
+   | **Pit Lord** (`Nplh`) | melee, innate **cleave 40 %** | Rain of Fire: nova | Howl of Terror: bonus | Doom Strike: blast | Inferno: storm (meteor) |
+   | **Archmage** (`Hamg`) | ranged **splash** (100 / 200 / 300, 60 % / 30 %) | Blizzard: nova | Arcane Power: bonus | Brilliance: speed | Flame Strike: storm |
+   | **Lich** (`Ulic`) | ranged **splash** | Frost Nova: blast | Death and Decay: nova | Dark Ritual: bonus | Frost Wyrm: storm |
+   | **Far Seer** (`Ofar`) | ranged **bounce** to 4 enemies (−20 % per jump) | Chain Lightning: blast | Earthquake: nova | Spirit Wolf: speed | Thunderstorm: storm |
 
    Skill kinds (`SKILL_KIND`, per level): **bonus** +20 % of every hit as extra damage on the target · **blast** every
    hit 20 % of it to every enemy within 300 of the target · **nova** every 3rd hit 40 % of it to the target and every
-   enemy within 450 · **speed** +20 % attack speed (`OnHeroSkill` adds hidden `Xsw1`–`Xsw5`). Innate cleave hits
+   enemy within 450 · **speed** +20 % attack speed (`OnHeroSkill` adds hidden `Xsw1`–`Xsw5`) · R **storm** every 5th
+   hit 100 / 200 / 300 % of it to the target and every enemy within 650 (`STORM_*`; a big effect on the target + a small
+   one on every victim, `SKILL_FX2`) · R **volley** (Dryad) every 4th throw +3 / 6 / 9 extra spears (`VOLLEY_EVERY`). Innate cleave hits
    enemies within 250 of the target. Effects use the champion's **primary** hit only — the unit it started the attack
    on (`gAtkTarget`, set in `OnAttacked`) — never splash / bounce victims or our own damage (`gDmgLock`), so AoE never
    multiplies. 1.27 has no generic damage event: every enemy unit (players 8–11) is registered on `gDmgTrig` when it

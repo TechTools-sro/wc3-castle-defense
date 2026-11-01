@@ -54,13 +54,17 @@ bosses.
 - Hero level is practically unlimited. After level 10 (spells maxed) skill points go into **Attributes**
   (learn key T): +30 Strength, Agility and Intelligence per level.
 - All heroes, melee too, can attack flying units.
-- **7 champions**, every skill passive (Q W E, 5 levels each):
+- **7 champions**, 4 passive skills each — Q W E (5 levels) and the **R ultimate** (3 levels, at hero level 6 / 11 / 16):
   - **Dryad** — spears: Extra Spear (+1 spear per level, thrown together with hers at other enemies in her range),
-    Swift Throw (attack speed), Fire Spears (+damage, fire burst on every spear).
-  - **Mountain King**, **Tauren Chieftain**, **Pit Lord** — melee with **cleave** on every hit.
-  - **Archmage**, **Lich** — ranged **splash**. **Far Seer** — lightning **bounces** to 4 enemies.
+    Swift Throw (attack speed), Fire Spears (+damage, fire burst on every spear), R **Spear Storm** (every 4th throw
+    +3 / 6 / 9 spears).
+  - **Mountain King**, **Tauren Chieftain**, **Pit Lord** — melee with **cleave** on every hit; R Avatar / Stampede /
+    Inferno.
+  - **Archmage**, **Lich** — ranged **splash**; R Flame Strike / Frost Wyrm. **Far Seer** — lightning **bounces** to 4
+    enemies; R Thunderstorm.
   - Their skills: **blast** (every hit damages enemies around the target), **nova** (every 3rd hit, a big area),
-    **bonus** (+damage), **speed** (+attack speed) — built to clear the big waves.
+    **bonus** (+damage), **speed** (+attack speed); the R ultimates are a **storm**: every 5th hit strikes every enemy
+    in a huge area around the target (100 / 200 / 300 % of the hit) — built to clear the big waves.
 
 ## Commands
 
