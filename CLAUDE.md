@@ -32,7 +32,7 @@ tools/balance_probe.py run LABEL --set fight   # real fights, hidden, played by 
 - **Test results file:** the TEST build writes one `PASS ...` / `FAIL ...` line per check (`TestCheck` / `TestLog`,
   flushed by `TestFlush` through the Preload writer) to `CustomMapData/TestResults/cd_test.txt` of the game that runs it.
   `tools/test_env.py run` copies it to `~/games/wc3-test-env/evidence/<run-id>/cd_test.txt`, with `result.json`, screenshots and logs; read it with
-  `grep -o 'Preload( "[^"]*" )' …`. The full run (both rounds, 13 real selections, formations, edge cases + stress + final boss + victory) takes about 10 min; the runner closes the game on the `SELFTEST DONE` line.
+  `grep -o 'Preload( "[^"]*" )' …`. The full run (both rounds, 13 real selections, formations, Warden, premium and gear measurements, edge cases + stress + final boss + victory) takes about 18 min; the runner closes the game on the `SELFTEST DONE` line.
   ⚠️ No results and a frozen clock in the screenshots = the game paused or hung, not a map bug: the runner fails such a run.
   Test champions belong to the empty slot player 2 (a shop sells to the player's closest inventory unit). ⚠️ Jiří: **every feature must
   be verified in-game** — add a `TestCheck` for it in `TestStep` (round 0 = shop/champion checks, round 1 = lanes/gates).
