@@ -33,7 +33,7 @@ BUILDS = {
     "naked": lambda primary: "",
     "starter": lambda primary: "FFFFAASSP",                             # 4 x All, 2 x Str, 2 x Agi, potion: 924 g
     "primary": lambda primary: primary * 8 + "P",                       # 8 x the primary stat, potion: 989 g
-    "careless": lambda primary: "WWWWEEEE",                             # 4 x Mana, 4 x Damage: 856 g, no potion
+    "careless": lambda primary: "WWWWEEEE",                             # 4 x Mana, 4 x Damage, no potion (the log records the gold spent)
 }
 CYCLES = {"starter": "FFAS", "primary": None}
 
@@ -249,14 +249,16 @@ def report_rows(label):
 def cmd_report(args):
     rows = report_rows(args.label)
     rows.sort(key=lambda r: (r["hero"], r["build"], r["seed"]))
-    print("| run | ready HP | wave | spawned | fight s | first hit s | taken wave/tower | HP min | deaths | level | gold earned | castle |")
-    print("|---|---|---|---|---|---|---|---|---|---|---|---|")
+    print("A row with a tower hit is a separate class (tower): never evidence of how strong the monsters are.\n")
+    print("| run | class | ready HP | wave | spawned | fight s | first hit s | taken wave/tower | HP min | deaths | level | gold spent+earned | castle |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for row in rows:
         for wave in row["waves"][:args.waves]:
             at = float(wave["spawned_at"])
             first = float(wave["first_hit"])
-            print(f"| {row['name']} | {row['ready']['maxhp']} | {wave['wave']} | {wave['spawned']} | {float(wave['t']) - at:.0f}{' (open)' if wave['why'] == 'open_at_end' else ''} | "
-                  f"{first - at if first >= 0 else float('nan'):.1f} | {wave['from_wave']}/{wave['from_tower']} | {wave['hp_min']} | {wave['deaths_wave']} | {wave['level']} | {wave['earned']} | {wave['castle']} |")
+            kind = "tower" if float(wave["from_tower"]) > 0 else "monsters"
+            print(f"| {row['name']} | {kind} | {row['ready']['maxhp']} | {wave['wave']} | {wave['spawned']} | {float(wave['t']) - at:.0f}{' (open)' if wave['why'] == 'open_at_end' else ''} | "
+                  f"{first - at if first >= 0 else float('nan'):.1f} | {wave['from_wave']}/{wave['from_tower']} | {wave['hp_min']} | {wave['deaths_wave']} | {wave['level']} | {wave['spent']}+{wave['earned']} | {wave['castle']} |")
     return 0
 
 
