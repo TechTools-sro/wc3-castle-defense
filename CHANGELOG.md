@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.0 — 2026-11-01: one Hall of Champions, 6 multi-target champions
+
+- **Uploaded as catalogue map #25** (HTTP 201, download SHA-256 `810e472d…` matches).
+
+- Jiří: remove the champion choice across several buildings; one building with 6 champions, every one with splash
+  or multi-target attacks. The 5 taverns / 24 heroes are replaced by **one tavern `tvc0`** with `CHAMPIONS` in
+  `gen/objects.py`: Mountain King, Tauren Chieftain, Pit Lord (melee **cleave** 50 % within 250, new ability `Xclv`),
+  Archmage, Lich (**splash** missile 100/200/300, 60 %/30 %), Far Seer (**bounce** to 4 enemies, −20 % per jump).
+  The pick is no longer exclusive (6 champions, up to 8 players; stock 8); short tavern tooltips name the attack.
+  `AssignHero` no longer locks a picked hero for the others; test buy uses `gHeroPool[0]`.
+  Verified: pjass + build; not tried in-game.
+
 ## v1.9 — 2026-11-01: buy experience at the Champion's Circle
 
 - **Uploaded as catalogue map #24** (HTTP 201, download SHA-256 `f234d422…` matches).

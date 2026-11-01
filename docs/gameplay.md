@@ -16,10 +16,17 @@ Invader of arm `d` = Player(8 + d): 0 North **The Scourge**, 1 East **The Burnin
 
 ## Round flow
 
-1. **Champion select** (45 s, `SELECT_TIME`). Camera on the Hall of Champions; 5 taverns in a tight ring
-   (Alliance, Horde, Scourge, Sentinels, Mercenaries; 24 heroes, `TAVERNS`). Click a hall, click a hero — free,
-   each hero once. An invisible helper unit does the buying (no walking). A big gold **"Select a Champion"**
-   floats over the hall for players who haven't picked. Time out → random hero.
+1. **Champion select** (45 s, `SELECT_TIME`). Camera on the Hall of Champions: **one** tavern with **6 champions**
+   (`CHAMPIONS` / `TAVERNS` in `gen/objects.py`). Click a hero — free; several players may pick the same champion
+   (stock 8). An invisible helper unit does the buying (no walking). A big gold **"Select a Champion"**
+   floats over the hall for players who haven't picked. Time out → random hero (untaken first).
+   Every champion hits several enemies per attack (`original_unit_mods`; the tavern tooltip says which):
+
+   | Champion | Attack |
+   |---|---|
+   | Mountain King, Tauren Chieftain, Pit Lord | melee **cleave**: 50 % damage to enemies within 250 (`Xclv`, a non-hero copy of `ANca`) |
+   | Archmage, Lich | **splash** missile: full 100, 60 % to 200, 30 % to 300 (`CHAMP_SPLASH`, `msplash`) |
+   | Far Seer | **bounce** missile: jumps to 4 enemies within 450, −20 % per jump (`CHAMP_BOUNCE`, `mbounce`) |
 2. **Start.** Hero appears on the player's **Champion's Circle** (lane entrance), lane hint (coloured circle,
    floating "Name's lane", minimap ping). One message: "Defend your lane! -help = commands".
    Starting gold **1000** (`SetupChampionSelect`).

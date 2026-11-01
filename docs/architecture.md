@@ -28,7 +28,7 @@
 | `gen/layout.py` | All geometry (96×96, 128-grid bounds): plaza, lanes, waypoints, bases, circles, gates, hall, grove |
 | `gen/objects.py` | Factions + wave rosters, taverns/heroes, castle/soul/circle/shops/Nexus/towers/bosses, circle + castle shop kinds (`KINDS_DEF`), premium items (`PREMIUM`), original-object edits |
 | `gen/castle_logic.j` | All game logic, hand-written vanilla JASS |
-| `gen/hotkeys.py` | Q W E R hotkeys + tooltip retags for the 24 heroes' abilities |
+| `gen/hotkeys.py` | Q W E R hotkeys + tooltip retags for the 6 champions' abilities |
 | `gen/splash.py` | Lobby icon (`render_icon`), loading screen (`render`, `loading_tiles`), `preview_tga` |
 | `gen/icons.py` | Str/Agi/Int shop icons cut from the game's `infocard-heroattributes-*.blp` (+ DISBTN) |
 | `gen/w3files.py` | Binary writers: w3e, wpm, doo, w3u/w3t, w3a/w3q (level format), paletted BLP1 |
@@ -79,7 +79,7 @@
 | `hcd0` | unit (base `hcas`) | Castle of Lordaeron, allied shop |
 | `ecd0` | unit | Invisible buyer ("soul") for champion select |
 | `ncd3` | unit | Champion's Circle = player's own shop (`Avul,Aall,Apit,Asid`) |
-| `tvh0 tvo0 tvu0 tve0 tvn0` | unit | The 5 taverns |
+| `tvc0` | unit (base `ntav`) | The Hall of Champions (the one tavern, 6 champions) |
 | `shpa`, `shpb`, `shpc` | unit (base `ngme`) | Premium Armory, Apothecary, Bank (gold-mine model) |
 | `ns{d}0`, `nt{d}0`, `nb{d}{k}` | unit | Nexus, tower, boss of arm d (k = player-count tier 0–2) |
 | `ns40`–`ns70`, `nt40`–`nt70` | unit | Gate levels 2–5: Nexus, tower (arm 4–7, from `GATE_LEVELS`) |
@@ -99,6 +99,7 @@
 | `Xk Xy Xr` + `00`–`39` | ability | Castle armor / max-HP / regen abilities (`AId1`, `AIlf`, `Arel`) |
 | `Xp01`–`Xp08`, `Xu<i><L>` | ability | Premium item abilities Lv 1 / Lv 2–5 |
 | `Xv08`–`Xv11`, `Xz09`–`Xz11` | ability (`AIlf`, `AIat`) | Gate level bonus HP / damage for its wave units and Protector |
+| `Xclv` | ability (base `ANca`, non-hero, 1 level) | Cleave for the melee champions: 50 % damage within 250 |
 | `Xatt` | hero ability (base `Aamk`) | Attributes: 100 levels, +10 all stats per level, learnable from hero level 11 |
 | `Xcsh`, `Xcs2` | ability (bases `Aneu`, `Aall`) | Castle shop buyer selection, 3000 radius |
 | `BTNCDStr/Agi/Int.blp` | imported icon | `ReplaceableTextures\CommandButtons\` (+ `CommandButtonsDisabled\DISBTN…`) |

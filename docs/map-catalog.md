@@ -11,7 +11,8 @@ ruins, then fight through the four shared **gate levels** (2–5). **Win** when 
 
 ## How a round goes
 
-1. **Champion select (45 s):** click a hall, click a hero (24 heroes, free, each one once). No walking needed.
+1. **Champion select (45 s):** click a hero in the Hall of Champions — 6 champions, free, several players may pick
+   the same one. No walking needed.
 2. **Your lane:** your champion spawns and revives on your Champion's Circle at your lane entrance.
 3. **Waves:** the next wave comes 10 s after every monster is dead; after every 5th wave there is a **2-minute
    shopping break**. Each cleared wave pays every player `50 + 50 × wave` gold and **1 tree**.
@@ -54,6 +55,8 @@ bosses.
 - Hero level is practically unlimited. After level 10 (spells maxed) skill points go into **Attributes**
   (learn key T): +10 Strength, Agility and Intelligence per level.
 - All heroes, melee too, can attack flying units.
+- Every champion hits several enemies: **cleave** (Mountain King, Tauren Chieftain, Pit Lord), **splash**
+  (Archmage, Lich), **bounce** to 4 enemies (Far Seer).
 
 ## Commands
 

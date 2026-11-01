@@ -1732,14 +1732,7 @@ function AssignHero takes integer p, unit h returns nothing
     call ShowLaneHint(p)
     call PanCameraToTimedForPlayer(Player(p), gHeroX[p], gHeroY[p], 0.0)
     call SelectUnitForPlayerSingle(h, Player(p))
-    loop
-        exitwhen j >= 8
-        if j != p then
-            call SetPlayerTechMaxAllowed(Player(j), id, 0)
-        endif
-        set j = j + 1
-    endloop
-    set j = 0
+    // any number of players may play the same champion (6 champions, up to 8 players)
     loop
         exitwhen j >= gHeroPoolCount
         if gHeroPool[j] == id then
@@ -1803,10 +1796,10 @@ endfunction
 
 // Test build: player 1 buys a hero through the real tavern sale path.
 function TestBuyOrder takes nothing returns nothing
-    if IssueNeutralImmediateOrderById(Player(0), gTavern[4], 'Nalc') then
-        call Msg("[TEST] P1 buy Alchemist from Hall of Mercenaries: accepted")
+    if IssueNeutralImmediateOrderById(Player(0), gTavern[0], gHeroPool[0]) then
+        call Msg("[TEST] P1 buy champion #1 from the Hall of Champions: accepted")
     else
-        call Msg("|cffff0000[TEST] P1 buy Alchemist from Hall of Mercenaries: REJECTED|r")
+        call Msg("|cffff0000[TEST] P1 buy champion #1 from the Hall of Champions: REJECTED|r")
     endif
 endfunction
 
@@ -1834,7 +1827,7 @@ function SetupChampionSelect takes nothing returns nothing
             call SetPlayerState(Player(i), PLAYER_STATE_RESOURCE_LUMBER, 0)
             call FogModifierStart(CreateFogModifierRadius(Player(i), FOG_OF_WAR_VISIBLE, gHallX, gHallY, 1400.0, true, false))
             call PanCameraToTimedForPlayer(Player(i), gHallX, gHallY, 0.0)
-            call SelectUnitForPlayerSingle(gTavern[ModuloInteger(i, 5)], Player(i))
+            call SelectUnitForPlayerSingle(gTavern[0], Player(i))
         endif
         set i = i + 1
     endloop
@@ -1949,7 +1942,7 @@ function CDRestart takes nothing returns nothing
     loop
         exitwhen j >= gHeroPoolCount
         set gHeroTaken[j] = false
-        call AddUnitToStock(gTavern[gHeroTavern[j]], gHeroPool[j], 1, 1)
+        call AddUnitToStock(gTavern[gHeroTavern[j]], gHeroPool[j], 8, 8)
         set j = j + 1
     endloop
     call EnumItemsInRect(GetWorldBounds(), null, function RemoveEnumItemCB)

@@ -152,9 +152,8 @@ def nexus_spawn(L):
     return from_arm(d, s * LANE_U, 5120)
 
 
-# Hall of Champions: taverns in a ring, the souls (selectors) in the middle.
-# five halls in a tight ring (radius 420) around the souls in the middle
-HALL_TAVERNS = [(0, 420), (399, 130), (247, -340), (-247, -340), (-399, 130)]
+# Hall of Champions: ONE hall (v2.0) just north of the souls (selectors) in the middle
+HALL_TAVERNS = [(0, 300)]
 
 
 def hall_point(dx, dy):
