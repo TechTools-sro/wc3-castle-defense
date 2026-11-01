@@ -1,5 +1,19 @@
 # Changelog
 
+## Test tooling — 2026-11-01: a hidden test environment (no map change, no new version)
+
+- Jiří: test the map in the background while he plays, without "Warcraft III is already running".
+- **`tools/test_env.py` replaces `tools/run_test.sh`.** One command, `tools/test_env.py run`: own Wine prefix and wineserver, own copy of the game
+  (allow-list, real files), own Xvfb with a private cookie, software Vulkan, audio driver off, results, temp and crashes inside the slot.
+  Exit 0 only on a fresh `SELFTEST DONE`, no `FAIL`, no new or changed crash file. Every run keeps its evidence under
+  `~/games/wc3-test-env/evidence/`. Cleanup targets only the slot, by environment marker, PID and start time; a watchdog covers a killed runner. → [docs/test-env.md](docs/test-env.md)
+- Why the old runner went: it opened a window on his desktop, refused to run while he played, and killed by a process-name pattern.
+- **Verified** (hashes and evidence in docs/test-env.md): 60 PASS, 0 FAIL in about 170 s under Xvfb and lavapipe, screenshots show the game; error paths 37 of 37; two hidden
+  clients 30 of 30, twice; zero change in the real game tree and `~/.wine` registry, 15 crash folders before and after.
+- **NOT verified:** beside Jiří's real client. His game never ran during these tests, so the concurrency is simulated, and how his game feels beside a test is unknown.
+  Software rendering checks the map's logic, not how it looks on a GPU.
+- Rollback: `git show 9cba731:tools/run_test.sh > tools/run_test.sh`. A comment in `gen/castle_logic.j` still names the old runner: this change touches no map source.
+
 ## v4.0 — 2026-11-01: the final boss
 
 - **Uploaded as catalogue map #77** (HTTP 201, download SHA-256 `04c52fdc…` matches; 28 versions in the family).

@@ -11,6 +11,7 @@ Start here, then read only what the task needs:
 | `docs/gameplay.md` | Changing rules, balance, shops, waves, commands, UI text (exact numbers + where each lives) |
 | `docs/architecture.md` | Touching code: build pipeline, file map, JASS function map, object-ID registry, data flow |
 | `docs/wc3-127-gotchas.md` | Anything engine/format related. **Every entry was hit for real — read before "fixing" something odd** |
+| `docs/test-env.md` | Running the map in the real game: the hidden test environment, its outputs, limits and rollback |
 | `README.md` | Human overview + build/install |
 
 ## Build, install, test
@@ -18,30 +19,28 @@ Start here, then read only what the task needs:
 ```bash
 python3 build.py            # dist/TechToolsCastleDefence.w3x + pjass + base-id check + installs into the game
 python3 build.py --test     # dist/TechToolsCastleDefence_TEST.w3x (8 s select, revealed map, scripted self-test)
-tools/run_test.sh 'Maps\Test\TechToolsCastleDefence_TEST.w3x' <outdir> 420  # Wine run in a virtual desktop + screenshots
+tools/test_env.py run       # builds the TEST map, runs the full self-test hidden (safe while he plays); exit 0 = clean. docs/test-env.md
 ```
 
 - **Test results file:** the TEST build writes one `PASS ...` / `FAIL ...` line per check (`TestCheck` / `TestLog`,
-  flushed by `TestFlush` through the Preload writer) to
-  `/home/novakj/games/warcraft3/CustomMapData/TestResults/cd_test.txt` — read it with
-  `grep -o 'Preload( "[^"]*" )' …`. Loading takes 10–80 s under Wine; the full run (both rounds + edge cases + stress + final boss + victory) takes 3–5 min; the runner closes the game on the `SELFTEST DONE` line (give it 420 s).
-  ⚠️ No results and a frozen clock in the screenshots = the game paused (focus loss / a click), not a map bug.
+  flushed by `TestFlush` through the Preload writer) to `CustomMapData/TestResults/cd_test.txt` of the game that runs it.
+  `tools/test_env.py run` copies it to `~/games/wc3-test-env/evidence/<run-id>/cd_test.txt`, with `result.json`, screenshots and logs; read it with
+  `grep -o 'Preload( "[^"]*" )' …`. The full run (both rounds + edge cases + stress + final boss + victory) takes about 3 min; the runner closes the game on the `SELFTEST DONE` line.
+  ⚠️ No results and a frozen clock in the screenshots = the game paused or hung, not a map bug: the runner fails such a run.
   Test champions belong to the empty slot player 2 (a shop sells to the player's closest inventory unit). ⚠️ Jiří: **every feature must
   be verified in-game** — add a `TestCheck` for it in `TestStep` (round 0 = shop/champion checks, round 1 = lanes/gates).
 
 - The game lives in `/home/novakj/games/warcraft3` (`WC3_DIR`); the map installs to `Maps/CustomMaps/`.
-  Test copies go to `Maps/Test/` — **delete that folder when done**.
+  The TEST map goes only into a private copy of the game under `~/games/wc3-test-env/`, never into his game.
 - A build is "done" only after: pjass passes, `check_script_data()`, `check_object_bases()` and `check_icons()` pass (all run inside
   `build.py`; add every new `InitData` block to `REQUIRED_SCRIPT_DATA`),
-  and — whenever object data or game logic changed — an in-game run without a new `BlizzardError` crash folder.
+  and — whenever object data or game logic changed — `tools/test_env.py run` with exit 0.
 - Installing is safe while he plays ONLY because `build.py` replaces the map atomically (temp file + rename).
   Never copy a map over the installed one any other way (in-place overwrite crashed his game).
-- ⚠️ **Jiří's rule: close your own test game yourself the moment the test is over** — never leave the test window open
-  for him. `run_test.sh` does it on the `SELFTEST DONE` line; if a run ends any other way, kill it and check nothing is left.
-- ⚠️ **Never touch the owner's running game.** `run_test.sh` refuses if any `war3.exe` is up. If it is,
-  ship the build and say plainly that it is untested in-game. Ask before asking him to close it.
-- In-game tests: a dialog pauses single-player; clicking the test window (xdotool) freezes it.
-- Crash triage: `~/.wine/drive_c/users/novakj/AppData/Local/Temp/BlizzardError/<date>/Crash.txt` only says
+- ⚠️ **Jiří's rule: close your own test game yourself the moment the test is over.** `tools/test_env.py` does it on every ending; `tools/test_env.py status` shows what runs.
+- ⚠️ **Never touch the owner's running game.** Test only with `tools/test_env.py`: own Wine prefix, own copy of the game, hidden display, no sound. It works while he plays, and never targets his game. Never open a test window on his desktop, and never use `pkill`/`killall` or a pattern on `war3` or `wine`.
+- In-game tests: a dialog pauses single-player.
+- Crash triage: the runner copies new crash files to `evidence/<run-id>/crash/` (his own: `~/.wine/drive_c/users/novakj/AppData/Local/Temp/BlizzardError/<date>/`). `Crash.txt` only says
   ACCESS_VIOLATION — bisect by building variants (drop one object group / one script feature at a time).
 
 ## Versions
@@ -85,7 +84,7 @@ tools/run_test.sh 'Maps\Test\TechToolsCastleDefence_TEST.w3x' <outdir> 420  # Wi
   a function like a common.j native (`RestartGame` broke the build). Line breaks in script strings = `\n`.
 - New custom object → real base of the **same kind**; give it a fresh 4-char id (registry in
   `docs/architecture.md`); add `ubpx/ubpy` for anything sold in a shop.
-- Git: trunk-based on `main`, history in `CHANGELOG.md`. ⚠️ **Local-only repo on pc1 — no remote, no backup.**
+- Git: trunk-based on `main`, history in `CHANGELOG.md`. Remote `origin` is the public GitHub repo (§ Published): push finished work there.
   `dist/`, `ref/` (Blizzard data, never commit), `tools/pjass-src/` are ignored.
 - ⚠️ **Docs are part of every change** (Jiří: "keep the .md files up to date with all important details"). In the
   same change as the code: `docs/gameplay.md` (rules + numbers + where they live), `docs/architecture.md` (new

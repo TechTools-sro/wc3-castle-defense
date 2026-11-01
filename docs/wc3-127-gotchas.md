@@ -112,14 +112,19 @@
 ## Game install / Wine
 
 - **A single-player game pauses when its window loses focus** (most likely cause: the clock froze at 0:11 for a whole
-  self-test run while the owner used the PC, with no crash and no results). `tools/run_test.sh` therefore runs the game
-  in a Wine virtual desktop (`explorer /desktop=cdtest,1280x720`).
+  self-test run while the owner used the PC, with no crash and no results). `tools/test_env.py` therefore runs the game
+  in a Wine virtual desktop on its own Xvfb, where nothing takes the focus away.
 
 - **Never overwrite a map file in place while WC3 runs**: the game keeps the MPQ open and reads it lazily, and
   a rewritten file crashes it with "Not enough memory — SFile.cpp line 898". `build.py` installs by copying to
   `*.tmp` and renaming over the old file (the running game keeps the old inode); the new map loads next game.
 - **Never rename the launchers** (`Frozen Throne.exe` etc.): a renamed launcher fails with a fake
   "insert CD" error.
-- A second `war3.exe` launch silently attaches to the running instance → `tools/run_test.sh` refuses to run
-  while WC3 is up, and kills only its own `-window -loadfile` process.
+- A second `war3.exe` launch in the same Wine prefix silently attaches to the running instance, and "Warcraft III is already
+  running" is a text of `Warcraft III.exe`. A second prefix has its own wineserver and named objects, so both run → [test-env.md](test-env.md).
+- **The game goes through DXVK (`d3d8.dll`, `d3d9.dll` in its folder), and wined3d crawled at 2.5 FPS.** On Xvfb it runs on software Vulkan: `VK_DRIVER_FILES` = lavapipe
+  (the whole self-test in about 3 min at 800x600). DXVK is a Windows DLL: a Unix `DXVK_LOG_PATH` does not work, its log goes to stderr.
+- Wine keeps a server's socket in `/run/user/<uid>/wine/server-<dev>-<inode of the prefix>`, ignoring `XDG_RUNTIME_DIR`: the prefix's inode is what separates two servers.
+- `/bin/sleep` is a Rust coreutils multi-call binary, so a copy under another name dies at once. A stand-in for the game must be a script.
+- A fresh prefix links `Documents`, `Desktop` etc. to `$HOME`, and `z:` to `/`. With a private `HOME` they are real folders; `z:` must be deleted. It stays deleted. A prefix is still not a filesystem sandbox.
 - In `-loadfile` mode slot 2 becomes a computer. Clicking the test window with xdotool freezes the game.

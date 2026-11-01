@@ -35,7 +35,7 @@
 | `gen/w3files.py` | Binary writers: w3e, wpm, doo, w3u/w3t, w3a/w3q (level format), paletted BLP1 |
 | `tools/mpq.py` | StormLib binding: `GameData` (read game MPQs), `Archive` (read a map), `write_w3x` |
 | `tools/slk.py` | SLK + profile-txt readers (used by hotkeys and the base check) |
-| `tools/run_test.sh` | Wine `-loadfile` test run with screenshots; refuses if WC3 is already running |
+| `tools/test_env.py` | Hidden self-test in its own Wine prefix, copy of the game and Xvfb, with verdict and evidence ([test-env.md](test-env.md)) |
 | `tools/verify_map.py` | Re-parse a built map + render a top-down preview PNG |
 | `tools/extract_ref.py`, `tools/dump_map.py` | Fill `ref/` from the game MPQs / official maps (not in git) |
 

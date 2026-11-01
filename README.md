@@ -16,6 +16,7 @@ into `Maps/` of a WarCraft III 1.27 install. `python3 build.py` installs a fresh
 | [docs/gameplay.md](docs/gameplay.md) | The spec: round flow, waves, shops, castle, items, commands, UI — with exact numbers |
 | [docs/architecture.md](docs/architecture.md) | Build pipeline, file map, JASS function map, shop data model, object-ID registry |
 | [docs/wc3-127-gotchas.md](docs/wc3-127-gotchas.md) | Engine and file-format traps that were hit for real |
+| [docs/test-env.md](docs/test-env.md) | The hidden test environment: run the map's self-test in the real game beside a running client |
 | [CLAUDE.md](CLAUDE.md) | Entry point for AI agents: rules, workflow, the owner's design rules |
 
 ## Build
@@ -24,7 +25,7 @@ into `Maps/` of a WarCraft III 1.27 install. `python3 build.py` installs a fresh
 python3 build.py              # -> dist/TechToolsCastleDefence.w3x, pjass + base-id check, installs into the game
 python3 build.py --test       # -> dist/TechToolsCastleDefence_TEST.w3x: 8 s select, revealed map, scripted self-test (PASS/FAIL file)
 python3 build.py --no-install
-tools/run_test.sh 'Maps\Test\TechToolsCastleDefence_TEST.w3x' /tmp/out 420  # Wine test run + screenshots
+tools/test_env.py run         # full self-test in the real game, hidden, in its own Wine prefix; exit 0 = clean
 python3 tools/verify_map.py dist/TechToolsCastleDefence_v<version>.w3x preview.png  # re-parse + top-down render
 ```
 
