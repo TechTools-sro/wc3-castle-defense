@@ -57,12 +57,14 @@ def main():
         ratio = (of + ob) / (front + back)
         print(f"| {w} | {front} | {back} | {c} | {mh} / {md:.0f} | {rh} / {rd:.0f} | {ch} / {cd:.0f} | {front * mh + back * rh + c * ch:,} | {old:,.0f} | {round(w * ratio)} | {50 + 50 * w} |")
     print()
-    avg = OB._avg(OB.BOSS_DMG[1])
-    rows = [("Lane boss", OB.BOSS_HP[1], avg, False)]
-    for g in OB.GATE_LEVELS:
-        base, dice, sides = OB.BOSS_DMG[1]
-        rows.append((f"Level {g['level']} boss", OB.BOSS_HP[1] * g["boss"][2], int(base * g["boss"][3]) + dice * (sides + 1) / 2, True))
-    print("| boss | " + " | ".join(f"wave {w}: HP / a hit" for w in waves[3:]) + " |")
+    rows = []
+    for tier, label in ((0, "Warden"), (1, "boss")):
+        base, dice, sides = OB.BOSS_DMG[tier]
+        rows.append((f"Lane {label}", OB.boss_base_hp(0, tier) + OB.gear_heart_bonus(0, tier), OB._avg(OB.BOSS_DMG[tier]), False))
+        for g in OB.GATE_LEVELS:
+            li = g["level"] - 1
+            rows.append((f"Level {g['level']} {label}", OB.boss_base_hp(li, tier) + OB.gear_heart_bonus(li, tier), int(base * g["boss"][3]) + dice * (sides + 1) / 2, True))
+    print("| boss, with its Heart of Ruin | " + " | ".join(f"wave {w}: HP / a hit" for w in waves[3:]) + " |")
     print("|---|" + "---|" * len(waves[3:]))
     for name, hp, dmg, gate in rows:
         cells = []
@@ -70,7 +72,9 @@ def main():
             bh, bd = boss(hp, dmg, w, 1, gate)
             cells.append(f"{bh:,.0f} / {bd:,.0f}")
         print(f"| {name} | " + " | ".join(cells) + " |")
+    gear = OB.BOSS_GEAR
     print(f"\nBosses: attack every {OB.BOSS_COOLDOWN} s, no stun holds them; gate bosses x {OB.TEAM_HP_PER_PLAYER} HP per extra player. Spell level 1 + wave / 5 + gate level, {OB.BOSS_SPELL_DAMAGE:.0f} damage per level on one target.")
+    print(f"Gear, Warden / Nexus boss: Heart +{gear['heart'][0]:.0%} / +{gear['heart'][1]:.0%} base HP, Gauntlets +{gear['attack_speed'][0]:.0%} / +{gear['attack_speed'][1]:.0%} attack speed and {gear['crit_chance'][0]:.0f} / {gear['crit_chance'][1]:.0f} % chance of {gear['crit_times']:.0f}x, Warplate +{gear['armor'][0]} / +{gear['armor'][1]} armor and {gear['spell_reduction'][0]:.0%} / {gear['spell_reduction'][1]:.0%} less spell damage.")
     return 0
 
 

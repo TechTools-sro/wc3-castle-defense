@@ -19,19 +19,64 @@ Jiří, 2026-11-01: bosses far too easy, far too many weak monsters, late play b
 | Lane and gate bosses | HP × (1 + 0.02 n²), at most ×16. Attack × (1 + 0.008 n²), at most ×8. One attack per second, speed 522. Own spells of 10 levels: level 1 + wave / 5 + gate level, 1200 damage per level on one target. Their summons grow with the wave too. They shake off any stun at once and spell damage still lands. Numbers are set when they rise. | Fixed HP and damage whatever the wave, slower, stunnable, the same spell level for all |
 | Final boss | Unchanged: his own clock growth | |
 
-| Wave | Monsters | Melee HP / damage | Ranged HP / damage | Whole wave HP (v4.2) | Gold per kill | Clear gold | Lane boss HP / a hit |
+| Wave | Monsters | Melee HP / damage | Ranged HP / damage | Whole wave HP (v4.2) | Gold per kill | Clear gold | Lane boss HP with v4.4's gear / a hit |
 |---|---|---|---|---|---|---|---|
 | 1 | 7 | 700 / 60 | 420 / 120 | 4 620 (4 620) | 1 | 100 | |
 | 3 | 10 | 900 / 70 | 520 / 140 | 8 240 (9 251) | 4 | 200 | |
-| 5 | 13 | 1 700 / 100 | 1 020 / 205 | 20 060 (17 612) | 7 | 300 | 79 200 / 2 708 |
-| 10 | 21 | 5 900 / 275 | 3 520 / 555 | 123 800 (79 233) | 17 | 550 | 157 200 / 3 957 |
-| 20 | 26 | 23 900 / 1 030 | 14 320 / 2 065 | 640 560 (480 298) | 50 | 1 050 | 493 200 / 9 335 |
-| 30 | 27 | 54 800 / 2 330 | 32 820 / 4 660 | 1 632 860 (1 120 021) | 75 | 1 550 | 960 000 / 18 555 |
-| 60 | 30 | 224 800 / 9 455 | 134 920 / 18 915 | 8 723 760 (5 166 070) | 150 | 3 050 | 960 000 / 19 208 |
+| 5 | 13 | 1 700 / 100 | 1 020 / 205 | 20 060 (17 612) | 7 | 300 | 158 400 / 2 708 |
+| 10 | 21 | 5 900 / 275 | 3 520 / 555 | 123 800 (79 233) | 17 | 550 | 314 400 / 3 957 |
+| 20 | 26 | 23 900 / 1 030 | 14 320 / 2 065 | 640 560 (480 298) | 50 | 1 050 | 986 400 / 9 335 |
+| 30 | 27 | 54 800 / 2 330 | 32 820 / 4 660 | 1 632 860 (1 120 021) | 75 | 1 550 | 1 920 000 / 18 555 |
+| 60 | 30 | 224 800 / 9 455 | 134 920 / 18 915 | 8 723 760 (5 166 070) | 150 | 3 050 | 1 920 000 / 19 208 |
 
-`tools/balance_matrix.py` prints this for any wave, with the gate bosses: a Level 5 boss at wave 44 has 11.5 million HP and hits for 64 800, with 8 players × 3.45 HP.
+`tools/balance_matrix.py` prints this for any wave, with the gate bosses: a Level 5 boss at wave 44 has 23 million HP with its gear and hits for 64 800, with 8 players × 3.45 HP.
 
-The target of a boss fight of 30 to 60 s with a legal loadout is a target, **not a measurement**.
+The target of a boss fight of 30 to 60 s with a legal loadout is a target. See the duels below.
+
+## The rule (v4.4)
+
+| What | Rule | Up to v4.3 |
+|---|---|---|
+| Tower down | A Tower Warden rises on the ruins, a boss of its own: 35 000 HP base, ~1800 a hit, its faction's spells, no adds; a gate's × its level | A Protector 920 behind the ruins: a champion with +450 HP |
+| Bosses' gear | Real bound items. Warden / Nexus boss: Heart +50 / +100 % base HP, Gauntlets +50 / +100 % attack speed and 20 / 25 % chance of 2×, Warplate +25 / +40 armor and 20 / 25 % less spell damage | None |
+| Boss spells | The native's own cooldown at every level (6 to 12 s) | 1 s from level 1 on: the engine's own use of a creep spell could fire two Frost Novas 1.8 s apart |
+| Premium Armory | See gameplay: Fang 5 to 30 %, all eight on the same modest scale, 1000 gold a rank | Fang 30 to 70 % and the like |
+| Circle prices | +5 % a buy, compound: step 99 costs 12 524 | +3 % |
+
+`tools/balance_matrix.py` prints all bosses by wave with their gear.
+
+## What was measured (v4.4)
+
+**Four duels** (`balance-v44g`, all four pass the validation: the Fang's rank carried, 1000 gold a rank, the kit used). One champion, one boss, the lane's waves kept away. **A fixture, not a playthrough:** hero level, wave and gold are set, the purchases are real and legal: Fang rank 1 early, rank 5 late, the rest of the gold in All, All, Str, Agi at the shop's +5 % prices. Nothing heals or kills once it has begun. Ends at the first death or 120 s after first contact. One bot, seed 1, Scourge lane.
+
+| Duel | Boss HP | Winner | Seconds | Hero's HP at the end | Boss's HP at the end | Damage: hero / from boss | Hero's casts / boss's casts |
+|---|---|---|---|---|---|---|---|
+| Mountain King vs Warden, wave 10, level 10, 5000 g | 137 500 | hero | 49 | 24 076 of 24 200 | 0 | 138 536 / 17 526 | 16 / 0 |
+| Dryad vs Warden, wave 10, level 10, 5000 g | 137 500 | boss | 9 | dead | 131 606 | 5 910 / 9 373 | passive / 2 |
+| Mountain King vs Nexus boss, wave 20, level 20, 20 000 g | 986 400 | boss | 110 | dead | 267 982 | 786 998 / 96 905 | 24 / 6 |
+| Dryad vs Nexus boss, wave 20, level 20, 20 000 g | 986 400 | boss | 59 | dead | 850 400 | 174 871 / 62 065 | passive / 0 |
+
+- **Far from uniform.** The Mountain King's Avatar makes him immune to spells: against the Warden he took 17 526 in 49 s and was never in danger, its spells never fired. Without such a shield the Dryad had 8475 HP and died in 9 s: one Frost Nova takes her from 8118 HP down, then the hits. At level 20 her own Spell Immunity keeps the boss's spells off too, and its attacks kill her in 59 s.
+- **The Nexus boss beat both,** with its summons at its side (5284 of the Mountain King's damage taken came from them). A team was not played.
+- **Channels:** the boss's own orders no longer break a running Blizzard, but the two here ended after 2.2 and 3.2 s (`finished=0`): the engine or the fight still interrupts them. No channel running to its end was seen in these fights.
+- **Not tuned on this:** four fights say the numbers can hurt and that the spread between champions is large. They do not say the numbers are right.
+
+**In the self-test, in real blows** (`20261101-233342-a-98e7`, on one fresh champion and plain monsters.
+
+| Item, top rank | Measured |
+|---|---|
+| Vampire Fang 5 % and 30 % | Mountain King 5.0 % and 30.0 %, Archmage 5.0 % and 30.0 %, without it 0.0 %: healed at the hit over damage of the hit, 5 hits each |
+| Fury Gloves +25 % | a hit every 1.48 s without, 1.22 s with |
+| Executioner's Axe 20 %, 2x | 8 of 40 hits critical, none above 2x |
+| Stormhammer 15 %, +25, 0.5 s | 4 bashes in 36 hits, the bash's own damage event 25, the shortest stun 0.50 s |
+| Phantom Cloak 15 % | 86 hits of 108 attacks with it, 104 of 110 without |
+| Winged Boots +50 | the engine reads 450 (400 without), walked 425 per second against 384 |
+| Troll Heart +10 | 35.0 HP per second against 25.0 |
+| Arcane Mask +50 % | 22.51 mana per second against 15.00 |
+| Boss's Warplate | a hit 250 without, 85 with; a Storm Bolt 700 without, 525 with |
+| Boss's Gauntlets | a blow every 1.00 s without, 0.50 s with; 10 of 49 blows critical, none above 2x |
+
+Small samples: a chance here says it works and is about right, not its exact value. The Dryad with her whole kit and the Fang: her spears still hit 8 different foes in one volley and her poison lands; what the Fang heals in a volley was not measured. **A hero's own passive and the item both work, each with its own roll:** Mountain King's Bash alone 11 of 38 events at +1500, with the Stormhammer 15 of 44 and 2 small ones; Blademaster's Critical Strike alone 4 of 27 at 5x, with the Axe 9 at 2x or more and 3 of them at 5x; Dryad's Evasion with the Cloak 70 hits of 102 attacks.
 
 ## What was measured (v4.3)
 
@@ -59,13 +104,13 @@ The target of a boss fight of 30 to 60 s with a legal loadout is a target, **not
 ## What players should notice
 
 - **Fewer monsters, each one matters:** 13 at wave 5, 21 at wave 10, at most 30 a lane. Up to v4.2 it was 19, 35 and 60 plus champions.
-- **A boss is an event:** it runs you down at speed 522, one hit a second, a stun buys nothing. A lane boss at wave 20 has 493 200 HP and hits for 9335.
+- **A boss is an event:** it runs you down at speed 522, one hit a second, a stun buys nothing. A lane boss at wave 20 has 986 400 HP with its gear and hits for 9335.
 - **Your wave is your own:** clear fast and you climb, and earn, faster, into a boss that rises as strong as your wave.
 - **A leak is serious:** monster damage grew and the castle did not, and a leak walks about 720 further than before.
 
 ## Limits
 
-- **Not measured: a boss in a real fight.** The self-test shows the mechanics: speed 504 per second, stuns gone, spell damage lands, spells and summons fire, no bounty on the forced kill. Whether a legal loadout kills a boss in the 30 to 60 s aimed at, or at all, is open. `tools/balance_probe.py --set boss` exists for this and has not run: its code is unproven too.
+- **Only four duels against bosses,** one lane, one bot, fixed level and gold, above. Whether a team kills a boss in the 30 to 60 s aimed at is open. `tools/balance_probe.py --set boss` mixes Warden, Nexus boss and new waves and has not run: unproven.
 - **Not measured: waves past 7, and playing on with the gold spent.** No `progress` run on v4.3. That fewer monsters pay as much gold and XP as before is the formula (`WavePayRatio`, `UnitKillXp`) with a mechanical check, not a played economy. Stages 1 and 2 and the gates are mechanical checks only.
 - **8 of 12 champions never fought a bot:** Tauren Chieftain, Pit Lord, Lich, Paladin, Blademaster, Crypt Lord, Demon Hunter, Priestess. The self-test casts their spells and checks each effect. How strong they are against each other is unknown and nothing was tuned between them.
 - **Passive abilities** (auras, Bash, Critical, Evasion and others) are the native ones with the reference's numbers, not measured one by one. The reference map itself was not played side by side; the data is compared (`tools/xhs_port.py check`).
@@ -81,7 +126,7 @@ tools/balance_matrix.py                                # monsters and bosses by 
 tools/balance_probe.py selfcheck                       # the log validation, no game
 tools/balance_probe.py run v43 --set fight --only '^(dryad|mk|archmage|beastmaster)-starter-s1$' --slots b --workers 1
 tools/balance_probe.py report v43
-tools/balance_probe.py run LABEL --set boss            # a lane boss at wave 10 and 20; also --set progress, --set stall, --set smoke
+tools/balance_probe.py run LABEL --set duel --slots b --workers 1   # four duels; also --set progress, --set stall, --set smoke
 tools/test_env.py run                                  # mechanical regression
 ```
 

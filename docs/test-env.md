@@ -27,6 +27,9 @@ Options of `run`: `--slot a|b` (default: the first free one), `--map FILE`, `--t
 
 A map can ask for a film of the hidden display: a `VIDEO name seconds` line in its results (`TestLog` + `TestFlush`) makes the runner record `video-name.mp4` at 25 fps into the run's evidence. The self-test uses it for what numbers cannot show: the tavern card, the Dryad's volley, the fullest champion card.
 
+**Looking at a tooltip:** a `HOVER name x y` line makes the runner move the pointer of that private display to x, y, take `hover/name.png` and move it away. No click, no other display. `CD_TEST_ONLY=tour python3 build.py --test --no-install` builds a map that does nothing else: the rows of `tour_rows()` in `build.py` put a fresh champion on the card with the ranks asked for and no points left (or the Learn card, a shop), then ask for the picture. Run it with `tools/test_env.py run --map ...`. A picture's name is what was asked for: look at the picture.
+`CD_TEST_ONLY=finalbolt` likewise builds a map for one thing: three real Storm Bolts at the final boss.
+
 ## Where everything is
 
 `~/games/wc3-test-env/` (`CD_TEST_ROOT`), outside this repo and outside the game. Nothing there is committed.

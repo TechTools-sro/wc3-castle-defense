@@ -22,6 +22,7 @@ Start here, then read only what the task needs:
 python3 build.py            # dist/TechToolsCastleDefence.w3x + pjass + base-id check + installs into the game
 python3 build.py --test     # dist/TechToolsCastleDefence_TEST.w3x (8 s select, revealed map, scripted self-test)
 tools/test_env.py run       # builds the TEST map, runs the full self-test hidden (safe while he plays); exit 0 = clean. docs/test-env.md
+tools/balance_probe.py run LABEL --set duel  # four duels, champion with a legal loadout against one boss. docs/balance.md
 tools/balance_matrix.py     # monsters and bosses by wave, no game
 tools/layout_audit.py       # lanes, stages, biggest army, walls and rooms on paper, with a picture
 tools/xhs_port.py check     # gen/xhs_data.py against the local X Hero Siege 3.28 (never copied into the repo)
@@ -51,7 +52,7 @@ tools/balance_probe.py run LABEL --set fight   # real fights, hidden, played by 
 
 ## Versions
 
-- `MAP_VERSION` in `build.py` (now **v4.3**) is in the map name, the file name (`TechToolsCastleDefence_v4.3.w3x`) and
+- `MAP_VERSION` in `build.py` (**v4.4 on branch `v4.4-review`, waiting for Jiří's approval; v4.3 is the released one**) is in the map name, the file name (`TechToolsCastleDefence_v4.4.w3x`) and
   the catalogue title. ⚠️ **Jiří's rule: every feature = a new version (1.2, 1.3, …) AND an upload to the
   catalogue** (LAN players must have the identical file). Bump, build, commit, upload, verify the download's
   SHA-256, record the new entry below + in `CHANGELOG.md`. Install removes older `TechToolsCastleDefence*.w3x`.
@@ -74,11 +75,11 @@ tools/balance_probe.py run LABEL --set fight   # real fights, hidden, played by 
 ## The owner's design rules (Jiří — binding)
 
 - **Simple, fast UX.** No walking to things, instant effects, no queues/crafting bars, no confusing items.
-- **Short text only.** Messages, tooltips, help: one line, colour-coded, no prose. He replies "short responses only".
+- **Short text only.** Messages, shop and help texts: one line, colour-coded, no prose. He replies "short responses only". **Spell and item tooltips are the exception since v4.4 (his request):** detailed and multi-line, real numbers, all ranks with the current one marked (`gen/xhs_tips.py`). Keep them readable, and under 900 bytes: longer crashes the game at load.
 - WarCraft III colours mixed with TechTools blue; gold `|cffffcc00` = names/hotkeys, light blue `|cff4fc3ff`
   = levels/commands, orange `|cffff8c00` = next-price hints, green = bonuses.
 - Fixed positions: shop buttons never move (`ubpx/ubpy` on every item).
-- Keep the map small (~200 KiB was the guideline; v4.3 is 474 KiB: 12 champions' data, and 111 KiB for the native table `ability_slk_doom_fix` needs): low-res art is fine.
+- Keep the map small (~200 KiB was the guideline; v4.4 is about 500 KiB: 12 champions' data and tooltips, and 111 KiB for the native table `ability_slk_doom_fix` needs): low-res art is fine.
 - Never drift back to base-building or complexity (v1 was rejected as "too complex, too big").
 - Spells on Q W E R, a fifth skill on T, innate D, level 20 F. Commands: `-help`, `-zoom N`, `-cam`; Space = jump to hero, Esc = follow toggle.
 

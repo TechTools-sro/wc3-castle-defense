@@ -7,7 +7,7 @@ in the World Editor.
 
 **Play it:** download the current version from the [TechTools WarCraft III catalogue](https://techtools.cz/tools/warcraft3/maps)
 into `Maps/` of a WarCraft III 1.27 install. `python3 build.py` installs a fresh build as
-`Maps/CustomMaps/TechToolsCastleDefence_v<version>.w3x` (about 470 KiB).
+`Maps/CustomMaps/TechToolsCastleDefence_v<version>.w3x` (about 500 KiB).
 
 ## Docs
 

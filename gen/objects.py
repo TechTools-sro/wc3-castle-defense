@@ -8,6 +8,7 @@ import re
 
 import xhs_data as XHS
 from xhs_text import SKILLS as XHS_SKILLS, HERO_TIPS as XHS_TIPS
+import xhs_tips as TIPS
 
 FACTIONS = [
     {   # North
@@ -225,7 +226,13 @@ WAVE_CHAMP_HP, WAVE_CHAMP_ARMOR, WAVE_CHAMP_DMG, WAVE_CHAMP_SCALE = 2100, 3, (89
 FX = {"final": "Abilities\\Spells\\Demon\\DarkPortal\\DarkPortalTarget.mdl", "": ""}
 DRYAD_ID = "H007"
 ALL_HEROES = [h for h, _skills in XHS.ROSTER]
-HERO_SKILLS = dict(XHS.ROSTER)
+# A premium item with the same code stops a hero learning a NATIVE ability id for good (Stormhammer and Bash, Axe and Critical Strike, seen in hidden runs; the Dryad's custom copies learn fine).
+# So these three learnables get ids of their own, with the reference's data as it is: nothing else about them changes.
+LEARN_REMAP = {"AHbh": "Xhbh", "AOcr": "Xhcr", "AEev": "Xhev"}
+LEARN_ORIGIN = {new: old for old, new in LEARN_REMAP.items()}
+HERO_SKILLS = {h: [LEARN_REMAP.get(a, a) for a in skills] for h, skills in XHS.ROSTER}
+for _old, _new in LEARN_REMAP.items():
+    XHS_SKILLS[_new] = XHS_SKILLS[_old]
 SKILLS_PER_HERO = 5
 SKILL_KEYS = "QWERT"
 INNATE_KEY, GRANT_KEY = "D", "F"
@@ -239,29 +246,56 @@ assert len(ALL_HEROES) == 12 and all(len(s) == SKILLS_PER_HERO for s in HERO_SKI
 PREMIUM_PRICE = 1000
 # Upgradable: buying an item you already hold merges both into the next level (Lv 1..PREMIUM_LEVELS).
 # Each level = its own item type + ability with stronger values; only Lv 1 is sold.
-#   (name, base item, icon, ability base, [(field, type, data ptr)], values(L) -> [one per field], effect(L) -> text)
 PREMIUM_LEVELS = 5
 PREMIUM_STOCK = 5            # = PREMIUM_LEVELS, so Lv 5 can be bought in one go (v3.3, Jiri; was 3)
-GLOVES_AS_BASE, GLOVES_AS_STEP = 0.40, 0.15     # Fury Gloves attack speed
+# v4.4 (Jiri: grossly overtuned, 30 % lifesteal for 1000 gold): the bonus a rank gives in all, not on top of the rank before. Modest starter values, the highest
+# in line with parts of X Hero Siege's own far dearer items or the native item they copy. Not a measured economy.
+PREMIUM_FANG = (5, 10, 15, 20, 30)
+PREMIUM_GLOVES = (5, 10, 15, 20, 25)
+PREMIUM_AXE = (4, 8, 12, 16, 20)
+PREMIUM_AXE_TIMES = 2
+PREMIUM_HAMMER = (3, 6, 9, 12, 15)
+PREMIUM_HAMMER_DAMAGE = (5, 10, 15, 20, 25)
+PREMIUM_HAMMER_STUN = 0.5
+PREMIUM_CLOAK = (3, 6, 9, 12, 15)
+PREMIUM_BOOTS = (10, 20, 30, 40, 50)
+PREMIUM_HEART = (2, 4, 6, 8, 10)
+PREMIUM_MASK = (10, 20, 30, 40, 50)
+# (name, base item, icon, ability base, [(field, type, data ptr)], values(L), what it does, [(label, the value each rank shows)])
 PREMIUM_DEF = [
-    ("Vampire Fang", "modt", "BTNMaskOfDeath", "AIva", [("Ivam", "U", 1)],
-     lambda L: [0.30 + 0.10 * (L - 1)], lambda L: f"{30 + 10 * (L - 1)}% lifesteal"),
-    ("Fury Gloves", "gcel", "BTNGlove", "AIsx", [("Isx1", "U", 1)],
-     lambda L: [GLOVES_AS_BASE + GLOVES_AS_STEP * (L - 1)], lambda L: f"+{round(100 * (GLOVES_AS_BASE + GLOVES_AS_STEP * (L - 1)))}% attack speed"),
+    ("Vampire Fang", "modt", "BTNMaskOfDeath", "AIva", [("Ivam", "U", 1)], lambda L: [PREMIUM_FANG[L - 1] / 100.0],
+     "Your attacks heal you by a share of their damage.", [("Lifesteal", [f"{v}%" for v in PREMIUM_FANG])]),
+    ("Fury Gloves", "gcel", "BTNGlove", "AIsx", [("Isx1", "U", 1)], lambda L: [PREMIUM_GLOVES[L - 1] / 100.0],
+     "You attack faster.", [("Attack speed", [f"+{v}%" for v in PREMIUM_GLOVES])]),
     ("Executioner's Axe", "ratc", "BTNCriticalStrike", "AIcs", [("Ocr1", "U", 1), ("Ocr2", "U", 2), ("Ocr3", "U", 3), ("Ocr4", "U", 4)],
-     lambda L: [20.0 + 5 * (L - 1), 3.0, 0.0, 0.0], lambda L: f"{20 + 5 * (L - 1)}% chance for 3x damage"),
+     lambda L: [float(PREMIUM_AXE[L - 1]), float(PREMIUM_AXE_TIMES), 0.0, 0.0],
+     f"A chance of an attack with {PREMIUM_AXE_TIMES}x damage.", [("Chance", [f"{v}%" for v in PREMIUM_AXE])]),
     ("Stormhammer", "ratc", "BTNBash", "AIbx", [("Hbh1", "U", 1), ("Hbh3", "U", 3), ("adur", "U", 0), ("ahdu", "U", 0)],
-     lambda L: [20.0 + 5 * (L - 1), 40.0 + 20 * (L - 1), 1.0, 1.0],
-     lambda L: f"{20 + 5 * (L - 1)}% chance to stun 1 s, +{40 + 20 * (L - 1)} damage"),
-    ("Phantom Cloak", "evtl", "BTNEvasion", "AIev", [("Eev1", "U", 1)],
-     lambda L: [0.25 + 0.05 * (L - 1)], lambda L: f"{25 + 5 * (L - 1)}% chance to dodge attacks"),
-    ("Winged Boots", "bspd", "BTNBootsOfSpeed", "AIms", [("Imvb", "I", 1)],
-     lambda L: [100 + 25 * (L - 1)], lambda L: f"+{100 + 25 * (L - 1)} movement speed"),
-    ("Troll Heart", "rlif", "BTNRegenerate", "Arel", [("Ihpr", "I", 1)],
-     lambda L: [15 + 10 * (L - 1)], lambda L: f"+{15 + 10 * (L - 1)} HP per second"),
-    ("Arcane Mask", "rwiz", "BTNSobiMask", "AIrm", [("Imrp", "U", 1)],
-     lambda L: [1.5 + 0.5 * (L - 1)], lambda L: f"+{150 + 50 * (L - 1)}% mana regeneration"),
+     lambda L: [float(PREMIUM_HAMMER[L - 1]), float(PREMIUM_HAMMER_DAMAGE[L - 1]), PREMIUM_HAMMER_STUN, PREMIUM_HAMMER_STUN],
+     f"A chance of bonus damage and a {PREMIUM_HAMMER_STUN} s stun.", [("Chance", [f"{v}%" for v in PREMIUM_HAMMER]), ("Damage", [f"+{v}" for v in PREMIUM_HAMMER_DAMAGE])]),
+    ("Phantom Cloak", "evtl", "BTNEvasion", "AIev", [("Eev1", "U", 1)], lambda L: [PREMIUM_CLOAK[L - 1] / 100.0],
+     "Attacks against you miss.", [("Dodge", [f"{v}%" for v in PREMIUM_CLOAK])]),
+    ("Winged Boots", "bspd", "BTNBootsOfSpeed", "AIms", [("Imvb", "I", 1)], lambda L: [PREMIUM_BOOTS[L - 1]],
+     "You move faster.", [("Move speed", [f"+{v}" for v in PREMIUM_BOOTS])]),
+    ("Troll Heart", "rlif", "BTNRegenerate", "Arel", [("Ihpr", "I", 1)], lambda L: [PREMIUM_HEART[L - 1]],
+     "You heal over time.", [("HP per second", [f"+{v}" for v in PREMIUM_HEART])]),
+    ("Arcane Mask", "rwiz", "BTNSobiMask", "AIrm", [("Imrp", "U", 1)], lambda L: [PREMIUM_MASK[L - 1] / 100.0],
+     "Your mana comes back faster.", [("Mana regeneration", [f"+{v}%" for v in PREMIUM_MASK])]),
 ]
+
+
+def premium_effect(i, L):
+    """One short line for the message on an upgrade."""
+    name, _b, _ic, _ab, _f, _vals, _what, rows = PREMIUM_DEF[i]
+    return ", ".join(f"{values[L - 1]} {label.lower()}" for label, values in rows)
+
+
+def premium_text(i, L):
+    """An item of a rank: its effect with every rank side by side, this one in gold. Each rank is its own item type, so this needs no player's state."""
+    _name, _b, _ic, _ab, _f, _vals, what, rows = PREMIUM_DEF[i]
+    lines = [what] + [f"{label}: {TIPS._ranked(values, L)}" for label, values in rows]
+    lines.append(f"{TIPS.GREEN}Max rank|r" if L == PREMIUM_LEVELS else f"{TIPS.ORANGE}Buy again for rank {L + 1}: {PREMIUM_PRICE} gold|r")
+    return "|n".join(lines)
 
 
 def premium_item_id(i, L):       # Lv 1 = the shop item Ip01..Ip08, higher levels Iu<i><L>
@@ -377,7 +411,7 @@ KIND_TYPE = {"abil": 1, "xp": 2, "castleheal": 3, "castleabil": 4, "castleshock"
 # Price steps per kind = item types + bonus abilities (copies stack only with distinct ids). 100 = the most the
 # 2-digit ids allow; the script indexes gStatItem / gBonusAbil as kind * KIND_STRIDE + step.
 STAT_TIERS, KIND_STRIDE = 100, 128
-STAT_BASE_PRICE, STAT_PRICE_GROWTH = 100, 1.03     # v3.1, Jiri: +3 % per buy (was +10 %)
+STAT_BASE_PRICE, STAT_PRICE_GROWTH = 100, 1.05     # v4.4, Jiri: +5 % per buy (+3 % since v3.1, before that +10 %)
 PRICE_STEP_PCT = round((STAT_PRICE_GROWTH - 1) * 100)
 assert STAT_TIERS <= 100 and STAT_TIERS <= KIND_STRIDE
 
@@ -463,7 +497,7 @@ def wave_champion_id(d):     # weakened faction champion for waves (d 4-7: gate 
     return f"nc{d}0"
 
 
-def boss_id(d, k):           # k = strength tier; the script always spawns tier 1 (OnNexusDestroyed), 0 and 2 are unused
+def boss_id(d, k):           # k = strength tier: 0 the Tower Warden (OnTowerDestroyed), 1 the Nexus boss (OnNexusDestroyed), 2 unused
     return f"nb{d}{k}"
 
 
@@ -483,6 +517,10 @@ BOSS_HP_GROWTH, BOSS_DMG_GROWTH = 0.02, 0.008
 BOSS_HP_FACTOR_MAX = 16.0                           # from about wave 28 the HP stops growing: the biggest boss, Level 5 with 8 players, has 39.7 million
 BOSS_DMG_FACTOR_MAX = 8.0                           # from about wave 31 the attack stops growing: the Inferno boss hits for about 65 000; every bonus fits the bits
 BOSS_COOLDOWN = 1.0
+WARDEN_LEASH = 1500.0                               # a Tower Warden stays with its ruins, short of the Champion's Circle (1776 away)
+# v4.4 (Jiri: bosses still far too easy, give them brutal real gear). Tier 0 the Tower Warden, tier 1 the Nexus boss. Real items in a real inventory, bound: nothing drops, nothing sells.
+# Heart: a share of the base HP, so the wave and team factors count it too. No lifesteal, no regeneration, no invulnerability.
+BOSS_GEAR = {"heart": (0.5, 1.0), "attack_speed": (0.5, 1.0), "crit_chance": (20.0, 25.0), "crit_times": 2.0, "armor": (25, 40), "spell_reduction": (0.20, 0.25)}
 BOSS_SPEED = 522                                    # the engine's top speed; war3mapMisc.txt raises the map's cap from 400 for it
 BOSS_SPELL_LEVELS = 10
 BOSS_SPELL_DAMAGE = 1200.0                          # per spell level, what a single target takes
@@ -499,8 +537,57 @@ BOSS_SPELLS = {
 
 
 def boss_abils(abils):
-    """A boss's ability list with its own spell copies."""
-    return ",".join(BOSS_SPELLS[a][0] if a in BOSS_SPELLS else a for a in abils.split(","))
+    """A boss's ability list with its own spell copies, and the inventory its gear sits in."""
+    return ",".join(BOSS_SPELLS[a][0] if a in BOSS_SPELLS else a for a in abils.split(",")) + ",AInv"
+
+
+def gear_heart_id(li, tier):       # li 0 a personal lane, 1-4 gate levels 2-5
+    return f"Jh{li}{tier}"
+
+
+def gear_hands_id(tier):
+    return f"Jg0{tier}"
+
+
+def gear_plate_id(tier):
+    return f"Jp0{tier}"
+
+
+def boss_base_hp(li, tier):
+    return BOSS_HP[tier] * (GATE_LEVELS[li - 1]["boss"][2] if li else 1)
+
+
+def gear_heart_bonus(li, tier):
+    return int(boss_base_hp(li, tier) * BOSS_GEAR["heart"][tier])
+
+
+def boss_gear_abilities():
+    out = []
+    for tier in (0, 1):
+        for li in range(1 + len(GATE_LEVELS)):
+            out.append(("AIlf", f"Yh{li}{tier}", [("Ilif", I, 1, 1, gear_heart_bonus(li, tier))]))
+        out.append(("AIsx", f"Ys0{tier}", [("Isx1", U, 1, 1, BOSS_GEAR["attack_speed"][tier])]))
+        out.append(("AIcs", f"Yc0{tier}", [("Ocr1", U, 1, 1, BOSS_GEAR["crit_chance"][tier]), ("Ocr2", U, 1, 2, BOSS_GEAR["crit_times"]), ("Ocr3", U, 1, 3, 0.0), ("Ocr4", U, 1, 4, 0.0)]))
+        out.append(("AId5", f"Ya0{tier}", [("Idef", I, 1, 1, BOSS_GEAR["armor"][tier])]))
+        out.append(("AIsr", f"Yr0{tier}", [("isr2", U, 1, 2, BOSS_GEAR["spell_reduction"][tier])]))
+    return out
+
+
+def _bound_gear(base, uid, name, icon, text, abilities):
+    bound = [("idro", I, 0), ("idrp", I, 0), ("ipaw", I, 0), ("isel", I, 0), ("iusa", I, 0), ("iper", I, 0), ("ipow", I, 0), ("igol", I, 0), ("ilum", I, 0), ("ilev", I, 10)]
+    return (base, uid, [("unam", S, name), ("iico", S, CB + icon + ".blp"), ("utip", S, f"|cffff4040{name}|r"), ("utub", S, text), ("ides", S, text), ("iabi", S, abilities)] + bound)
+
+
+def boss_gear_items():
+    out = []
+    for tier in (0, 1):
+        for li in range(1 + len(GATE_LEVELS)):
+            out.append(_bound_gear("rlif", gear_heart_id(li, tier), "Heart of Ruin", "BTNHeartOfAszune", f"+{gear_heart_bonus(li, tier)} HP, before its wave's growth.|nBound: it does not drop.", f"Yh{li}{tier}"))
+        speed, chance = round(BOSS_GEAR["attack_speed"][tier] * 100), round(BOSS_GEAR["crit_chance"][tier])
+        out.append(_bound_gear("ratc", gear_hands_id(tier), "Executioner Gauntlets", "BTNGauntletsOfOgrePower", f"+{speed}% attack speed, {chance}% chance of {round(BOSS_GEAR['crit_times'])}x damage.|nBound: it does not drop.", f"Ys0{tier},Yc0{tier}"))
+        armor, reduction = BOSS_GEAR["armor"][tier], round(BOSS_GEAR["spell_reduction"][tier] * 100)
+        out.append(_bound_gear("rde4", gear_plate_id(tier), "Runic Warplate", "BTNHumanArmorUpThree", f"+{armor} armor, {reduction}% less spell damage.|nBound: it does not drop.", f"Ya0{tier},Yr0{tier}"))
+    return out
 
 
 def boss_spell_ids(abils):
@@ -520,7 +607,8 @@ def boss_spell_abilities():
         mods = [("alev", I, 0, 0, BOSS_SPELL_LEVELS)]
         specific = {f: m for f, m in meta.items() if m.get("field") == "Data" and base in (m.get("useSpecific") or "").split(",") and f not in ours}
         for level in range(1, BOSS_SPELL_LEVELS + 1):
-            mods += [("amcs", I, level, 0, 0), ("acdn", U, level, 0, 1.0)]
+            # the native's own cooldown at every level: without it the engine's own use of a creep spell has no limit
+            mods += [("amcs", I, level, 0, 0), ("acdn", U, level, 0, float(row["Cool1"]))]
             mods += [(field, U, level, pointer, BOSS_SPELL_DAMAGE * share * level) for (field, pointer, share) in fields]
             # a new level has nothing of level 1 unless it is written: range, area, targets, waves, buffs
             for field, column in common.items():
@@ -670,14 +758,14 @@ def custom_units():
         for k in range(3):
             base, dice, sides = BOSS_DMG[k]
             mods = [
-                ("unam", S, b["name"]), ("uhpm", I, BOSS_HP[k]), ("udef", I, BOSS_ARMOR[k]),
+                ("unam", S, f"{tname} Warden" if k == 0 else b["name"]), ("uhpm", I, BOSS_HP[k]), ("udef", I, BOSS_ARMOR[k]),
                 ("udty", S, "hero"), ("uhpr", U, 2.0), ("uhrt", S, "always"),
                 ("umpm", I, 1000), ("umpi", I, 1000), ("umpr", U, 4.0),
                 ("ua1b", I, base), ("ua1d", I, dice), ("ua1s", I, sides), ("ua1c", U, BOSS_COOLDOWN),
                 ("ua1r", I, b["range"]), ("uacq", U, 900.0), ("ua1t", S, "chaos"),
                 ("uabi", S, boss_abils(b["abils"])), ("usca", R, b["scale"]), ("ussc", R, 3.0),
                 ("ucol", U, 40.0), ("umvs", I, BOSS_SPEED), ("ulev", I, 10), ("usid", I, 1000), ("usin", I, 1000),
-                ("ubba", I, 300), ("ubdi", I, 1), ("ubsi", I, 1),
+                ("ubba", I, 150 if k == 0 else 300), ("ubdi", I, 1), ("ubsi", I, 1),
             ]
             for key, fid in (("model", "umdl"), ("icon", "uico"), ("missile", "ua1m"), ("sound", "usnd")):
                 if key in b:
@@ -701,21 +789,22 @@ def custom_units():
             ("ubba", I, g["gold"] // 2), ("ubdi", I, 1), ("ubsi", I, 1)]))
         src, bname, hpm, dmgm, bscale = g["boss"]
         b = FACTIONS[src]["boss"]
-        base, dice, sides = BOSS_DMG[1]
-        mods = [
-            ("unam", S, bname), ("uhpm", I, BOSS_HP[1] * hpm), ("udef", I, BOSS_ARMOR[1] + 2 * g["level"]),
-            ("udty", S, "hero"), ("uhpr", U, 2.0 * hpm), ("uhrt", S, "always"),
-            ("umpm", I, 2000), ("umpi", I, 2000), ("umpr", U, 8.0),
-            ("ua1b", I, int(base * dmgm)), ("ua1d", I, dice), ("ua1s", I, sides), ("ua1c", U, BOSS_COOLDOWN),
-            ("ua1r", I, b["range"]), ("uacq", U, 900.0), ("ua1t", S, "chaos"),
-            ("uabi", S, boss_abils(b["abils"])), ("usca", R, bscale), ("ussc", R, 3.0),
-            ("ucol", U, 40.0), ("umvs", I, BOSS_SPEED), ("ulev", I, 10 + g["level"]), ("usid", I, 1000), ("usin", I, 1000),
-            ("ubba", I, g["gold"]), ("ubdi", I, 1), ("ubsi", I, 1),
-            ("uclr", I, tr), ("uclg", I, tg), ("uclb", I, tb)]
-        for key, fid in (("model", "umdl"), ("icon", "uico"), ("missile", "ua1m"), ("sound", "usnd")):
-            if key in b:
-                mods.append((fid, S, b[key]))
-        units.append((b["base"], boss_id(arm, 1), mods))
+        for k in (0, 1):
+            base, dice, sides = BOSS_DMG[k]
+            mods = [
+                ("unam", S, f"{g['turret'][1]} Warden" if k == 0 else bname), ("uhpm", I, BOSS_HP[k] * hpm), ("udef", I, BOSS_ARMOR[k] + 2 * g["level"]),
+                ("udty", S, "hero"), ("uhpr", U, 2.0 * hpm), ("uhrt", S, "always"),
+                ("umpm", I, 2000), ("umpi", I, 2000), ("umpr", U, 8.0),
+                ("ua1b", I, int(base * dmgm)), ("ua1d", I, dice), ("ua1s", I, sides), ("ua1c", U, BOSS_COOLDOWN),
+                ("ua1r", I, b["range"]), ("uacq", U, 900.0), ("ua1t", S, "chaos"),
+                ("uabi", S, boss_abils(b["abils"])), ("usca", R, bscale), ("ussc", R, 3.0),
+                ("ucol", U, 40.0), ("umvs", I, BOSS_SPEED), ("ulev", I, 10 + g["level"]), ("usid", I, 1000), ("usin", I, 1000),
+                ("ubba", I, g["gold"] // 2 if k == 0 else g["gold"]), ("ubdi", I, 1), ("ubsi", I, 1),
+                ("uclr", I, tr), ("uclg", I, tg), ("uclb", I, tb)]
+            for key, fid in (("model", "umdl"), ("icon", "uico"), ("missile", "ua1m"), ("sound", "usnd")):
+                if key in b:
+                    mods.append((fid, S, b[key]))
+            units.append((b["base"], boss_id(arm, k), mods))
     # standardized wave units (q<arm><stage><m|r>)
     for arm, f in enumerate(FACTIONS + GATE_LEVELS):
         for st, pair in enumerate(f["stages"]):
@@ -793,7 +882,7 @@ def hero_tavern_mods(h):
             ("ubpx", I, x), ("ubpy", I, y), ("uhot", S, key),
             ("uhab", S, ",".join(HERO_SKILLS[h])),
             ("utip", S, f"|cffffcc00{name}|r  (|cffffcc00{key}|r)"),
-            ("utub", S, f"{XHS_TIPS[h]} {skills}.")]
+            ("utub", S, f"{XHS_TIPS[h]}|n{skills}.|n|cff4fc3ffHero level 20:|r {_level20_names(h)}")]
 
 
 def _ref_profile_name(h):
@@ -833,16 +922,6 @@ def original_unit_mods():
     return out
 
 
-def _skill_text(aid, base, text, level):
-    ref = aid if aid == base else f"{aid}:{base}"
-
-    def fill(match):
-        key, percent = match.group(1), match.group(2)
-        field = f"Data{key}{level}" if len(key) == 1 else f"{key}{level}"
-        return f"<{ref},{field}{',%' if percent else ''}>"
-    return re.sub(r"\{(\w+)(%?)\}", fill, text)
-
-
 def _ability_levels(aid, base):
     for (f, _k, _l, _p, v) in XHS.ABILS[aid][2] if aid in XHS.ABILS else ():
         if f == "alev":
@@ -859,38 +938,41 @@ def _card_mods(aid, key, pos, learn_pos):
     return mods
 
 
-def _text_mods(aid, base, key, learnable):
-    name, _kind, text, _o, _t, _e = XHS_SKILLS[aid]
-    levels = _ability_levels(aid, base)
-    tag = f"|cffffcc00[{key}]|r "
-    mods = []
-    for level in range(1, levels + 1):
-        tip = f"{tag}{name}" + (f" - Level {level}" if levels > 1 else "")
-        mods += [("atp1", S, level, 0, tip), ("aub1", S, level, 0, _skill_text(aid, base, text, level))]
-    if learnable:
-        mods += [("aret", S, 0, 0, f"{tag}Learn {name} - Level %d"), ("arut", S, 0, 0, _skill_text(aid, base, text, 1) + " |cff4fc3ffMore every level.|r")]
-    return mods
+def _level20_names(h):
+    """What a champion gets at hero level 20, the way his innate ability names it: he cannot see it on his card before."""
+    grants = [a for a in XHS.LEVEL20[h][0] if a != "A03Q"]
+    return ", ".join(f"{XHS_SKILLS[a][0]} [{GRANT_KEY}]" for a in grants) + (", a stronger Battle Roar" if "A03Q" in XHS.LEVEL20[h][0] else "")
+
+
+def _text_mods(aid, key, learnable, grant=False, preview=""):
+    data = LEARN_ORIGIN.get(aid, aid)
+    return [(field, S, level, 0, text) for (field, level, text) in TIPS.ability_tips(data, XHS_SKILLS[aid][0], key, learnable, grant, preview)]
 
 
 def xhs_ability_mods():
     """{ability id: our mods}: the card every champion has, the same as the reference's. Q W E R on the bottom row, T beside the innate
     ability (D), and the level 20 ability (F) where the Learn button is once every skill is learned."""
     ours = {}
-    for h, skills in XHS.ROSTER:
+    for h, skills in HERO_SKILLS.items():
         for slot, aid in enumerate(skills):
             pos = (slot, 2) if slot < 4 else (2, 1)
             learn = (slot, 0) if slot < 4 else (0, 1)
-            base = XHS.ABILS[aid][0] if aid in XHS.ABILS else aid
-            ours[aid] = _card_mods(aid, SKILL_KEYS[slot], pos, learn) + _text_mods(aid, base, SKILL_KEYS[slot], True)
+            ours[aid] = _card_mods(aid, SKILL_KEYS[slot], pos, learn) + _text_mods(aid, SKILL_KEYS[slot], True)
         uabi = next((v for (f, _k, _l, _p, v) in XHS.UNITS[h][2] if f == "uabi"), "")
         for aid in [a for a in uabi.split(",") if a and a != "AInv"]:
-            base = XHS.ABILS[aid][0] if aid in XHS.ABILS else aid
-            ours[aid] = _card_mods(aid, INNATE_KEY, (1, 1), None) + _text_mods(aid, base, INNATE_KEY, False)
+            ours[aid] = _card_mods(aid, INNATE_KEY, (1, 1), None) + _text_mods(aid, INNATE_KEY, False, preview=f"At hero level 20: {_level20_names(h)}")
         for aid in XHS.LEVEL20[h][0]:
-            base = XHS.ABILS[aid][0] if aid in XHS.ABILS else aid
             key, pos = (INNATE_KEY, (1, 1)) if aid == "A03Q" else (GRANT_KEY, (3, 1))      # the Tauren's new roar replaces his old one
-            ours[aid] = _card_mods(aid, key, pos, None) + _text_mods(aid, base, key, False)
+            ours[aid] = _card_mods(aid, key, pos, None) + _text_mods(aid, key, False, grant=True)
+    # War Drums is a placeholder to learn: each rank swaps in a real aura of its own, which must read like that rank
+    for rank, aid in enumerate(("A033", "A046", "A047", "A048"), start=1):
+        ours[aid] = _card_mods(aid, SKILL_KEYS[4], (2, 1), None) + [(f, S, lvl, 0, text) for (f, lvl, text) in TIPS.drum_tips(rank, SKILL_KEYS[4])]
     return ours
+
+
+def tooltip_texts():
+    """Every ability text of the champions, for the build's check: the engine crashes on one that is too long."""
+    return [(aid, f"{field} rank {lvl}", field, value) for aid, mods in xhs_ability_mods().items() for (field, _k, lvl, _p, value) in mods if field in ("atp1", "aub1", "aut1", "auu1", "aret", "arut")]
 
 
 LAYOUT_FIELDS = {"ahky", "auhk", "arhk", "abpx", "abpy", "aubx", "auby", "arpx", "arpy"}
@@ -905,15 +987,16 @@ def _with_ours(aid, mods, ours):
 
 def xhs_original_abilities():
     ours = xhs_ability_mods()
-    out = [(aid, _with_ours(aid, mods, ours)) for aid, (_b, custom, mods) in XHS.ABILS.items() if not custom and aid not in XHS_REMAP]
+    out = [(aid, _with_ours(aid, mods, ours)) for aid, (_b, custom, mods) in XHS.ABILS.items() if not custom and aid not in XHS_REMAP and aid not in LEARN_REMAP]
     done = {a for a, _m in out}
     # a skill the reference left as it is (no mods) still gets our card and text
-    return out + [(aid, mods) for aid, mods in ours.items() if aid not in done and aid not in XHS.ABILS]
+    return out + [(aid, mods) for aid, mods in ours.items() if aid not in done and aid not in XHS.ABILS and aid not in LEARN_ORIGIN]
 
 
 def xhs_custom_abilities():
     ours = xhs_ability_mods()
     out = [(base, aid, _with_ours(aid, mods, ours)) for aid, (base, custom, mods) in XHS.ABILS.items() if custom]
+    out += [(old, new, _with_ours(new, XHS.ABILS[old][2], ours)) for old, new in LEARN_REMAP.items()]
     return out + [(aid, new, XHS.ABILS[aid][2]) for aid, new in XHS_REMAP.items()]
 
 
@@ -1014,20 +1097,21 @@ def custom_items():
         ("ides", S, f"+{INCOME_STEP} gold every minute, up to {INCOME_WAVE_SECONDS // 60} minutes per wave of your lane"), ("iabi", S, ""),
         ("igol", I, 0), ("ilum", I, INCOME_TREE_COST), ("isto", I, 20), ("istr", I, 1), ("isst", I, 0),
         ("ubpx", I, 0), ("ubpy", I, 0)]))
-    for i, (name, base, icon, _ab, _f, _vals, effect) in enumerate(PREMIUM_DEF):
+    for i, (name, base, icon, _ab, _f, _vals, _what, _rows) in enumerate(PREMIUM_DEF):
         key = PREMIUM_KEYS[i]
         for L in range(1, PREMIUM_LEVELS + 1):
-            hint = "|cff80ff80Max level|r" if L == PREMIUM_LEVELS else f"|cffff8c00Buy again to upgrade (max Lv {PREMIUM_LEVELS})|r"
-            mods = [("unam", S, name if L == 1 else f"{name} Lv {L}"), ("iico", S, CB + icon + ".blp"),
-                    ("utub", S, f"{effect(L)}|n|n{hint}"), ("ides", S, effect(L)),
+            text = premium_text(i, L)
+            rank = f"|cff4fc3ffRank {L}/{PREMIUM_LEVELS}|r"
+            mods = [("unam", S, name if L == 1 else f"{name} Rank {L}"), ("iico", S, CB + icon + ".blp"),
+                    ("utub", S, text), ("ides", S, text),
                     ("iabi", S, premium_abil_id(i, L)), ("igol", I, PREMIUM_PRICE), ("ilum", I, 0)]
             if L == 1:      # the shop item
-                mods += [("uhot", S, key), ("utip", S, f"|cffffcc00{name}|r (|cffffcc00{key}|r)"),
+                mods += [("uhot", S, key), ("utip", S, f"|cffffcc00{name}|r [|cffffcc00{key}|r] {rank}"),
                          ("isto", I, PREMIUM_STOCK), ("istr", I, 30), ("isst", I, 0), ("ubpx", I, i % 4), ("ubpy", I, i // 4)]
             else:
-                mods += [("utip", S, f"|cffffcc00{name}|r  |cff4fc3ffLv {L}|r")]
+                mods += [("utip", S, f"|cffffcc00{name}|r {rank}")]
             out.append((base, premium_item_id(i, L), mods))
-    return out
+    return out + boss_gear_items()
 
 
 def custom_abilities():
@@ -1043,12 +1127,13 @@ def custom_abilities():
     out.append(("Aall", CASTLE_SHARE_ABIL, [("aran", U, 1, 0, CASTLE_SHOP_RANGE), ("Neu1", U, 1, 1, CASTLE_SHOP_RANGE)]))
     out += xhs_custom_abilities()
     out += boss_spell_abilities()
+    out += boss_gear_abilities()
     out += final_boss_abilities()
     for (_lvl, _iid, aid, _name, bonus, _icon) in EPIC_ITEMS:      # epic crown: +all stats (green)
         out.append(("AIx1", aid, [("Iagi", I, 1, 1, bonus), ("Iint", I, 1, 2, bonus), ("Istr", I, 1, 3, bonus)]))
     out += scale_abilities()
     vt = {"U": U, "I": I}
-    for i, (_n, _b, _i, abase, fields, vals, _e) in enumerate(PREMIUM_DEF):
+    for i, (_n, _b, _i, abase, fields, vals, _what, _rows) in enumerate(PREMIUM_DEF):
         for L in range(1, PREMIUM_LEVELS + 1):
             out.append((abase, premium_abil_id(i, L),
                         [(f, vt[ty], 1, dp, v) for (f, ty, dp), v in zip(fields, vals(L))]))

@@ -4,6 +4,8 @@
 // real shops with the real gold, moves, attacks and casts its champion's spells. During a fight it never sets HP, gold, level, time or
 // invulnerability and never kills or pauses anything. It only reads and logs. A lost fight is data.
 // One labelled exception: mode 3 kills the lane's tower and Nexus once, to bring a boss on at the wave asked for (the bot does not push).
+// Mode 4, a duel, is a fixture from the start, and says so: hero level, wave and gold are set; the purchases are real; the lane's waves are kept away;
+// once it has begun nothing heals or kills anything. It ends at the first death or 120 s after first contact.
 //---------------------------------------------------------------------------
 function ProbeNow takes nothing returns string
     return R2SW(TimerGetElapsed(gPrClock), 1, 1)
@@ -67,7 +69,7 @@ function ProbeOnHeroHit takes nothing returns nothing
         set gPrNexusHits = gPrNexusHits + 1
         set gPrFromNexus = gPrFromNexus + d
         call ProbeLog("event=nexus_hit damage=" + I2S(R2I(d)) + " hp_before=" + I2S(R2I(GetWidgetLife(GetTriggerUnit()))))
-    elseif GetEventDamageSource() == gBoss[0] and gBoss[0] != null then
+    elseif (GetEventDamageSource() == gBoss[0] and gBoss[0] != null) or (GetEventDamageSource() == gProtector[0] and gProtector[0] != null) then
         set gPrFromBoss = gPrFromBoss + d
     elseif IsUnitInGroup(GetEventDamageSource(), gWaveUnits) then
         set gPrFromWave = gPrFromWave + d
@@ -305,6 +307,23 @@ function ProbePotions takes nothing returns integer
     return n
 endfunction
 
+// The rank of the Vampire Fang he really carries.
+function ProbeFangRank takes nothing returns integer
+    local integer s = 0
+    local integer best = 0
+    local item it
+    loop
+        exitwhen s >= 6
+        set it = UnitItemInSlot(gHero[0], s)
+        if it != null and PremiumLevel(GetItemTypeId(it), 0) > best then
+            set best = PremiumLevel(GetItemTypeId(it), 0)
+        endif
+        set s = s + 1
+    endloop
+    set it = null
+    return best
+endfunction
+
 // A purchase counts only when its effect is seen: the shop step moved, the potion is there, the income rose.
 // An order the shop refused or refunded costs nothing and is logged as such. Returns true when nothing is pending.
 function ProbeResolve takes nothing returns boolean
@@ -316,6 +335,8 @@ function ProbeResolve takes nothing returns boolean
         set done = KindNext(0, gPrPendKind) > gPrPendStep
     elseif gPrPendType == 2 then
         set done = ProbePotions() > gPrPendStep
+    elseif gPrPendType == 4 then
+        set done = ProbeFangRank() > gPrPendStep
     else
         set done = gIncome[0] > gPrPendStep
     endif
@@ -350,6 +371,20 @@ function ProbeBuy takes string c returns boolean
     local integer price
     local integer g = ProbeGold()
     if not ProbeResolve() then
+        return false
+    endif
+    if c == "V" then
+        if g < gPremPrice then
+            return false
+        endif
+        set k = ProbeFangRank()
+        if IssueNeutralImmediateOrderById(Player(0), gArmoryShop, gPremItem[1]) then
+            call ProbePend(0, k, gPremPrice, "fang", g, 4)
+            return true
+        endif
+        if gPrFangTries >= 30 then
+            call ProbeLog("event=buy_refused item=fang gold=" + I2S(g))
+        endif
         return false
     endif
     if c == "P" then
@@ -636,6 +671,135 @@ function ProbeBossFight takes unit h returns boolean
     return true
 endfunction
 
+// ---- The duel
+function ProbeDuelClearEnum takes nothing returns nothing
+    call RemoveUnit(GetEnumUnit())
+endfunction
+
+function ProbeDuelClear takes nothing returns nothing
+    call LanesStop()
+    call ForGroup(gWaveUnits, function ProbeDuelClearEnum)
+    call GroupClear(gWaveUnits)
+endfunction
+
+function ProbeDuelEnd takes string winner returns nothing
+    local real now = TimerGetElapsed(gPrClock)
+    local real contact = now
+    if gPrDuelContact >= 0.0 then
+        set contact = gPrDuelContact
+    endif
+    call ProbeLog("event=duel_end winner=" + winner + " fight_s=" + R2SW(now - contact, 1, 1) + " hero_hp=" + I2S(R2I(GetWidgetLife(gHero[0]))) + " hero_max=" + I2S(R2I(GetUnitState(gHero[0], UNIT_STATE_MAX_LIFE))) + " boss_hp=" + I2S(R2I(GetWidgetLife(gPrBoss))) + " boss_max=" + I2S(R2I(gPrBossMax)))
+    call ProbeLog("event=duel_damage hero_raw=" + I2S(R2I(gPrHeroOtherRaw)) + " others_raw=" + I2S(R2I(gPrOtherRaw)) + " from_boss=" + I2S(R2I(gPrFromBoss)) + " from_other=" + I2S(R2I(gPrFromOther + gPrFromWave)) + " hits=" + I2S(gPrHits) + " hp_min=" + I2S(R2I(gPrHpMin)) + " casts=" + I2S(gPrCasts) + " boss_casts=" + I2S(gPrBossCasts))
+    call ProbeFinish("duel_" + winner)
+endfunction
+
+function ProbeOnBossSpell takes nothing returns nothing
+    if GetTriggerUnit() == gPrBoss and gPrBoss != null then
+        set gPrBossCasts = gPrBossCasts + 1
+        call ProbeLog("event=boss_cast id=" + I2S(GetSpellAbilityId()) + " target_immune=" + I2S(IntegerTertiaryOp(IsUnitType(gHero[0], UNIT_TYPE_MAGIC_IMMUNE), 1, 0)) + " hero_hp=" + I2S(R2I(GetWidgetLife(gHero[0]))))
+    endif
+endfunction
+
+function ProbeOnBossChannel takes nothing returns nothing
+    if GetTriggerUnit() == gPrBoss and gPrBoss != null then
+        set gPrBossChannelAt = TimerGetElapsed(gPrClock)
+    endif
+endfunction
+
+function ProbeOnBossFinish takes nothing returns nothing
+    if GetTriggerUnit() == gPrBoss and gPrBoss != null then
+        set gPrBossFinished = true
+    endif
+endfunction
+
+function ProbeOnBossEnd takes nothing returns nothing
+    local real seconds = TimerGetElapsed(gPrClock) - gPrBossChannelAt
+    if GetTriggerUnit() == gPrBoss and gPrBoss != null and seconds >= 1.0 then
+        call ProbeLog("event=boss_channel id=" + I2S(GetSpellAbilityId()) + " seconds=" + R2SW(seconds, 1, 1) + " finished=" + I2S(IntegerTertiaryOp(gPrBossFinished, 1, 0)))
+    endif
+    if GetTriggerUnit() == gPrBoss then
+        set gPrBossFinished = false
+    endif
+endfunction
+
+function ProbeDuelTick takes nothing returns nothing
+    local real now = TimerGetElapsed(gPrClock)
+    local string c
+    if gPrDuelPhase == 0 then
+        // the gold that is left, into the build's cycle at the shop's own prices
+        if not gPrBuyDone or not ProbeResolve() then
+            return
+        endif
+        set c = SubString(gPrCycle, ModuloInteger(gPrCycleAt, StringLength(gPrCycle)), ModuloInteger(gPrCycleAt, StringLength(gPrCycle)) + 1)
+        if ProbeBuy(c) then
+            set gPrCycleAt = gPrCycleAt + 1
+        else
+            set gPrDuelPhase = 1
+            call ProbeStats("duel_ready")
+            call ProbeRanks()
+            // the gold of the fixture is no income: spent is what the shops really took
+            call ProbeLog("event=duel_loadout fang_rank=" + I2S(ProbeFangRank()) + " spent=" + I2S(gPrSpent) + " gold_left=" + I2S(ProbeGold()) + " budget=" + I2S(gPrDuelBudget))
+        endif
+    elseif gPrDuelPhase == 1 then
+        call KillUnit(gTower[0])
+        set gPrDuelPhase = 2
+    elseif gPrDuelPhase == 2 then
+        if gPrDuelNexus then
+            // to the Nexus boss alone
+            call RemoveUnit(gProtector[0])
+            set gProtector[0] = null
+            call KillUnit(gNexus[0])
+        else
+            set gPrBoss = gProtector[0]
+        endif
+        set gPrDuelPhase = 3
+    elseif gPrDuelPhase == 3 then
+        if gPrDuelNexus then
+            set gPrBoss = gBoss[0]
+        endif
+        call ProbeDuelClear()
+        set gPrBossMax = GetUnitState(gPrBoss, UNIT_STATE_MAX_LIFE)
+        call ProbeResetWave()
+        set gPrHpMin = GetWidgetLife(gHero[0])
+        set gPrDuelStart = now
+        call ProbeLog("event=duel_start boss=" + GetUnitName(gPrBoss) + " hp=" + I2S(R2I(gPrBossMax)) + " spell_level=" + I2S(GetUnitAbilityLevel(gPrBoss, gBossSpell[LaneArm(0) * 2])) + " speed=" + I2S(R2I(GetUnitMoveSpeed(gPrBoss))) + " gold=" + I2S(ProbeGold()))
+        set gPrDuelPhase = 4
+    else
+        call ProbeDuelClear()
+        if gPrDuelContact < 0.0 and (gPrFirstHit >= 0.0 or gPrFirstDeal >= 0.0) then
+            set gPrDuelContact = now
+            call ProbeLog("event=duel_contact s_after_start=" + R2SW(now - gPrDuelStart, 1, 1))
+        endif
+        if GetWidgetLife(gHero[0]) <= 0.405 or gPrDeathsWave > 0 then
+            call ProbeDuelEnd("boss")
+        elseif GetWidgetLife(gPrBoss) <= 0.405 then
+            call ProbeDuelEnd("hero")
+        elseif gPrDuelContact >= 0.0 and now >= gPrDuelContact + 120.0 then
+            call ProbeDuelEnd("time")
+        elseif gPrDuelContact < 0.0 and now >= gPrDuelStart + 60.0 then
+            call ProbeDuelEnd("no_contact")
+        elseif now >= gPrBossLogAt + 5.0 then
+            set gPrBossLogAt = now
+            call ProbeLog("event=duel_tick boss_hp=" + I2S(R2I(GetWidgetLife(gPrBoss))) + " hero_hp=" + I2S(R2I(GetWidgetLife(gHero[0]))) + " casts=" + I2S(gPrCasts) + " boss_casts=" + I2S(gPrBossCasts))
+            call TestFlush()
+        endif
+    endif
+endfunction
+
+function ProbeDuelHero takes unit h returns nothing
+    local real now = TimerGetElapsed(gPrClock)
+    if gPrDuelPhase < 4 or gPrBoss == null or GetWidgetLife(gPrBoss) <= 0.405 then
+        return
+    endif
+    if ProbeDist(GetUnitX(h), GetUnitY(h), GetUnitX(gPrBoss), GetUnitY(gPrBoss)) < 900.0 then
+        call ProbeCast(h, gPrBoss)
+    endif
+    if GetUnitCurrentOrder(h) == 0 or now >= gPrOrderAt + 4.0 then
+        set gPrOrderAt = now
+        call IssueTargetOrder(h, "attack", gPrBoss)
+    endif
+endfunction
+
 function ProbeNearestEnum takes nothing returns nothing
     local unit u = GetEnumUnit()
     local real d
@@ -676,6 +840,11 @@ function ProbeHero takes nothing returns nothing
     endif
     if hp < mx * 0.4 then
         call ProbeDrink(h)
+    endif
+    if gPrMode == 4 then
+        call ProbeDuelHero(h)
+        set h = null
+        return
     endif
     if gPrMode == 3 and (gPrBossAt >= 0.0 or gLaneWave[0] >= gPrStallWave) then
         if ProbeBossFight(h) then
@@ -749,6 +918,14 @@ function ProbeTick takes nothing returns nothing
         return
     endif
     call ProbeResolve()
+    if gPrMode == 4 then
+        call ProbeHero()
+        call ProbeDuelTick()
+        if now >= gPrDuration and ProbeResolve() then
+            call ProbeFinish("limit")
+        endif
+        return
+    endif
     if gLaneWave[0] != gPrWave then
         if gPrWaveOpen then
             call ProbeWaveLine("next_wave_before_clear")
@@ -800,8 +977,12 @@ function ProbeBuyStep takes nothing returns nothing
     endif
     if gPrBuyAt < StringLength(gPrBuy) then
         set c = SubString(gPrBuy, gPrBuyAt, gPrBuyAt + 1)
-        set gPrBuyAt = gPrBuyAt + 1
-        call ProbeBuy(c)
+        // a grove shop takes a champion as its buyer only a moment after he is placed: the Fang is asked for again, not skipped
+        if ProbeBuy(c) or c != "V" or gPrFangTries >= 30 then
+            set gPrBuyAt = gPrBuyAt + 1
+        else
+            set gPrFangTries = gPrFangTries + 1
+        endif
     else
         set gPrBuyDone = true
         call DestroyTimer(GetExpiredTimer())
@@ -857,6 +1038,14 @@ function ProbeStart takes nothing returns nothing
     call TriggerRegisterUnitEvent(t, gCastle, EVENT_UNIT_DEATH)
     call TriggerAddAction(t, function ProbeOnCastleDeath)
     set t = null
+    if gPrMode == 4 then
+        // the fixture, before any wave: his level, his lane's wave, his gold
+        call LanesStop()
+        set gLaneWave[0] = gPrStallWave
+        call SetHeroLevel(gHero[0], gPrDuelLevel, false)
+        call SetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD, gPrDuelBudget)
+        call ProbeLog("event=duel_fixture wave=" + I2S(gPrStallWave) + " level=" + I2S(gPrDuelLevel) + " gold=" + I2S(gPrDuelBudget))
+    endif
     call ProbeLearn(gHero[0])
     call ProbeStats("naked")
     call IssuePointOrder(gHero[0], "attack", gPrEX, gPrEY)
@@ -897,6 +1086,22 @@ function ProbeBoot takes nothing returns nothing
     set t = CreateTrigger()
     call TriggerRegisterPlayerUnitEvent(t, Player(0), EVENT_PLAYER_UNIT_SPELL_EFFECT, null)
     call TriggerAddAction(t, function ProbeOnSpell)
+    set t = CreateTrigger()
+    call TriggerRegisterPlayerUnitEvent(t, Player(8), EVENT_PLAYER_UNIT_SPELL_EFFECT, null)
+    call TriggerRegisterPlayerUnitEvent(t, Player(9), EVENT_PLAYER_UNIT_SPELL_EFFECT, null)
+    call TriggerAddAction(t, function ProbeOnBossSpell)
+    set t = CreateTrigger()
+    call TriggerRegisterPlayerUnitEvent(t, Player(8), EVENT_PLAYER_UNIT_SPELL_CHANNEL, null)
+    call TriggerRegisterPlayerUnitEvent(t, Player(9), EVENT_PLAYER_UNIT_SPELL_CHANNEL, null)
+    call TriggerAddAction(t, function ProbeOnBossChannel)
+    set t = CreateTrigger()
+    call TriggerRegisterPlayerUnitEvent(t, Player(8), EVENT_PLAYER_UNIT_SPELL_FINISH, null)
+    call TriggerRegisterPlayerUnitEvent(t, Player(9), EVENT_PLAYER_UNIT_SPELL_FINISH, null)
+    call TriggerAddAction(t, function ProbeOnBossFinish)
+    set t = CreateTrigger()
+    call TriggerRegisterPlayerUnitEvent(t, Player(8), EVENT_PLAYER_UNIT_SPELL_ENDCAST, null)
+    call TriggerRegisterPlayerUnitEvent(t, Player(9), EVENT_PLAYER_UNIT_SPELL_ENDCAST, null)
+    call TriggerAddAction(t, function ProbeOnBossEnd)
     set t = CreateTrigger()
     call TriggerRegisterPlayerUnitEvent(t, Player(0), EVENT_PLAYER_UNIT_SUMMON, null)
     call TriggerAddAction(t, function ProbeOnSummon)

@@ -38,7 +38,7 @@ if TEST and PROBE is not None:
     sys.exit("--probe and --test cannot be combined: --test changes the timers and runs TestStep")
 # VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
 # map name (game list, lobby, loading screen), the file name and the catalogue title.
-MAP_VERSION = "4.3"
+MAP_VERSION = "4.4"
 MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else "TechToolsCastleDefence_PROBE.w3x" if PROBE is not None else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
@@ -447,6 +447,84 @@ globals
     integer gTestHeroT = 0
     integer gTestCardT = 0
     integer gTestSoldType = 0
+    integer gTestWardenStep = 0
+    boolean gTestWardenStarted = false
+    boolean gTestWardenDone = false
+    real gTestWardenAt = 0.0
+    real gTestWardenLife = 0.0
+    integer gTestWardenItems = 0
+    unit gTestWardenDummy = null
+    unit gTestWardenBolt = null
+    timer gTestPremClock = CreateTimer()
+    timer gTestPremTimer = CreateTimer()
+    integer gTestPremT = 0
+    boolean gTestPremStarted = false
+    boolean gTestPremDone = false
+    boolean gTestPremAttackOff = false
+    unit gTestPremHero = null
+    unit array gTestPremFoe
+    trigger gTestPremTrig = null
+    trigger gTestPremTrig2 = null
+    trigger gTestPremTrig3 = null
+    integer gTestPremHits = 0
+    real gTestPremDamage = 0.0
+    real gTestPremHeal = 0.0
+    real gTestPremLife = 0.0
+    real gTestPremFirst = 0.0
+    real gTestPremLast = 0.0
+    real gTestPremBase = 0.0
+    real gTestPremBase2 = 0.0
+    real gTestPremX = 0.0
+    real gTestPremY = 0.0
+    real gTestPremX2 = 0.0
+    integer gTestPremStuns = 0
+    integer gTestBoltTries = 0
+    integer gTestBoltT = 0
+    integer gTestBoltSpells = 0
+    integer gTestBoltHits = 0
+    integer gTestBoltStunned = 0
+    timer gTestBoltTimer = CreateTimer()
+    real gTestBoltLife = 0.0
+    integer gTestLearnStep = 0
+    boolean gTestLearnStarted = false
+    boolean gTestLearnDone = false
+    item gTestPremItem = null
+    timer gTestStunTimer = CreateTimer()
+    integer gTestStunRuns = 0
+    real gTestStunShortest = 0.0
+    real gTestStunNow = 0.0
+    integer gTestGearT = 0
+    boolean gTestGearStarted = false
+    boolean gTestGearDone = false
+    real gTestGearPlain = 0.0
+    real gTestGearBolt = 0.0
+    integer gTestGearBoltHits = 0
+    real gTestGearEvery = 0.0
+    real gTestPremVolleyMin = 0.0
+    real gTestPremVolleyAt = 0.0
+    integer gTestPremVolleyId = 0
+    integer gTestPremVolleyN = 0
+    integer gTestPremVolleyBest = 0
+    integer array gTestPremFoeVolley
+    integer gTestPremPoison = 0
+    integer gTestPremAttacked = 0
+    integer gTestPremHurt = 0
+    real array gTestPremD
+    real array gBossBaseHp
+    string gTestOnly = ""
+    integer gTourN = 0
+    integer gTestTourN = 0
+    integer gTestTourStep = 0
+    unit gTestTourHero = null
+    integer array gTourKind
+    integer array gTourHero
+    integer array gTourLevel
+    integer array gTourRank
+    integer array gTourItem
+    integer array gTourX
+    integer array gTourY
+    string array gTourOrder
+    string array gTourName
     integer gTestPickBuy = 0
     integer gTestPickC = 0
     integer gTestPickStep = 0
@@ -572,6 +650,11 @@ globals
     integer array gBaseType
     integer array gTurretType
     integer array gBossType
+    integer array gGearHeart
+    integer array gGearHands
+    integer array gGearPlate
+    real array gWardenAvgDmg
+    real gWardenLeash = 1500.0
     real array gNexusX
     real array gNexusY
     real array gTowerX
@@ -790,12 +873,21 @@ def build_script():
         a(f"    set gDevName[{i}] = {jstr(n)}")
     a(f"    set gDevCount = {len(DEV_NAMES)}")
     # upgradable premium items: gPremItem[i*8 + L] (L = 1..PREMIUM_LEVELS), Lv 1 = the shop item
-    for i, (name, _b, _ic, _ab, _f, _v, effect) in enumerate(OB.PREMIUM_DEF):
+    for i, (name, _b, _ic, _ab, _f, _v, _what, _rows) in enumerate(OB.PREMIUM_DEF):
         a(f"    set gPremName[{i}] = {jstr(name)}")
         for lv in range(1, OB.PREMIUM_LEVELS + 1):      # (not "L": that is the script's line list here)
             a(f"    set gPremItem[{i * 8 + lv}] = '{OB.premium_item_id(i, lv)}'")
-            a(f"    set gPremEffect[{i * 8 + lv}] = {jstr(effect(lv))}")
+            a(f"    set gPremEffect[{i * 8 + lv}] = {jstr(OB.premium_effect(i, lv))}")
     a(f"    set gPremCount = {len(OB.PREMIUM_DEF)}")
+    for tier in (0, 1):
+        for li in range(1 + len(OB.GATE_LEVELS)):
+            a(f"    set gGearHeart[{li * 2 + tier}] = '{OB.gear_heart_id(li, tier)}'")
+        a(f"    set gGearHands[{tier}] = '{OB.gear_hands_id(tier)}'")
+        a(f"    set gGearPlate[{tier}] = '{OB.gear_plate_id(tier)}'")
+    a(f"    set gWardenLeash = {jr(OB.WARDEN_LEASH)}")
+    for tier in (0, 1):
+        for li in range(1 + len(OB.GATE_LEVELS)):
+            a(f"    set gBossBaseHp[{li * 2 + tier}] = {OB.boss_base_hp(li, tier) + OB.gear_heart_bonus(li, tier)}.0")
     a(f"    set gPremMax = {OB.PREMIUM_LEVELS}")
     a(f"    set gPremPrice = {OB.PREMIUM_PRICE}")
     for (lvl, iid, _aid, name, bonus, _icon) in OB.EPIC_ITEMS:
@@ -833,6 +925,10 @@ def build_script():
         a(f"    set gDrumAura[{level}] = '{aid}'")
     if TEST or PROBE is not None:
         build_cast_table(a)
+    if TEST and os.environ.get("CD_TEST_ONLY") == "tour":
+        build_tour_table(a)
+    if TEST and os.environ.get("CD_TEST_ONLY") == "finalbolt":
+        a('    set gTestOnly = "finalbolt"')
     a(f"    set gFinalType = '{OB.FINAL_BOSS_ID}'")
     a(f"    set gFinalName = {jstr(OB.FINAL_BOSS_NAME)}")
     a(f"    set gFinalFx = {jstr(OB.FX['final'])}")
@@ -895,6 +991,7 @@ def build_script():
         src, bname = g["boss"][0], g["boss"][1]
         sb = OB.FACTIONS[src]["boss"]
         a(f"    set gBossType[{arm * 3 + 1}] = '{OB.boss_id(arm, 1)}'")
+        a(f"    set gBossType[{arm * 3}] = '{OB.boss_id(arm, 0)}'")
         a(f"    set gBossName[{arm}] = {jstr(bname)}")
         a(f"    set gBossOrd1[{arm}] = {jstr(sb['cast1'][0])}")
         a(f"    set gBossKind1[{arm}] = {sb['cast1'][1]}")
@@ -907,6 +1004,8 @@ def build_script():
         a(f"    set gBossSpell[{arm * 2 + 1}] = '{spell2}'")
         boss_base, boss_dice, boss_sides = OB.BOSS_DMG[1]
         a(f"    set gBossAvgDmg[{arm}] = {jr(int(boss_base * g['boss'][3]) + boss_dice * (boss_sides + 1) / 2)}")
+        boss_base, boss_dice, boss_sides = OB.BOSS_DMG[0]
+        a(f"    set gWardenAvgDmg[{arm}] = {jr(int(boss_base * g['boss'][3]) + boss_dice * (boss_sides + 1) / 2)}")
     # stage rosters: gStageUnit[arm*6 + stage*2 + 0 front / 1 back]; arm 4 = the Dark Gate
     for d, f in enumerate(OB.FACTIONS + OB.GATE_LEVELS):      # standardized copies (q<arm><stage><m|r>)
         for st in range(len(f["stages"])):
@@ -963,6 +1062,7 @@ def build_script():
         a(f"    set gBossSpell[{d * 2}] = '{spell1}'")
         a(f"    set gBossSpell[{d * 2 + 1}] = '{spell2}'")
         a(f"    set gBossAvgDmg[{d}] = {jr(OB._avg(OB.BOSS_DMG[1]))}")
+        a(f"    set gWardenAvgDmg[{d}] = {jr(OB._avg(OB.BOSS_DMG[0]))}")
     tav_of = {h: k for k, (_, _, hs) in enumerate(OB.TAVERNS) for h in hs}
     for i, h in enumerate(OB.ALL_HEROES):
         a(f"    set gHeroPool[{i}] = '{h}'")
@@ -1148,6 +1248,115 @@ def build_mmp():
 
 
 # ----------------------------------------------------------------------------- main
+def card_point(x, y):
+    """Screen point of a command card button at 800 x 600 in the hidden window."""
+    return 634 + 44 * x, 491 + 43 * y
+
+
+def inventory_point(slot):
+    return 529 + 44 * (slot % 2), 505 + 40 * (slot // 2)
+
+
+def tour_rows():
+    """What the tooltip tour looks at: (name, kind, hero, level, ranks, button point, order, item). Kind 0 the champion's card, 1 the tavern, 2 the armory, 3 his learn card."""
+    idx = {h: OB.ALL_HEROES.index(h) for h in OB.ALL_HEROES}
+    q, w, e, r, t, d, f = card_point(0, 2), card_point(1, 2), card_point(2, 2), card_point(3, 2), card_point(2, 1), card_point(1, 1), card_point(3, 1)
+    lq, lw, le, lr, lt = card_point(0, 0), card_point(1, 0), card_point(2, 0), card_point(3, 0), card_point(0, 1)
+
+    def card(name, hero, level, ranks, point, order="", item=0):
+        rows.append((name, 0, idx[hero], level, ranks, point, order, item))
+
+    def learn(name, hero, level, ranks, point):
+        rows.append((name, 3, idx[hero], level, ranks, point, "", 0))
+    rows = []
+    # the Dryad: unlearned, low, mid, max of her spears; passive, aura, innate, level 20
+    learn("dryad-arrows-learn-unlearned", "H007", 1, [0, 0, 0, 0, 0], lw)
+    card("dryad-arrows-r1", "H007", 19, [0, 1, 0, 0, 0], w)
+    card("dryad-arrows-r2", "H007", 19, [0, 2, 0, 0, 0], w)
+    card("dryad-arrows-r4-max", "H007", 19, [0, 4, 0, 0, 0], w)
+    learn("dryad-arrows-learn-r2-offers-r3", "H007", 7, [0, 2, 0, 0, 0], lw)
+    card("dryad-crit-r2", "H007", 19, [0, 0, 2, 0, 0], e)
+    card("dryad-trueshot-r3", "H007", 19, [0, 0, 0, 3, 0], r)
+    card("dryad-endurance-r4", "H007", 19, [0, 0, 0, 0, 4], t)
+    card("dryad-poison-innate", "H007", 1, [0, 0, 0, 0, 0], d)
+    card("dryad-immunity-level20", "H007", 20, [4, 4, 4, 4, 4], f)
+    # the Mountain King: an active at low, mid and max, locked in the learn card, a passive, the toggle both ways
+    card("mk-bolt-r1", "Hmkg", 19, [1, 0, 0, 0, 0], q)
+    card("mk-bolt-r2", "Hmkg", 19, [2, 0, 0, 0, 0], q)
+    card("mk-bolt-r4-max", "Hmkg", 19, [4, 0, 0, 0, 0], q)
+    learn("mk-avatar-learn-locked", "Hmkg", 3, [0, 0, 0, 0, 0], lr)
+    card("mk-clap-r3-long", "Hmkg", 19, [0, 3, 0, 0, 0], w)
+    card("mk-bash-r2-passive", "Hmkg", 19, [0, 0, 2, 0, 0], e)
+    card("mk-avatar-r1", "Hmkg", 19, [0, 0, 0, 1, 0], r)
+    card("mk-spirit-innate", "Hmkg", 1, [0, 0, 0, 0, 0], d)
+    card("mk-shield-level20-off", "Hmkg", 20, [4, 4, 4, 2, 4], f)
+    card("mk-shield-level20-on", "Hmkg", 20, [4, 4, 4, 2, 4], f, "immolation")
+    # toggles and autocast
+    card("dh-immolation-r2-off", "Edem", 19, [2, 0, 0, 0, 0], q)
+    card("dh-immolation-r2-on", "Edem", 19, [2, 0, 0, 0, 0], q, "immolation")
+    card("dh-negative-r1", "Edem", 19, [0, 1, 0, 0, 0], w)
+    card("dh-meta-r2", "Edem", 19, [0, 0, 0, 2, 0], r)
+    card("lich-frostarmor-r2-autocast-off", "Ulic", 19, [0, 0, 0, 0, 2], t)
+    card("lich-frostarmor-r2-autocast-on", "Ulic", 19, [0, 0, 0, 0, 2], t, "frostarmoron")
+    card("lich-frostarrows-r3", "Ulic", 19, [0, 0, 3, 0, 0], e)
+    card("lich-nova-r2", "Ulic", 19, [2, 0, 0, 0, 0], q)
+    card("crypt-beetles-r4-summon", "Ucrl", 19, [0, 0, 4, 0, 0], e)
+    card("crypt-locusts-r2-long", "Ucrl", 19, [0, 0, 0, 2, 0], r)
+    card("crypt-impale-r2", "Ucrl", 19, [2, 0, 0, 0, 0], q)
+    # the longest, summons, channels
+    card("pit-rain-r4-longest", "Nplh", 19, [4, 0, 0, 0, 0], q)
+    card("pit-doom-r2", "Nplh", 19, [0, 0, 0, 2, 0], r)
+    card("pit-unholy-r1-aura", "Nplh", 19, [0, 0, 0, 0, 1], t)
+    card("mage-blizzard-r3", "Hamg", 19, [3, 0, 0, 0, 0], q)
+    card("mage-elemental-r4-summon", "Hamg", 19, [0, 4, 0, 0, 0], w)
+    learn("mage-blizzard-learn-r1-offers-r2", "Hamg", 5, [1, 0, 0, 0, 0], lq)
+    card("beast-bear-r3-summon", "Nbst", 19, [3, 0, 0, 0, 0], q)
+    card("beast-stampede-r2", "Nbst", 19, [0, 0, 0, 2, 0], r)
+    card("blade-drums-r3-aura", "Obla", 19, [0, 0, 0, 0, 3], t)
+    card("blade-mirror-r2", "Obla", 19, [0, 0, 2, 0, 0], e)
+    card("pala-wave-r2", "Hpal", 19, [2, 0, 0, 0, 0], q)
+    card("tauren-shock-r2", "Otch", 19, [2, 0, 0, 0, 0], q)
+    card("tauren-roar-innate", "Otch", 1, [0, 0, 0, 0, 0], d)
+    card("moon-chain-r3", "Emoo", 19, [3, 0, 0, 0, 0], q)
+    # the fullest card at hero level 20 before everything is maxed: seven skills on it, points left, so the Learn button too. Which button stands where, all twelve places
+    for label, hero in (("lich", "Ulic"), ("mk", "Hmkg"), ("dh", "Edem")):
+        for y in range(3):
+            for x in range(4):
+                card(f"full20-{label}-{x}{y}", hero, 20, [1, 1, 1, 1, 1], card_point(x, y), "keep")
+    # the shops and the items
+    rows.append(("tavern-dryad", 1, 0, 1, [0, 0, 0, 0, 0], card_point(0, 0), "", 0))
+    rows.append(("tavern-mk", 1, 0, 1, [0, 0, 0, 0, 0], card_point(1, 0), "", 0))
+    rows.append(("armory-fang", 2, 0, 1, [0, 0, 0, 0, 0], card_point(0, 0), "", 0))
+    rows.append(("armory-hammer", 2, 0, 1, [0, 0, 0, 0, 0], card_point(3, 0), "", 0))
+    rows.append(("circle-agility", 4, 0, 1, [0, 0, 0, 0, 0], card_point(1, 1), "", 0))
+    card("item-fang-r2", "Hmkg", 5, [0, 0, 0, 0, 0], inventory_point(0), "", OB.premium_item_id(0, 2))
+    card("item-fang-r5-max", "Hmkg", 5, [0, 0, 0, 0, 0], inventory_point(0), "", OB.premium_item_id(0, 5))
+    card("item-axe-r3", "Hmkg", 5, [0, 0, 0, 0, 0], inventory_point(0), "", OB.premium_item_id(2, 3))
+    if os.environ.get("CD_TOUR") == "ui2":
+        again = ("dh-immolation-r2-off", "dh-immolation-r2-on", "mk-shield-level20-off", "mk-shield-level20-on", "dryad-immunity-level20", "mk-bolt-r1", "mk-bolt-r2", "mk-bolt-r4-max",
+                 "lich-nova-r2", "mage-blizzard-r3", "pit-rain-r4-longest", "pit-doom-r2", "dh-negative-r1", "dh-meta-r2", "tauren-shock-r2", "pala-wave-r2", "moon-chain-r3", "beast-bear-r3-summon",
+                 "mk-clap-r3-long", "crypt-impale-r2", "blade-mirror-r2", "dryad-endurance-r4")
+        rows = [r for r in rows if r[0] in again or r[0].startswith("full20-")]
+    return rows
+
+
+def build_tour_table(a):
+    rows = tour_rows()
+    for n, (name, kind, hero, level, ranks, (x, y), order, item) in enumerate(rows):
+        a(f"    set gTourName[{n}] = {jstr(name)}")
+        a(f"    set gTourKind[{n}] = {kind}")
+        a(f"    set gTourHero[{n}] = {hero}")
+        a(f"    set gTourLevel[{n}] = {level}")
+        a(f"    set gTourX[{n}] = {x}")
+        a(f"    set gTourY[{n}] = {y}")
+        a(f"    set gTourOrder[{n}] = {jstr(order)}")
+        a(f"    set gTourItem[{n}] = {chr(39) + item + chr(39) if item else 0}")
+        for s, rank in enumerate(ranks):
+            a(f"    set gTourRank[{n * 5 + s}] = {rank}")
+    a(f"    set gTourN = {len(rows)}")
+    a(f"    set gTestOnly = {jstr('tour')}")
+
+
 def native_areas(game):
     """The game's own Area of Effect of every ability, by level: code -> {level: area}."""
     cells = slk_cells(game.read("Units\\AbilityData.slk"))
@@ -1186,11 +1395,11 @@ def build_cast_table(a):
         uabi = next((v for (f, _k, _l, _p, v) in XHS.UNITS[h][2] if f == "uabi"), "")
         extras = [x for x in uabi.split(",") if x and x != "AInv"] + XHS.LEVEL20[h][0]
         # the innate and level 20 abilities first: the Tauren's roar must be on before his Stomp and Shockwave strike twice
-        rows = [aid for aid in extras + OB.HERO_SKILLS[h] if OB.XHS_SKILLS[aid][3] and aid != "ACro"]
+        rows = [aid for aid in extras + OB.HERO_SKILLS[h] if OB.XHS_SKILLS[aid][2] and aid != "ACro"]
         # a split or a demon form stays on, so it comes last
-        rows.sort(key=lambda aid: OB.XHS_SKILLS[aid][5].split(":")[0] in ("split", "morph"))
+        rows.sort(key=lambda aid: OB.XHS_SKILLS[aid][4].split(":")[0] in ("split", "morph"))
         for aid in rows:
-            name, _kind, _text, order, target, effect = OB.XHS_SKILLS[aid]
+            name, _kind, order, target, effect = OB.XHS_SKILLS[aid]
             what, detail, count = (effect.split(":") + ["", ""])[:3]
             if what == "images":
                 detail, count = "", detail
@@ -1292,6 +1501,16 @@ REQUIRED_SCRIPT_DATA = ["set gScaleBit[0] = ", "set gWaveHpGrowth = ", "set gTea
                         ]
 
 
+def check_tooltips():
+    """An ability text that is too long crashes the game while the map loads: stop the build, naming it."""
+    texts = [(f"{aid} {where}", field, value) for (aid, where, field, value) in OB.tooltip_texts()]
+    texts += [(f"{uid} {field}", field, value) for (_base, uid, mods) in OB.custom_items() for (field, _k, value) in mods if field in ("utub", "ides")]
+    long_lines = OB.TIPS.check(texts)
+    print(f"tooltips: {len(texts)} texts, longest {max(len(v.encode('utf-8')) for (_o, _f, v) in texts)} bytes, {len(long_lines)} rows wrap")
+    for owner, line in long_lines:
+        print(f"  wraps: {owner}: {line}")
+
+
 def check_script_data(script):
     """Fail the build if a data block vanished from InitData. An edit once deleted the Bank / premium / dev-name
     data: the map still compiled and ran, but Bank buys and item upgrades silently did nothing (2026-10-31)."""
@@ -1353,6 +1572,16 @@ PROBE_GLOBALS = """    // balance probe: only in --probe maps
     integer gPrHero = 0
     integer gPrCasts = 0
     integer gPrCastOrder = 0
+    integer gPrDuelPhase = 0
+    integer gPrFangTries = 0
+    integer gPrDuelLevel = 1
+    integer gPrDuelBudget = 1000
+    boolean gPrDuelNexus = false
+    real gPrDuelContact = -1.0
+    real gPrDuelStart = 0.0
+    integer gPrBossCasts = 0
+    real gPrBossChannelAt = 0.0
+    boolean gPrBossFinished = false
     boolean gPrChannel = false
     real gPrChannelAt = 0.0
     integer gPrOtherN = 0
@@ -1392,7 +1621,7 @@ PROBE_GLOBALS = """    // balance probe: only in --probe maps
     boolean gPrBuyDone = false
     real gPrPriceBase = 100.0
     real gPrPriceXp = 250.0
-    real gPrPriceGrowth = 1.03
+    real gPrPriceGrowth = 1.05
     integer gPrPotionPrice = 100
     string gPrBuy = ""
     string gPrCycle = ""
@@ -1449,7 +1678,7 @@ PROBE_GLOBALS = """    // balance probe: only in --probe maps
 
 def apply_probe(script):
     """The production script, plus gen/probe.j and two hooks. No production line changes."""
-    cfg = {"hero": 0, "mode": 0, "seed": 1, "buy": "", "cycle": "", "duration": 300, "max_wave": 0, "stall_wave": 3}
+    cfg = {"hero": 0, "mode": 0, "seed": 1, "buy": "", "cycle": "", "duration": 300, "max_wave": 0, "stall_wave": 3, "duel_level": 1, "duel_budget": 1000, "duel_nexus": False}
     cfg.update(PROBE)
     def once(text, old, new):
         assert text.count(old) == 1, old
@@ -1464,6 +1693,7 @@ def apply_probe(script):
         f"    set gPrHero = {int(cfg['hero'])}", f"    set gPrMode = {int(cfg['mode'])}", f"    set gPrSeed = {int(cfg['seed'])}",
         f"    set gPrMaxWave = {int(cfg['max_wave'])}", f"    set gPrStallWave = {int(cfg['stall_wave'])}", f"    set gPrDuration = {float(cfg['duration'])}",
         f'    set gPrBuy = "{cfg["buy"]}"', f'    set gPrCycle = "{cfg["cycle"]}"',
+        f"    set gPrDuelLevel = {int(cfg['duel_level'])}", f"    set gPrDuelBudget = {int(cfg['duel_budget'])}", f"    set gPrDuelNexus = {'true' if cfg['duel_nexus'] else 'false'}",
         f"    set gPrPriceBase = {float(OB.STAT_BASE_PRICE)}", f"    set gPrPriceGrowth = {float(OB.STAT_PRICE_GROWTH)}",
         f"    set gPrTowerHit = {avg(OB.TURRET_DMG)}", f"    set gPrNexusHit = {avg(OB.NEXUS_DMG)}", f"    set gPrBossHit = {avg(OB.BOSS_DMG[1])}",
         f"    set gPrBaseArmor = {float(base_armor)}", f"    set gPrArmorStep = {float(OB.KINDS_DEF[3]['value'])}", f"    set gPrPushHits = {float(cfg.get('push_hits', 0))}",
@@ -1499,6 +1729,7 @@ def main():
     check_script_data(script)
     check_object_bases()
     OB.check_scaling()
+    check_tooltips()
 
     art = SP.render()
     files = {

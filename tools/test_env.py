@@ -759,6 +759,16 @@ def start_video(env, display, path, seconds):
                              "-t", str(seconds), "-c:v", "libx264", "-preset", "ultrafast", "-qp", "10", str(path)], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+def hover_shot(env, display, path, x, y):
+    """The map asks to look at a button: 'HOVER name x y' in its results. The pointer of this private display goes there, and only there; no click."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    moved = subprocess.run(["xdotool", "mousemove", str(x), str(y)], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10, check=False)
+    time.sleep(1.3)
+    done = screenshot(env, display, path)
+    subprocess.run(["xdotool", "mousemove", "400", "250"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10, check=False)
+    return moved.returncode == 0 and done
+
+
 def screenshot(env, display, path):
     try:
         done = subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "x11grab", "-video_size", f"{WIDTH}x{HEIGHT}", "-i", f":{display}", "-frames:v", "1", str(path)],
@@ -932,6 +942,7 @@ def run_monitor(slot, args, evidence, env, display, started, result, log, foreig
     outcome = None
     foreign_last = foreign_start
     videos = {}
+    hovers = set()
     while outcome is None:
         pause(1.0)
         elapsed = time.time() - started
@@ -952,6 +963,10 @@ def run_monitor(slot, args, evidence, env, display, started, result, log, foreig
             if len(parts) == 3 and parts[0] == "VIDEO" and parts[1] not in videos and re.fullmatch(r"[a-z0-9-]+", parts[1]) and parts[2].isdigit():
                 videos[parts[1]] = start_video(env, display, evidence / f"video-{parts[1]}.mp4", min(int(parts[2]), 60))
                 log(f"filming {parts[1]} for {parts[2]} s")
+            if len(parts) == 4 and parts[0] == "HOVER" and parts[1] not in hovers and re.fullmatch(r"[A-Za-z0-9-]+", parts[1]) and parts[2].isdigit() and parts[3].isdigit():
+                hovers.add(parts[1])
+                if not hover_shot(env, display, evidence / "hover" / f"{parts[1]}.png", int(parts[2]), int(parts[3])):
+                    log(f"hover {parts[1]}: no picture")
         if state["lines"] != last_lines:
             last_lines, last_change = state["lines"], time.time()
             append_jsonl(evidence / "progress.jsonl", {"at": now(), "elapsed_s": round(elapsed, 1), "pass": state["pass"], "fail": state["fail"], "lines": state["lines"],

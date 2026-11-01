@@ -31,11 +31,13 @@ HEROES = {"dryad": (0, "S"), "mk": (1, "A"), "archmage": (4, "D"), "beastmaster"
 # 1000 gold: every build is legal at the start and costs what the shop asks.
 BUILDS = {
     "naked": lambda primary: "",
-    "starter": lambda primary: "FFFFAASSP",                             # 4 x All, 2 x Str, 2 x Agi, potion: 924 g
-    "primary": lambda primary: primary * 8 + "P",                       # 8 x the primary stat, potion: 989 g
+    "starter": lambda primary: "FFFFAASSP",                             # 4 x All, 2 x Str, 2 x Agi, potion: 941 g at +5 % per buy
+    "primary": lambda primary: primary * 7 + "P",                       # 7 x the primary stat, potion: 914 g (8 x would cost 1056 g since v4.4)
     "careless": lambda primary: "WWWWEEEE",                             # 4 x Mana, 4 x Damage, no potion (the log records the gold spent)
+    "duel1": lambda primary: "V",                                       # Vampire Fang rank 1, then the cycle below with what is left
+    "duel5": lambda primary: "VVVVV",                                   # Vampire Fang rank 5, then the cycle
 }
-CYCLES = {"starter": "FFAS", "primary": None}
+CYCLES = {"starter": "FFAS", "primary": None, "duel1": "FFAS", "duel5": "FFAS"}
 
 
 def fight_set():
@@ -64,22 +66,33 @@ def boss_set():
             for hero in ("dryad", "mk", "archmage", "beastmaster") for wave in (10, 20)]
 
 
+def duel_set():
+    """One boss, one champion, a legal loadout bought in the real shops: Fang rank 1 early, rank 5 late, the rest of the gold in the FFAS cycle.
+    Level, wave and gold are a fixture, not a natural playthrough. It ends at the first death or 120 s after first contact."""
+    runs = []
+    for hero in ("mk", "dryad"):
+        runs.append({"name": f"{hero}-warden-w10", "hero": hero, "build": "duel1", "seed": 1, "mode": 4, "stall_wave": 10, "duel_level": 10, "duel_budget": 5000, "duel_nexus": False, "duration": 300, "timeout": 600})
+        runs.append({"name": f"{hero}-nexusboss-w20", "hero": hero, "build": "duel5", "seed": 1, "mode": 4, "stall_wave": 20, "duel_level": 20, "duel_budget": 20000, "duel_nexus": True, "duration": 300, "timeout": 600})
+    return runs
+
+
 def smoke_set():
     return [{"name": "dryad-smoke", "hero": "dryad", "build": "starter", "seed": 1, "mode": 0, "duration": 80, "timeout": 300}]
 
 
-SETS = {"fight": fight_set, "progress": progress_set, "stall": stall_set, "boss": boss_set, "smoke": smoke_set}
+SETS = {"fight": fight_set, "progress": progress_set, "stall": stall_set, "boss": boss_set, "duel": duel_set, "smoke": smoke_set}
 
 
 def build_map(run, out_dir):
     index, primary = HEROES[run["hero"]]
     cycle = CYCLES.get(run["build"], "")
-    if run["mode"] not in (1, 3):
+    if run["mode"] not in (1, 3, 4):
         cycle = ""            # fight: no purchase after the start; stall: gold stays unspent, so the log shows the Bank directly
     elif cycle is None:
         cycle = primary
     config = {"hero": index, "mode": run["mode"], "seed": run["seed"], "buy": BUILDS[run["build"]](primary), "cycle": cycle,
-              "duration": run["duration"], "stall_wave": run.get("stall_wave", 3)}
+              "duration": run["duration"], "stall_wave": run.get("stall_wave", 3), "duel_level": run.get("duel_level", 1),
+              "duel_budget": run.get("duel_budget", 1000), "duel_nexus": run.get("duel_nexus", False)}
     game = ROOT / "slots" / "a" / "prefix" / "drive_c" / "war3"
     env = dict(os.environ, CD_PROBE=json.dumps(config), WC3_DIR=str(game if game.is_dir() else ""))
     done = subprocess.run([sys.executable, "build.py", "--probe"], cwd=REPO, env=env, capture_output=True, text=True, check=False)
@@ -136,6 +149,10 @@ def summarize(run, parsed):
             "channels_cancelled": [e for e in events if e.get("event") == "channel_cancelled"],
             "channels": [e for e in events if e.get("event") == "channel"], "summons": [e for e in events if e.get("event") == "summon"],
             "other_damage": [e for e in events if e.get("event") == "other_damage"],
+            "duel_start": next((e for e in events if e.get("event") == "duel_start"), {}), "duel_end": next((e for e in events if e.get("event") == "duel_end"), {}),
+            "duel_damage": next((e for e in events if e.get("event") == "duel_damage"), {}), "boss_casts": [e for e in events if e.get("event") == "boss_cast"],
+            "boss_channels": [e for e in events if e.get("event") == "boss_channel"], "buys_fang": [e for e in events if e.get("event") == "buy_ok" and e.get("item") == "fang"],
+            "duel_loadout": next((e for e in events if e.get("event") == "duel_loadout"), {}),
             "levels": [e for e in events if e.get("event") == "level"], "deaths": [e for e in events if e.get("event") == "death"],
             "tower_hits": [e for e in events if e.get("event") == "tower_hit"], "progress": [e for e in events if e.get("event") in ("tower_destroyed", "nexus_destroyed", "boss_slain", "castle_destroyed")],
             "pending_at_end": [e for e in events if e.get("event") == "buy_pending_at_end"],
@@ -215,6 +232,21 @@ def validate_row(row):
         problems.append(f"runner: exit {row.get('runner_exit')} verdict {row.get('verdict')}")
     if not row.get("done"):
         problems.append("no SELFTEST DONE")
+    if row.get("mode") == 4:
+        # a duel has no wave records: its own end record, a loadout really bought, the champion's kit used
+        if not row.get("duel_end", {}).get("winner") or not row.get("duel_damage"):
+            problems.append("no duel_end record")
+        wanted = (row.get("config") or {}).get("buy", "").count("V")
+        if len(row.get("buys_fang", [])) != wanted or str(row.get("duel_loadout", {}).get("fang_rank")) != str(wanted):
+            problems.append(f"Fang: wanted rank {wanted}, {len(row.get('buys_fang', []))} buys, carried rank {row.get('duel_loadout', {}).get('fang_rank')}")
+        if any(int(b["gold_before"]) - int(b["gold_after"]) != 1000 for b in row.get("buys_fang", [])):
+            problems.append("a Fang buy did not cost 1000 gold")
+        if row.get("hero") == "dryad":
+            if str(row.get("ranks", {}).get("r1", "0")) in ("0", ""):
+                problems.append("the Dryad never learned Multiple Arrows")
+        elif not row.get("casts"):
+            problems.append(f"{row.get('hero')}: not one spell cast")
+        return problems
     # a champion who only swung his weapon says nothing about his spells; the Dryad's kit is passive, but her Multiple Arrows must be learned
     if row.get("hero") == "dryad":
         if str(row.get("ranks", {}).get("r1", "0")) in ("0", ""):
@@ -285,6 +317,19 @@ def cmd_report(args):
         others = ", ".join(f"{code(o['type'])} {o['raw']}" for o in row.get("other_damage", []))
         print(f"| {row['name']} | {ranks} | {spells} | {channels} | {kinds} | {hero_damage:.0f} / {other_damage:.0f} ({others}) | {len(row.get('channels_cancelled', []))} |")
     print()
+    duels = [r for r in rows if r.get("mode") == 4]
+    rows = [r for r in rows if r.get("mode") != 4]
+    if duels:
+        print("| duel | boss HP | winner | seconds | hero HP left / max | lowest | boss HP left | damage: hero / his others / from boss | casts | boss casts by id | boss channels: id, seconds, finished |")
+        print("|---|---|---|---|---|---|---|---|---|---|---|")
+        for row in duels:
+            end, dmg = row["duel_end"], row["duel_damage"]
+            spells = {}
+            for cast in row.get("boss_casts", []):
+                spells[code(cast["id"])] = spells.get(code(cast["id"]), 0) + 1
+            channels = ", ".join(f"{code(c['id'])} {c['seconds']} {c['finished']}" for c in row.get("boss_channels", []))
+            print(f"| {row['name']} | {row['duel_start'].get('hp')} | {end.get('winner')} | {end.get('fight_s')} | {end.get('hero_hp')} / {end.get('hero_max')} | {dmg.get('hp_min')} | {end.get('boss_hp')} | {dmg.get('hero_raw')} / {dmg.get('others_raw')} / {dmg.get('from_boss')} | {dmg.get('casts')} | {spells} | {channels} |")
+        print()
     print("A row with a tower hit is a separate class (tower): never evidence of how strong the monsters are.\n")
     print("| run | class | ready HP | wave | spawned | fight s | first hit s | taken wave/tower | HP min | deaths | level | gold spent+earned | castle |")
     print("|---|---|---|---|---|---|---|---|---|---|---|---|---|")

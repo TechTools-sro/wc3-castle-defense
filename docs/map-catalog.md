@@ -17,10 +17,10 @@ ruins, then fight through the four shared **gate levels** (2–5). When every bo
 3. **Waves: every lane has its own.** Your next wave comes **as soon as your lane is clear**, so clearing fast means stronger monsters and more gold, and nobody waits for anybody. After your every 10th wave you get a **1-minute
    shopping break**. Each cleared wave pays you `50 + 50 × your wave` gold and **1 tree**.
 4. **Stages:** the tower stands mid-lane, far in front of the Nexus — take them one at a time. While your tower
-   stands, basic units come out of it. Tower down → a **Protector** guards the Nexus,
+   stands, basic units come out of it. Tower down → its **Tower Warden**, a boss of its own, rises on the ruins,
    the next wave comes at once and stronger units come out of the Nexus. Nexus down → its boss rises and the
    strongest units come out of the ruins until the boss dies. ⚠️ Towers hit for ~25 000 and Nexuses for ~27 500 per shot (20 000 / 15 000 HP) — every next building and gate
-   level hits harder. Lane bosses: 60 000 HP and ~2400 per hit at wave 1, far more at later waves (493 200 HP and ~9300 at wave 20). **Bosses run at top speed and no stun holds them.**
+   level hits harder. Lane bosses with their gear: 120 000 HP and ~2400 per hit at wave 1, far more at later waves (986 400 HP and ~9300 at wave 20). Tower Wardens with their gear: 52 500 HP at wave 1, 137 500 at wave 10. **Bosses run at top speed, no stun holds them, and they wear bound gear: more HP, attack speed, critical hits, armor and spell resistance.**
 5. **Fewer monsters, each far stronger, growing with every wave:** melee 700 HP / 60 damage, ranged 420 HP / 120 damage at wave 1; at wave 10 about 5900 / 275 and 3500 / 555, at wave 20 about 23 900 / 1030 and 14 300 / 2065. They start in ranks, melee in front, ranged behind. ×1.5 HP and ×1.25 damage after your tower falls, ×2 and ×1.5 in the boss stage. **Spend your 1000 gold at your Circle before the first wave.** **Kill gold:** a minion pays its lane's wave number in gold, more at higher waves (wave 5 → 7 gold, wave 20 → 50), double on Level 2, triple on
    Level 3.
 6. **Wave size:** front line (melee) = 5 + wave, back line (ranged) = half the wave (max 16 + 8 per lane). Every 10th wave adds
@@ -39,7 +39,7 @@ ruins, then fight through the four shared **gate levels** (2–5). When every bo
 
 ## Shops
 
-- **Champion's Circle** (your own shop, instant, +3 % price per buy): Health +600, Mana +75, Damage +20,
+- **Champion's Circle** (your own shop, instant, +5 % price per buy): Health +600, Mana +75, Damage +20,
   Armor +8, Strength +20, Agility +20, Intelligence +20, All stats +10 — bonuses show as green stats — and
   **Experience +1 level** (250 gold).
 - **The Castle** (select it; 1 tree each): Castle Health +1000, Castle Armor +3, Castle Regeneration +10 HP/s (its button shows what was bought so far),
@@ -47,7 +47,7 @@ ruins, then fight through the four shared **gate levels** (2–5). When every bo
 - **Secret grove** (narrow passage at the SE corner of the plaza; its shops sell to your champion anywhere on the
   map — just select the shop): Fountain of Power (fast HP + mana),
   **Premium Armory** (1000 gold: lifesteal, attack speed, critical strike, bash, evasion, boots, regeneration,
-  mana regeneration — buy the same item again to upgrade it, up to Lv 5), **Bank** (1 tree = +100 gold income every minute, up to 2 minutes per wave of your lane: holding your wave back stops it; once your lane is finished any wave renews it; during the final boss it pays all the time), **Apothecary** (potions heal % of max and stack in one slot — even with a full inventory: Healing 50 % HP and Mana 50 % mana for 100 gold, Restoration full HP + mana for 250, Invulnerability 200; staff of teleportation).
+  mana regeneration — buy the same item again for the next rank, up to 5: 5 / 10 / 15 / 20 / 30 % lifesteal, +5 to +25 % attack speed, 4 to 20 % chance of 2x, 3 to 15 % bash with +5 to +25 damage and a 0.5 s stun, 3 to 15 % dodge, +10 to +50 speed, +2 to +10 HP/s, +10 to +50 % mana regeneration), **Bank** (1 tree = +100 gold income every minute, up to 2 minutes per wave of your lane: holding your wave back stops it; once your lane is finished any wave renews it; during the final boss it pays all the time), **Apothecary** (potions heal % of max and stack in one slot — even with a full inventory: Healing 50 % HP and Mana 50 % mana for 100 gold, Restoration full HP + mana for 250, Invulnerability 200; staff of teleportation).
 
 ## EPIC loot
 
