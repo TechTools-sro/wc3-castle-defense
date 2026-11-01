@@ -178,7 +178,7 @@ def cmd_run(args):
                     return
                 run = queue.pop(0)
             run_one(run, slot, args.label, base, lock)
-    threads = [threading.Thread(target=worker, args=(slot,)) for slot in "ab"[:args.workers]]
+    threads = [threading.Thread(target=worker, args=(slot,)) for slot in args.slots[:args.workers]]
     for t in threads:
         t.start()
     for t in threads:
@@ -327,6 +327,7 @@ def main():
     run.add_argument("--set", default="fight", choices=sorted(SETS))
     run.add_argument("--only", help="regular expression on the scenario names")
     run.add_argument("--workers", type=int, default=2)
+    run.add_argument("--slots", default="ab", help="one letter per slot")
     report = sub.add_parser("report")
     report.add_argument("label")
     report.add_argument("--waves", type=int, default=3)
