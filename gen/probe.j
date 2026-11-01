@@ -523,6 +523,13 @@ function ProbeHero takes nothing returns nothing
             set gPrOrderAt = -100.0
             call ProbeOrderTo(h, "attack", gPrBestX, gPrBestY)
         endif
+    elseif ProbeAlive() > 0 then
+        // monsters alive, but all inside the tower's reach: back to the circle, out of their sight, so they march on
+        // down the lane and come out to him. Ranged ones would otherwise stand and shoot from inside the safe zone.
+        if ProbeDist(x, y, gHeroX[0], gHeroY[0]) > 150.0 and GetUnitCurrentOrder(h) != 851986 then
+            call IssuePointOrder(h, "move", gHeroX[0], gHeroY[0])
+            set gPrOrderAt = TimerGetElapsed(gPrClock)
+        endif
     elseif GetUnitCurrentOrder(h) == 0 and ProbeDist(x, y, gPrEX, gPrEY) > 150.0 then
         call ProbeOrderTo(h, "attack", gPrEX, gPrEY)
     endif
