@@ -106,7 +106,7 @@ def parse_results(path):
             waves.setdefault(event["wave"], {}).setdefault(kind, event)
     records = []
     for number_text, parts in sorted(waves.items(), key=lambda kv: int(kv[0])):
-        record = {"wave": number_text, "t": parts.get("wave", {}).get("t")}
+        record = {"wave": number_text, "t": parts.get("wave", {}).get("t"), "pending": parts.get("state", {}).get("pending")}
         for kind, fields in WAVE_PARTS.items():
             for field in fields:
                 if field not in parts.get(kind, {}):
@@ -280,8 +280,14 @@ def fixture_log(waves=2, drop=(), replace=None):
 
 
 def economy_settled(row):
-    """Gold claims of a run: the last spent/earned are exact unless a purchase was still unsettled at the end."""
-    return not row.get("pending_at_end") and not any(w.get("pending") not in (None, "0") for w in row.get("waves", [])[-1:])
+    """Is the last spent/earned of a run exact? True or False from the log; None = unknown: logs from before the pending
+    field cannot say (their last figures can be off by one purchase)."""
+    if row.get("pending_at_end"):
+        return False
+    last = row["waves"][-1].get("pending") if row.get("waves") else None
+    if last is None:
+        return None
+    return last == "0"
 
 
 def fixture_row(text, **extra):
@@ -317,7 +323,12 @@ def cmd_selfcheck(_args):
              ("runner verdict not PASS", fixture_row(fixture_log(), verdict="TIMEOUT"), False)]
     bad = 0
     pending = fixture_row(fixture_log() + '\ncall Preload( "M t=80.0 event=buy_pending_at_end item=F price=103 gold_before=900 gold=797" )')
-    for name, ok in (("a purchase unsettled at the end is reported", pending["pending_at_end"] and not economy_settled(pending)), ("a settled log is settled", economy_settled(fixture_row(fixture_log())))):
+    settled = fixture_row(fixture_log(replace=("income=0", "pending=0 income=0")))
+    raw = fixture_row(fixture_log(replace=("income=0", "pending=1 income=0")))
+    for name, ok in (("a purchase unsettled at the end is reported", pending["pending_at_end"] and economy_settled(pending) is False),
+                     ("pending=0 in the log: settled", economy_settled(settled) is True),
+                     ("pending=1 in the log: not settled", economy_settled(raw) is False),
+                     ("no pending field (an old log): unknown, not settled", economy_settled(fixture_row(fixture_log())) is None)):
         bad += not ok
         print(f"{'PASS' if ok else 'FAIL'}  {name}")
     for name, row, wanted in cases:
@@ -325,7 +336,7 @@ def cmd_selfcheck(_args):
         ok = (not problems) == wanted
         bad += not ok
         print(f"{'PASS' if ok else 'FAIL'}  {name}  {problems[:1]}")
-    print(f"selfcheck: {len(cases) + 2 - bad} of {len(cases) + 2}")
+    print(f"selfcheck: {len(cases) + 4 - bad} of {len(cases) + 4}")
     return 1 if bad else 0
 
 
