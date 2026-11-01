@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.3 — 2026-11-01: tower HP ÷ 6
+
+- **Uploaded as catalogue map #28** (HTTP 201, download SHA-256 `870ae576…` matches).
+
+- Jiří: "nerf hp of the towers at least 6x". Lane tower 25 000 → 4 000 HP (`TURRET_HP`), gate towers L2–L5
+  40 000 / 60 000 / 90 000 / 130 000 → 6 500 / 10 000 / 15 000 / 21 000 (`GATE_LEVELS[*]["tower"]`). Damage unchanged.
+  Verified: pjass + build; not tried in-game.
+
 ## v2.2 — 2026-11-01: Nexus HP ÷ 4 again
 
 - **Uploaded as catalogue map #27** (HTTP 201, download SHA-256 `33349f58…` matches).

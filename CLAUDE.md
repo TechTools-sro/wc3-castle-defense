@@ -36,15 +36,15 @@ tools/run_test.sh 'Maps\Test\TechToolsCastleDefence_TEST.w3x' <outdir> 40   # Wi
 
 ## Versions
 
-- `MAP_VERSION` in `build.py` (now **v2.2**) is in the map name, the file name (`TechToolsCastleDefence_v2.2.w3x`) and
+- `MAP_VERSION` in `build.py` (now **v2.3**) is in the map name, the file name (`TechToolsCastleDefence_v2.3.w3x`) and
   the catalogue title. ⚠️ **Jiří's rule: every feature = a new version (1.2, 1.3, …) AND an upload to the
   catalogue** (LAN players must have the identical file). Bump, build, commit, upload, verify the download's
   SHA-256, record the new entry below + in `CHANGELOG.md`. Install removes older `TechToolsCastleDefence*.w3x`.
 
 ## Published
 
-- Catalogue (uploaded as `brainbot`): newest first — **v2.2 = https://techtools.cz/tools/warcraft3/#map/27** (current),
-  v2.1 = #26, v2.0 = #25, v1.9 = #24, v1.8 = #23, v1.7 = #22, v1.6 = #21, v1.5 = #20, v1.4 = #19, v1.3 = #18,
+- Catalogue (uploaded as `brainbot`): newest first — **v2.3 = https://techtools.cz/tools/warcraft3/#map/28** (current),
+  v2.2 = #27, v2.1 = #26, v2.0 = #25, v1.9 = #24, v1.8 = #23, v1.7 = #22, v1.6 = #21, v1.5 = #20, v1.4 = #19, v1.3 = #18,
   v1.2 = #17 and v1.1 = #16 (both have the broken Bank / upgrades), unversioned = #3 (stale; only an admin can
   delete old entries).
   Upload = `POST /warcraft3-api/maps` (multipart `file`, `title`, `players`, `description`, `doc=@docs/map-catalog.md`)
