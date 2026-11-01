@@ -18,7 +18,8 @@ Invader of arm `d` = Player(8 + d): 0 North **The Scourge**, 1 East **The Burnin
 
 1. **Champion select** (45 s, `SELECT_TIME`). Camera on the Hall of Champions: **one** tavern, **one champion — the
    Dryad** (`DRYAD_ID` = `Edry`, custom hero on the Priestess of the Moon with the Dryad model and spear missile,
-   `dryad_hero()` in `gen/objects.py`). Every player plays her (stock 8). An invisible helper unit does the buying
+   `dryad_hero()` in `gen/objects.py`; the spear flies slow and high so it is visible even at short range:
+   `DRYAD_MISSILE_SPEED` 450 / arc 0.25, the base hero has 900 / 0.15). Every player plays her (stock 8). An invisible helper unit does the buying
    (no walking). A big gold **"Select a Champion"** floats over the hall for players who haven't picked. Time out →
    she is picked for you.
 

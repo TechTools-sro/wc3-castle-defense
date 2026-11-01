@@ -141,6 +141,7 @@ SWIFT_STEP = 0.20
 SWIFT_ABILS = [f"Xsw{L}" for L in range(1, DRYAD_SKILL_LEVELS + 1)]     # AIsx copies, +20 % each (they stack)
 FIRE_PCT = 20
 FIRE_ORB = "Xfor"            # AIfb copy with 0 bonus damage: only turns the spears into fire missiles
+DRYAD_MISSILE_SPEED, DRYAD_MISSILE_ARC = 450, 0.25
 SPEAR_RANGE = 600.0          # extra spears hit enemies within this distance of the main target
 TAVERNS = [("tvc0", "Hall of Champions", [DRYAD_ID])]
 ALL_HEROES = [DRYAD_ID]
@@ -524,6 +525,8 @@ def dryad_hero():
         ("unam", S, "Dryad"), ("upro", S, "Sylvara,Elunna,Ashwen,Thalia,Myrael,Keira"),
         ("umdl", S, "units\\nightelf\\Dryad\\Dryad.mdl"), ("uico", S, CB + "BTNDryad.blp"),
         ("ua1m", S, "Abilities\\Weapons\\Dryadmissile\\Dryadmissile.mdl"), ("usnd", S, "Dryad"),
+        # slow, high spear (Jiri: see it fly even at short range): base 900 speed / 0.15 arc
+        ("ua1z", I, DRYAD_MISSILE_SPEED), ("uma1", U, DRYAD_MISSILE_ARC),
         ("usca", R, 1.25), ("ussc", R, 1.4),
         ("ugol", I, 0), ("ulum", I, 0), ("ufoo", I, 0), ("usst", I, 0), ("usma", I, 8), ("usrg", I, 1), ("ureq", S, ""),
         ("ua1g", S, _hero_targets_with_air(base)),

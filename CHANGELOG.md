@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.8 — 2026-11-01: slower, higher Dryad spear
+
+- **Uploaded as catalogue map #33** (HTTP 201, download SHA-256 `7c193db7…` matches).
+
+- Jiří: make the spear visible in flight even at short range. Missile speed 900 → 450, arc 0.15 → 0.25
+  (`DRYAD_MISSILE_SPEED` / `DRYAD_MISSILE_ARC`); attack speed and damage unchanged (the hit just lands a bit later).
+  Verified: build; not tried in-game.
+
 ## v2.7 — 2026-11-01: Extra Spear gets a spear icon
 
 - **Uploaded as catalogue map #32** (HTTP 201, download SHA-256 `031dbfd8…` matches).
