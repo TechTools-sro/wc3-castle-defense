@@ -128,7 +128,7 @@ WAVE_CHAMP_HP, WAVE_CHAMP_ARMOR, WAVE_CHAMP_DMG, WAVE_CHAMP_SCALE = 800, 2, (30,
 #   E Fire Spears  : +FIRE_PCT % of every hit as extra fire damage per level; level 1 adds a hidden fire orb (missile)
 DRYAD_ID = "Edry"
 DRYAD_SKILLS = [      # (id, name, key, icon, tip(level), research text)
-    ("Xesp", "Extra Spear", "Q", "BTNScatterRockets",
+    ("Xesp", "Extra Spear", "Q", "BTNEnvenomedSpear",
      lambda L: f"+{L} extra spear{'s' if L > 1 else ''} per throw, full damage",
      "Each level: +1 extra spear at another enemy, full damage."),
     ("Xswt", "Swift Throw", "W", "BTNBerserkForTrolls",

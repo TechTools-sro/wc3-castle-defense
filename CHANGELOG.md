@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.7 — 2026-11-01: Extra Spear gets a spear icon
+
+- **Uploaded as catalogue map #32** (HTTP 201, download SHA-256 `031dbfd8…` matches).
+
+- Jiří (screenshot): the Extra Spear icon should be a spear → `BTNEnvenomedSpear` (`DRYAD_SKILLS`). `check_icons()` now
+  also checks custom ability icons (`aart` / `arar`). Verified: build + icon check; not tried in-game.
+
 ## v2.6 — 2026-11-01: the Dryad is the only champion
 
 - **Uploaded as catalogue map #31** (HTTP 201, download SHA-256 `3d8aacea…` matches).

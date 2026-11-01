@@ -30,7 +30,7 @@ GAME_DIR = os.environ.get("WC3_DIR", "/home/novakj/games/warcraft3")
 TEST = "--test" in sys.argv
 # VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
 # map name (game list, lobby, loading screen), the file name and the catalogue title.
-MAP_VERSION = "2.6"
+MAP_VERSION = "2.7"
 MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
@@ -845,7 +845,7 @@ def check_script_data(script):
 
 
 def check_icons(game, files):
-    """Every icon path in our object data must exist in the game MPQs or in the map itself. A missing one shows as
+    """Every icon path in our object data (unit/item icons, custom ability icons) must exist in the game MPQs or the map. A missing one shows as
     a plain GREEN square in game (Shadow Crown pointed at a non-existent BTNCrownOfKings, 2026-11-01)."""
     paths = set()
     for tables in ((OB.custom_units(), OB.original_unit_mods()), (OB.custom_items(), OB.original_item_mods())):
@@ -854,6 +854,10 @@ def check_icons(game, files):
                 for m in obj[-1]:
                     if m[0] in ("iico", "uico") and m[-1]:
                         paths.add(m[-1])
+    for obj in OB.custom_abilities():
+        for m in obj[-1]:
+            if m[0] in ("aart", "arar") and m[-1]:
+                paths.add(m[-1])
     missing = []
     for p in sorted(paths):
         if p in files:
