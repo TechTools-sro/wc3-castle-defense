@@ -15,17 +15,23 @@ fi
 cd "$GAME_DIR" || exit 2
 export DISPLAY="${DISPLAY:-:0}"
 OUT="$2"; mkdir -p "$OUT"; rm -f "$OUT"/*.png
-WINEDEBUG=-all wine war3.exe -window -loadfile "$1" > "$OUT/wine.log" 2>&1 &
+RESULTS="$GAME_DIR/CustomMapData/TestResults/cd_test.txt"; rm -f "$RESULTS"
+# A Wine virtual desktop: WarCraft pauses a single-player game when its window loses focus (the clock froze at 0:11 for a
+# whole run while the owner used the PC, 2026-11-01); inside the desktop it stays the active window.
+# (explorer needs the absolute Windows path: with a bare war3.exe it opens an empty desktop and the game never starts)
+WINEDEBUG=-all wine explorer /desktop=cdtest,1280x720 "Z:${GAME_DIR//\//\\}\\war3.exe" -window -loadfile "$1" > "$OUT/wine.log" 2>&1 &
 END=$(( $(date +%s) + $3 ))
 n=0
 while [ "$(date +%s)" -lt $END ]; do
+  grep -q 'SELFTEST DONE' "$RESULTS" 2>/dev/null && break   # the test is over: close the game now
   timeout 6 tail -f /dev/null
   n=$((n+6))
-  wid=$(xdotool search --name '^Warcraft III$' 2>/dev/null | head -1)
+  wid=$(xdotool search --name 'Wine desktop' 2>/dev/null | head -1)
+  [ -n "$wid" ] || wid=$(xdotool search --name '^Warcraft III$' 2>/dev/null | head -1)
   if [ -n "$wid" ]; then
     ffmpeg -loglevel error -y -f x11grab -window_id "$wid" -i :0 -frames:v 1 -vf scale=1280:-1 \
       "$OUT/s$(printf %03d $n).png" 2>>"$OUT/ffmpeg.log"
   fi
 done
-ps -eo pid,args | grep -E 'war3\.exe -window -loadfile' | grep -v grep | awk '{print $1}' | xargs -r kill
+ps -eo pid,args | grep -E 'war3\.exe -window -loadfile|explorer\.exe /desktop=cdtest' | grep -v grep | awk '{print $1}' | xargs -r kill
 echo done
