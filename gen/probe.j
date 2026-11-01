@@ -506,7 +506,11 @@ function ProbeHero takes nothing returns nothing
         endif
     endif
     if GetWidgetLife(gTower[0]) > 0.405 and ProbeDist(x, y, GetUnitX(gTower[0]), GetUnitY(gTower[0])) < gPrSafeDist then
-        call ProbeOrderTo(h, "move", gPrEX, gPrEY)
+        // at once, not through the order limiter: one second of walking would take a chasing champion into the tower's range
+        if GetUnitCurrentOrder(h) != 851986 then
+            call IssuePointOrder(h, "move", gPrEX, gPrEY)
+            set gPrOrderAt = TimerGetElapsed(gPrClock)
+        endif
         set h = null
         return
     endif

@@ -3,6 +3,7 @@
 
     tools/balance_probe.py run LABEL [--set fight|progress|stall|smoke] [--workers 2]
     tools/balance_probe.py report LABEL
+    tools/balance_probe.py selfcheck     the log validation, on fixtures, no game
 
 Each scenario is a map built with `build.py --probe` (the production script + gen/probe.j) and played by
 tools/test_env.py in its own Wine prefix, on a hidden display. Fixed champion, purchases, seed and orders, so the
@@ -12,11 +13,13 @@ same scenario can be repeated before and after a change. A lost fight is data. R
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -184,23 +187,63 @@ def cmd_run(args):
     return 0
 
 
-def number(value, default=0.0):
+NUMERIC = [field for fields in WAVE_PARTS.values() for field in fields if field not in ("why", "playing", "heroes")]
+
+
+def finite(value):
     try:
-        return float(value)
+        return math.isfinite(float(value))
     except (TypeError, ValueError):
-        return default
+        return False
 
 
-# why = cleared, or next_wave_before_clear: also a finished wave (the next one proves it), the observer just missed the
-# moment between two 0.25 s ticks; its `alive` then counts the new wave. open_at_end = the run ended during this wave.
-# from_other is a residual: it can hold a late missile of a monster already removed from gWaveUnits. `taken` is exact.
+def validate_row(row):
+    """Why this run cannot be used. Empty = a complete log, whatever the fight's result: a lost fight is a valid measurement."""
+    problems = list(row.get("errors") or []) + list(row.get("fail") or [])
+    if row.get("runner_exit") != 0 or row.get("verdict") != "PASS":
+        problems.append(f"runner: exit {row.get('runner_exit')} verdict {row.get('verdict')}")
+    if not row.get("done"):
+        problems.append("no SELFTEST DONE")
+    for name in ("start", "ready", "final", "end"):
+        if not row.get(name):
+            problems.append(f"no {name} record")
+    start = row.get("start") or {}
+    if start and start.get("heroes") != "0,":
+        problems.append(f"not a solo champion at the start: {start.get('heroes')}")
+    if not row.get("end", {}).get("why"):
+        problems.append("end without a reason")
+    numbers = [int(w["wave"]) for w in row.get("waves", []) if str(w.get("wave", "")).isdigit()]
+    if numbers != list(range(1, len(numbers) + 1)):
+        problems.append(f"wave records are not 1..N: {numbers[:12]}")
+    last = row.get("end", {}).get("wave")
+    if last is not None and str(last).isdigit() and int(last) != len(numbers):
+        problems.append(f"the run ended in wave {last}, but {len(numbers)} wave records")
+    if not numbers:
+        problems.append("no wave record")
+    for wave in row.get("waves", []):
+        for field in NUMERIC:
+            if not finite(wave.get(field)):
+                problems.append(f"wave {wave.get('wave')}: {field}={wave.get(field)!r} is not a number")
+        if wave.get("heroes") != "0,":
+            problems.append(f"wave {wave.get('wave')}: heroes={wave.get('heroes')!r}")
+    for name, fields in (("ready", ("maxhp", "gold", "spent")), ("final", ("maxhp", "gold", "spent", "earned", "level"))):
+        for field in fields:
+            if row.get(name) and not finite(row[name].get(field)):
+                problems.append(f"{name}.{field}={row[name].get(field)!r} is not a number")
+    return problems
+
+
 def report_rows(label):
     path = ROOT / "evidence" / f"balance-{label}" / "results.jsonl"
     rows = [json.loads(line) for line in path.read_text().splitlines()]
-    bad = [(r["name"], r["errors"][:2], r["fail"][:1]) for r in rows if r["errors"] or r["fail"] or r["runner_exit"] != 0]
-    if bad:
-        print(f"INVALID RUNS, do not use: {bad}", file=sys.stderr)
-    return [r for r in rows if not (r["errors"] or r["fail"] or r["runner_exit"] != 0)]
+    good = []
+    for row in rows:
+        problems = validate_row(row)
+        if problems:
+            print(f"INVALID {row['name']}: {problems[:3]}", file=sys.stderr)
+        else:
+            good.append(row)
+    return good
 
 
 def cmd_report(args):
@@ -209,12 +252,69 @@ def cmd_report(args):
     print("| run | ready HP | wave | spawned | fight s | first hit s | taken wave/tower | HP min | deaths | level | gold earned | castle |")
     print("|---|---|---|---|---|---|---|---|---|---|---|---|")
     for row in rows:
-        ready = row.get("ready") or {}
         for wave in row["waves"][:args.waves]:
-            at = number(wave.get("spawned_at"))
-            print(f"| {row['name']} | {ready.get('maxhp', '')} | {wave.get('wave')} | {wave.get('spawned')} | {number(wave.get('t')) - at:.0f}{' (open)' if wave.get('why') == 'open_at_end' else ''} | "
-                  f"{number(wave.get('first_hit')) - at:.1f} | {wave.get('from_wave')}/{wave.get('from_tower')} | {wave.get('hp_min')} | {wave.get('deaths_wave')} | {wave.get('level')} | {wave.get('earned')} | {wave.get('castle')} |")
+            at = float(wave["spawned_at"])
+            first = float(wave["first_hit"])
+            print(f"| {row['name']} | {row['ready']['maxhp']} | {wave['wave']} | {wave['spawned']} | {float(wave['t']) - at:.0f}{' (open)' if wave['why'] == 'open_at_end' else ''} | "
+                  f"{first - at if first >= 0 else float('nan'):.1f} | {wave['from_wave']}/{wave['from_tower']} | {wave['hp_min']} | {wave['deaths_wave']} | {wave['level']} | {wave['earned']} | {wave['castle']} |")
     return 0
+
+
+def fixture_log(waves=2, drop=(), replace=None):
+    """A short log in the probe's format, for the checks of validate_row without a game."""
+    out = ["M config mode=0", "M t=0.0 event=start hero=Dryad playing=0,8,9,10,11, heroes=0,", "M t=5.0 event=ready hero=Dryad maxhp=2550 gold=76 spent=924 earned=0"]
+    for w in range(1, waves + 1):
+        out += [f"M t={30 + w}.0 event=wave wave={w} why=cleared spawned_at=30.0 spawned=7 first_hit=34.1 first_deal=31.9 hp_min=2496 deaths_wave=0",
+                f"M t={30 + w}.0 event=incoming wave={w} taken=78 from_wave=78 from_tower=0 from_nexus=0 from_boss=0 from_other=0 hits=7",
+                f"M t={30 + w}.0 event=dealt wave={w} hero_wave_raw=1801 hero_wave_hp=1314 hero_other_raw=0 hero_other_hp=0 other_raw=9 other_hp=9",
+                f"M t={30 + w}.0 event=state wave={w} level=2 xp=200 kills=7 deaths=0 castle=8000 gold=83 spent=924 earned=7 income=0 trees=1 alive=0",
+                f"M t={30 + w}.0 event=team wave={w} playing=0,8,9,10,11, heroes=0,"]
+    out += [f"M t=80.0 event=final hero=Dryad level=2 maxhp=2575 gold=83 spent=924 earned=7", f"M t=80.0 event=end why=limit tower_hits=0 nexus_hits=0 wave={waves} deaths=0", "PASS probe finished: limit", "SELFTEST DONE"]
+    out = [line for line in out if not any(d in line for d in drop)]
+    if replace:
+        out = [line.replace(*replace) for line in out]
+    return "\n".join(f'call Preload( "{line}" )' for line in out)
+
+
+def fixture_row(text, **extra):
+    path = Path(tempfile.mkstemp(suffix=".txt")[1])
+    path.write_text(text)
+    row = summarize({"name": "fixture", "hero": "dryad", "build": "starter", "seed": 1, "mode": 0}, parse_results(path))
+    path.unlink()
+    row.update(runner_exit=0, verdict="PASS")
+    row.update(extra)
+    return row
+
+
+def cmd_selfcheck(_args):
+    """validate_row against a good log and against every way a log can be incomplete, without a game."""
+    cases = [("complete log", fixture_row(fixture_log()), True),
+             ("a lost fight is still valid", fixture_row(fixture_log(replace=("deaths_wave=0", "deaths_wave=3"))), True),
+             ("castle destroyed is still valid", fixture_row(fixture_log(replace=("why=limit", "why=castle_destroyed"))), True),
+             ("no SELFTEST DONE", fixture_row(fixture_log(drop=("SELFTEST DONE",))), False),
+             ("no ready record", fixture_row(fixture_log(drop=("event=ready",))), False),
+             ("no final record", fixture_row(fixture_log(drop=("event=final",))), False),
+             ("no end record", fixture_row(fixture_log(drop=("event=end",))), False),
+             ("no start record", fixture_row(fixture_log(drop=("event=start",))), False),
+             ("a whole wave missing", fixture_row(fixture_log(waves=3, drop=("wave=2 ",))), False),
+             ("wave part missing", fixture_row(fixture_log(drop=("event=state wave=2",))), False),
+             ("cut field", fixture_row(fixture_log(replace=("castle=8000", "cast"))), False),
+             ("empty number", fixture_row(fixture_log(replace=("taken=78", "taken="))), False),
+             ("not a number", fixture_row(fixture_log(replace=("hp_min=2496", "hp_min=abc"))), False),
+             ("infinite number", fixture_row(fixture_log(replace=("hp_min=2496", "hp_min=inf"))), False),
+             ("a second champion", fixture_row(fixture_log(replace=("heroes=0,", "heroes=0,1,"))), False),
+             ("a line at the engine's limit", fixture_row(fixture_log(replace=("event=final", "event=final pad=" + "x" * 260))), False),
+             ("FAIL line", fixture_row(fixture_log() + '\ncall Preload( "FAIL probe: wrong hero" )'), False),
+             ("runner exit not 0", fixture_row(fixture_log(), runner_exit=3), False),
+             ("runner verdict not PASS", fixture_row(fixture_log(), verdict="TIMEOUT"), False)]
+    bad = 0
+    for name, row, wanted in cases:
+        problems = validate_row(row)
+        ok = (not problems) == wanted
+        bad += not ok
+        print(f"{'PASS' if ok else 'FAIL'}  {name}  {problems[:1]}")
+    print(f"selfcheck: {len(cases) - bad} of {len(cases)}")
+    return 1 if bad else 0
 
 
 def main():
@@ -228,8 +328,9 @@ def main():
     report = sub.add_parser("report")
     report.add_argument("label")
     report.add_argument("--waves", type=int, default=3)
+    sub.add_parser("selfcheck")
     args = parser.parse_args()
-    return {"run": cmd_run, "report": cmd_report}[args.command](args)
+    return {"run": cmd_run, "report": cmd_report, "selfcheck": cmd_selfcheck}[args.command](args)
 
 
 if __name__ == "__main__":
