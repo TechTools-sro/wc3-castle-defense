@@ -4,6 +4,10 @@ Field ids / value types verified against Units\\UnitMetaData.slk of 1.27:
 int=0, real=1, unreal=2, string-ish (string, model, icon, lists, armor/attack type)=3.
 """
 from w3files import VT_INT as I, VT_REAL as R, VT_UNREAL as U, VT_STRING as S
+import re
+
+import xhs_data as XHS
+from xhs_text import SKILLS as XHS_SKILLS, HERO_TIPS as XHS_TIPS
 
 FACTIONS = [
     {   # North
@@ -106,19 +110,21 @@ WAVE_ATTACK_TYPE, WAVE_SPEED = "normal", 270
 WAVE_TARGETS = "ground,structure,debris,item,ward"     # attack 1 of every wave monster (some models keep the ground attack in attack 2)
 # Only the movement type stays the model's own: a few fly or hover (frost wyrms, banshees, revenants) or swim (nagas). Everything else is equal.
 WAVE_SAME = [("uaen", I, 1), ("ua1t", S, WAVE_ATTACK_TYPE), ("ua1g", S, WAVE_TARGETS), ("umvs", I, WAVE_SPEED), ("uabi", S, ""),
-             ("uhpr", U, 0.0), ("uhrt", S, "none"), ("udty", S, "medium")]
+             ("uhpr", U, 0.0), ("uhrt", S, "none"), ("udty", S, "medium"),
+             ("udea", I, 3)]   # v4.3: every monster leaves a corpse that can rise (the Crypt Lord's beetles); it decays by itself
 WAVE_STAGE_HP = [1.0, 1.5, 2.0]        # stage 1 = tower down, stage 2 = Nexus down
 WAVE_STAGE_DMG = [1.0, 1.25, 1.5]
 # Growth by the wave number, n = wave - 1: HP x (1 + WAVE_HP_GROWTH n^2), damage x (1 + WAVE_DMG_GROWTH n^2). HP grows faster.
-WAVE_HP_GROWTH, WAVE_DMG_GROWTH = 0.03, 0.018
+# v4.3 (Jiri: too many weak monsters, against far stronger champions): fewer of them and three times the growth.
+WAVE_HP_GROWTH, WAVE_DMG_GROWTH = 0.092, 0.045
 # Gate levels 2-5: +25 % HP and +10 % damage per level above 1. Only shared obstacles scale with the team, mainly in HP.
 GATE_HP_PER_LEVEL, GATE_DMG_PER_LEVEL = 0.25, 0.10
 TEAM_HP_PER_PLAYER = 0.35              # shared gates: HP x (1 + 0.35 (team - 1)); team = champions at the start of the round
 # The Bank pays a player for at most this many seconds per wave of his lane, renewed only by his next wave: 2 payments at most, however long a wave is held.
 INCOME_WAVE_SECONDS = 120
 # Scaling goes through hidden item-bonus abilities, one per bit.
-# A bonus above the last bit stays at the maximum (saturates, never wraps): +3 276 700 HP, +81 915 damage.
-SCALE_HP_BITS, SCALE_HP_STEP = 15, 100
+# A bonus above the last bit stays at the maximum (saturates, never wraps): +13 107 100 HP, +81 915 damage.
+SCALE_HP_BITS, SCALE_HP_STEP = 17, 100
 SCALE_DMG_BITS, SCALE_DMG_STEP = 14, 5
 
 
@@ -140,13 +146,16 @@ def scaled_value(base, factor, step, bits):
     return base + steps * step
 
 
+SCALE_ID_CHARS = "0123456789abcdefghijklmnopqrstuvwxyz"
+
+
 def scale_bit_ids():
-    return [f"Xwh{i:x}" for i in range(SCALE_HP_BITS)] + [f"Xwd{i:x}" for i in range(SCALE_DMG_BITS)]
+    return [f"Xwh{SCALE_ID_CHARS[i]}" for i in range(SCALE_HP_BITS)] + [f"Xwd{SCALE_ID_CHARS[i]}" for i in range(SCALE_DMG_BITS)]
 
 
 def scale_abilities():
-    out = [("AIlf", f"Xwh{i:x}", [("Ilif", I, 1, 1, SCALE_HP_STEP << i)]) for i in range(SCALE_HP_BITS)]
-    out += [("AIat", f"Xwd{i:x}", [("Iatt", I, 1, 1, SCALE_DMG_STEP << i)]) for i in range(SCALE_DMG_BITS)]
+    out = [("AIlf", f"Xwh{SCALE_ID_CHARS[i]}", [("Ilif", I, 1, 1, SCALE_HP_STEP << i)]) for i in range(SCALE_HP_BITS)]
+    out += [("AIat", f"Xwd{SCALE_ID_CHARS[i]}", [("Iatt", I, 1, 1, SCALE_DMG_STEP << i)]) for i in range(SCALE_DMG_BITS)]
     return out
 
 
@@ -201,157 +210,28 @@ def wave_unit_id(arm, stage, ranged):      # q<arm><stage><m|r>, e.g. q00m = Sco
 
 
 # Wave size (same for every lane and stage): front line = melee, back line = ranged.
-WAVE_FRONT_BASE = 4          # front = 4 + 2 x wave  (wave 1 -> 6)      v3.4, Jiri: +2 melee per wave (was +1)
-WAVE_FRONT_PER = 2
-WAVE_BACK_PER = 1            # back  = 1 x wave      (wave 1 -> 1)      v3.4, Jiri: +1 ranged per wave (was +1 / 2 waves)
-WAVE_FRONT_MAX, WAVE_BACK_MAX = 40, 20     # per lane, keeps the lanes playable late (was 30 / 15)
+# v4.3 (Jiri: far too many weak monsters): at most 16 + 8 + 6 champions, each far stronger. The first wave is the same 6 + 1.
+WAVE_FRONT_BASE = 5          # front = 5 + wave  (wave 1 -> 6)
+WAVE_FRONT_PER = 1
+WAVE_BACK_PER = 1            # back  = (wave + 1) / 2  (wave 1 -> 1, wave 3 -> 2)
+WAVE_FRONT_MAX, WAVE_BACK_MAX = 16, 8
+WAVE_CHAMP_MAX = 6
 # Champions join every 10th wave: wave 10 -> 1, wave 20 -> 2, ... per lane, as weakened copies (nc{d}0).
 WAVE_CHAMP_EVERY = 10
 WAVE_CHAMP_HP, WAVE_CHAMP_ARMOR, WAVE_CHAMP_DMG, WAVE_CHAMP_SCALE = 2100, 3, (89, 1, 1), 1.0     # v4.1: three melee HP, 1.5 melee damage
 
-# Champion select (v2.6, Jiri): ONE champion - the Dryad, a spear thrower (custom hero DRYAD_ID on the Priestess of
-# the Moon, Dryad model + spear missile). Every player plays her. Her 3 skills are passive "level holders" (AEev
-# copies with 0 % evasion); the map script does the effects (gen/castle_logic.j: OnDamaged, OnHeroSkill):
-#   Q Extra Spear  : +1 spear per level at another enemy near the target, full damage (+ fire bonus)
-#   W Swift Throw  : +SWIFT_STEP attack speed per level (hidden item-bonus copies of AIsx, one per level)
-#   E Fire Spears  : +20 % of every hit as extra fire damage per level (skill kind bonus, fire burst on the target)
-DRYAD_ID = "Edry"
-# Skill kinds (all passive level holders; the script does the effect on the champion's PRIMARY hit, OnDamaged):
-#   bonus  = +pct % per level of every hit as extra damage on the target
-#   blast  = every hit: pct % per level of the hit to every enemy within rad of the target
-#   nova   = every 3rd hit: pct % per level of the hit to every enemy within rad of the target (big area)
-#   spears = the Dryad's extra flying spears (OnAttacked);  speed = +20 % attack speed per level (hidden AIsx)
-#   R = the ultimate (v3.6, Jiri: "all champions should have 4 spells Q, W, E, R"), 3 levels at hero level 6 / 11 / 16:
-#   storm  = every STORM_EVERY-th hit: pct % per level of the hit to the target and EVERY enemy within rad of it
-#            (a big effect on the target + a small one on every victim, SKILL_FX2)
-#   volley = the Dryad's Spear Storm: every VOLLEY_EVERY-th throw, pct more spears per level (SpearVolley)
-SKILL_KIND = {"bonus": 1, "blast": 2, "nova": 3, "spears": 4, "speed": 5, "storm": 6, "volley": 7}
-FX = {"fire": "Abilities\\Weapons\\FireBallMissile\\FireBallMissile.mdl",
-      "thunder": "Abilities\\Spells\\Human\\Thunderclap\\ThunderClapCaster.mdl",
-      "stomp": "Abilities\\Spells\\Orc\\WarStomp\\WarStompCaster.mdl",
-      "dust": "Objects\\Spawnmodels\\Undead\\ImpaleTargetDust\\ImpaleTargetDust.mdl",
-      "bolt": "Abilities\\Weapons\\Bolt\\BoltImpact.mdl",
-      "rainfire": "Abilities\\Spells\\Demon\\RainOfFire\\RainOfFireTarget.mdl",
-      "doom": "Abilities\\Spells\\Other\\Incinerate\\FireLordDeathExplode.mdl",
-      "blizzard": "Abilities\\Spells\\Human\\Blizzard\\BlizzardTarget.mdl",
-      "arcane": "Abilities\\Weapons\\SorceressMissile\\SorceressMissile.mdl",
-      "frost": "Abilities\\Spells\\Undead\\FrostNova\\FrostNovaTarget.mdl",
-      "decay": "Abilities\\Spells\\Undead\\DeathandDecay\\DeathandDecayTarget.mdl",
-      "chain": "Abilities\\Weapons\\FarseerMissile\\FarseerMissile.mdl",
-      "quake": "Abilities\\Spells\\Orc\\EarthQuake\\EarthQuakeTarget.mdl",
-      "monsoon": "Abilities\\Spells\\Other\\Monsoon\\MonsoonBoltTarget.mdl",
-      "stampede": "Abilities\\Spells\\Other\\Stampede\\StampedeMissileDeath.mdl",
-      "infernal": "Units\\Demon\\Infernal\\InfernalBirth.mdl",
-      "flamestrike": "Abilities\\Spells\\Human\\FlameStrike\\FlameStrike1.mdl",
-      "wyrm": "Abilities\\Weapons\\FrostWyrmMissile\\FrostWyrmMissile.mdl",
-      "purge": "Abilities\\Spells\\Orc\\Purge\\PurgeBuffTarget.mdl",
-      "final": "Abilities\\Spells\\Demon\\DarkPortal\\DarkPortalTarget.mdl", "": ""}
-BLAST_RAD, NOVA_RAD, CLEAVE_RAD = 300, 450, 250
-STORM_RAD, STORM_EVERY, VOLLEY_EVERY = 650, 5, 4
-R_LEVELS, R_REQ_LEVEL, R_LEVEL_SKIP = 3, 6, 5        # the ultimate: hero level 6, 11, 16
-#   skills: (id, name, key, icon, kind, pct per level, radius, fx key)
-DRYAD_SKILLS = [
-    ("Xesp", "Extra Spear", "Q", "BTNEnvenomedSpear", "spears", 0, 0, ""),
-    ("Xswt", "Swift Throw", "W", "BTNBerserkForTrolls", "speed", 20, 0, ""),
-    ("Xfsp", "Fire Spears", "E", "BTNSearingArrows", "bonus", 20, 0, "fire"),
-    ("Xdsr", "Spear Storm", "R", "BTNFanOfKnives", "volley", 3, 0, ""),
-]
-# v3.4 (Jiri): 6 more champions built to clear the big waves - every attack hits an AREA from level 1
-# (melee: innate cleave; ranged: splash / bounce missiles), and their skills scale the area damage.
-#   (hero, attack, innate cleave %, tavern button, tooltip, skills)
-AOE_CHAMPIONS = [
-    ("Hmkg", "melee", 30, (1, 0), "Melee AoE: cleave on every hit.", [
-        ("Xz1q", "Thunder Clap", "Q", "BTNThunderclap", "nova", 40, NOVA_RAD, "thunder"),
-        ("Xz1w", "Storm Hammer", "W", "BTNStormBolt", "bonus", 20, 0, "bolt"),
-        ("Xz1e", "Battle Fury", "E", "BTNBash", "speed", 20, 0, ""),
-        ("Xz1r", "Avatar", "R", "BTNAvatar", "storm", 100, STORM_RAD, "thunder")]),
-    ("Otch", "melee", 30, (2, 0), "Melee AoE: cleave on every hit.", [
-        ("Xz2q", "Shockwave", "Q", "BTNShockWave", "blast", 20, BLAST_RAD, "dust"),
-        ("Xz2w", "War Stomp", "W", "BTNWarStomp", "nova", 40, NOVA_RAD, "stomp"),
-        ("Xz2e", "Endurance", "E", "BTNCommand", "speed", 20, 0, ""),
-        ("Xz2r", "Stampede", "R", "BTNStampede", "storm", 100, STORM_RAD, "stomp")]),
-    ("Nplh", "melee", 40, (3, 0), "Melee AoE: big cleave on every hit.", [
-        ("Xz3q", "Rain of Fire", "Q", "BTNFire", "nova", 40, NOVA_RAD, "rainfire"),
-        ("Xz3w", "Howl of Terror", "W", "BTNHowlOfTerror", "bonus", 20, 0, ""),
-        ("Xz3e", "Doom Strike", "E", "BTNDoom", "blast", 20, BLAST_RAD, "doom"),
-        ("Xz3r", "Inferno", "R", "BTNInfernal", "storm", 100, STORM_RAD, "infernal")]),
-    ("Hamg", "splash", 0, (0, 1), "Ranged AoE: splash bolts.", [
-        ("Xz4q", "Blizzard", "Q", "BTNBlizzard", "nova", 40, NOVA_RAD, "blizzard"),
-        ("Xz4w", "Arcane Power", "W", "BTNStarfall", "bonus", 20, 0, "arcane"),
-        ("Xz4e", "Brilliance", "E", "BTNBrilliance", "speed", 20, 0, ""),
-        ("Xz4r", "Flame Strike", "R", "BTNWallOfFire", "storm", 100, STORM_RAD, "flamestrike")]),
-    ("Ulic", "splash", 0, (1, 1), "Ranged AoE: splash frost bolts.", [
-        ("Xz5q", "Frost Nova", "Q", "BTNGlacier", "blast", 20, BLAST_RAD, "frost"),
-        ("Xz5w", "Death and Decay", "W", "BTNDeathAndDecay", "nova", 40, NOVA_RAD, "decay"),
-        ("Xz5e", "Dark Ritual", "E", "BTNDarkRitual", "bonus", 20, 0, ""),
-        ("Xz5r", "Frost Wyrm", "R", "BTNFrostWyrm", "storm", 100, STORM_RAD, "frost")]),
-    ("Ofar", "bounce", 0, (2, 1), "Ranged AoE: lightning jumps to 4 enemies.", [
-        ("Xz6q", "Chain Lightning", "Q", "BTNChainLightning", "blast", 20, BLAST_RAD, "chain"),
-        ("Xz6w", "Earthquake", "W", "BTNEarthquake", "nova", 40, NOVA_RAD, "quake"),
-        ("Xz6e", "Spirit Wolf", "E", "BTNSpiritWolf", "speed", 20, 0, ""),
-        ("Xz6r", "Thunderstorm", "R", "BTNMonsoon", "storm", 100, STORM_RAD, "purge")]),
-]
-# storm skills: the small effect played on EVERY victim (gSkFx2); the big one (fx key above) plays on the target
-SKILL_FX2 = {"Xz1r": "monsoon", "Xz2r": "stampede", "Xz3r": "doom", "Xz4r": "fire", "Xz5r": "wyrm", "Xz6r": "monsoon"}
-SPLASH_TARGETS = "ground,air,structure,enemy"
-CHAMP_SPLASH = [("ua1w", S, "msplash"), ("ua1f", I, 100), ("ua1h", I, 200), ("ua1q", I, 300),
-                ("uhd1", U, 0.6), ("uqd1", U, 0.3), ("ua1p", S, SPLASH_TARGETS)]
-CHAMP_BOUNCE = [("ua1w", S, "mbounce"), ("utc1", I, 4), ("udl1", U, 0.2), ("ua1f", I, 450), ("ua1p", S, SPLASH_TARGETS)]
-# every champion: (hero id, innate cleave %, skills) - the script's tables (gChamp*, gSk*)
-ALL_CHAMPIONS = [("Edry", 0, None)] + [(h, cl, sk) for (h, _a, cl, _b, _t, sk) in AOE_CHAMPIONS]
-
-
-def skills_line(skills):
-    """'|cffffcc00Q|r Thunder Clap, ... |cffffcc00R|r Avatar.' - the hero tooltip's skill list."""
-    return ", ".join(f"|cffffcc00{key}|r {name}" for (_a, name, key, *_r) in skills) + "."
-
-
-def skill_levels(key):
-    """(levels, required hero level, level skip): Q/W/E 5 levels from hero level 1 (every 2nd level), R 3 levels 6/11/16."""
-    return (R_LEVELS, R_REQ_LEVEL, R_LEVEL_SKIP) if key == "R" else (DRYAD_SKILL_LEVELS, 1, 2)
-
-
-def skill_tip(kind, pct, L):
-    return {"storm": f"Every {STORM_EVERY}th hit: {pct * L}% damage to every enemy in a huge area",
-            "volley": f"Every {VOLLEY_EVERY}th throw: +{pct * L} spears at other enemies in range",
-            "bonus": f"+{pct * L}% damage on every hit",
-            "blast": f"Every hit: {pct * L}% damage to enemies around the target",
-            "nova": f"Every 3rd hit: {pct * L}% damage in a big area",
-            "speed": f"+{pct * L}% attack speed",
-            "spears": f"+{L} extra spear{'s' if L > 1 else ''} per throw, full damage"}[kind]
-
-
-def skill_research(kind, pct):
-    return {"storm": f"Ultimate. Each level: +{pct}% damage to every enemy in a huge area around the target, every {STORM_EVERY}th hit.",
-            "volley": f"Ultimate. Each level: +{pct} spears at other enemies in range, every {VOLLEY_EVERY}th throw.",
-            "bonus": f"Each level: +{pct}% damage on every hit.",
-            "blast": f"Each level: +{pct}% damage to enemies around the target, every hit.",
-            "nova": f"Each level: +{pct}% damage in a big area, every 3rd hit.",
-            "speed": f"Each level: +{pct}% attack speed.",
-            "spears": "Each level: +1 extra spear at another enemy, full damage."}[kind]
-DRYAD_SKILL_LEVELS = 5
-SWIFT_STEP = 0.20
-SWIFT_ABILS = [f"Xsw{L}" for L in range(1, DRYAD_SKILL_LEVELS + 1)]     # AIsx copies, +20 % each (they stack)
-# (v3.2: no fire orb any more - Orb of Fire gives attacks SPLASH, Jiri wants none; the fire is a burst effect on hit)
-DRYAD_MISSILE_SPEED, DRYAD_MISSILE_ARC = 700, 0.25     # v3.5: 450 looked slow (Jiri); her spear and the extra ones match
-# Extra spears FLY (Jiri: the number of spears must be visible): each one is an invisible locust dummy that attacks once
-# with the same spear missile, launched together with hers ("multishot" like X Hero Siege); its hit makes the script
-# deal the champion's damage (OnAttacked / OnDamaged).
-# ⚠️ The dummy must NOT scale its projectile: the Archer base has "Scale Projectiles" (uscb) = 1, and the old 0.01-scale
-# dummy shot 1 %-size, invisible spears (v3.5 fix: full scale + uscb 0; the script makes the dummy itself transparent).
-SPEAR_DUMMY = "dspr"
-DRYAD_DAMAGE_POINT = 0.3     # her attack releases the spear 0.3 s in (less with attack speed): the script throws the
-                             # extra spears at that moment (VolleyRelease) and the dummies shoot at once (damage point 0)
-AGI_ATTACK_SPEED = 0.02      # Units\MiscGame.txt AgiAttackSpeedBonus (1.27 default, not changed by this map)
-SPEAR_RANGE = 600.0          # v3.5: extra spears only fly at enemies within the Dryad's own attack range (600, from HER)
-ALL_CHAMPIONS[0] = (DRYAD_ID, 0, DRYAD_SKILLS)
-TAVERNS = [("tvc0", "Hall of Champions", [DRYAD_ID] + [c[0] for c in AOE_CHAMPIONS])]
-ALL_HEROES = [DRYAD_ID] + [c[0] for c in AOE_CHAMPIONS]
-ALL_SKILLS = [sk for (_h, _c, skills) in ALL_CHAMPIONS for sk in skills]
-SKILLS_PER_CHAMPION = 4
-for (_h, _c, _skills) in ALL_CHAMPIONS:      # Jiri (v3.6): every champion has exactly Q, W, E and R, in that order
-    assert [sk[2] for sk in _skills] == ["Q", "W", "E", "R"], f"{_h}: skills must be Q, W, E, R"
-assert all(sk[0] in SKILL_FX2 for sk in ALL_SKILLS if sk[4] == "storm"), "every storm skill needs its SKILL_FX2 effect"
+# Champions (v4.3, Jiri): twelve champions of X Hero Siege 3.28 in the one tavern, with their real abilities. Their object data is copied as it
+# is (gen/xhs_data.py, generated by tools/xhs_port.py), the text is ours (gen/xhs_text.py), the few triggers they need are in the script (HeroGlue).
+FX = {"final": "Abilities\\Spells\\Demon\\DarkPortal\\DarkPortalTarget.mdl", "": ""}
+DRYAD_ID = "H007"
+ALL_HEROES = [h for h, _skills in XHS.ROSTER]
+HERO_SKILLS = dict(XHS.ROSTER)
+SKILLS_PER_HERO = 5
+SKILL_KEYS = "QWERT"
+INNATE_KEY, GRANT_KEY = "D", "F"
+TAVERN_KEYS = "QWERASDFZXCV"
+TAVERNS = [("tvc0", "Hall of Champions", ALL_HEROES)]
+assert len(ALL_HEROES) == 12 and all(len(s) == SKILLS_PER_HERO for s in HERO_SKILLS.values())
 
 # Premium Armory (secret grove): 8 simple, special items for 1000 gold each. Each = a real base item (class/model)
 # + one custom ability cloned from a real item ability with a stronger value.
@@ -362,7 +242,7 @@ PREMIUM_PRICE = 1000
 #   (name, base item, icon, ability base, [(field, type, data ptr)], values(L) -> [one per field], effect(L) -> text)
 PREMIUM_LEVELS = 5
 PREMIUM_STOCK = 5            # = PREMIUM_LEVELS, so Lv 5 can be bought in one go (v3.3, Jiri; was 3)
-GLOVES_AS_BASE, GLOVES_AS_STEP = 0.40, 0.15     # Fury Gloves attack speed (the script's spear timing reads them too)
+GLOVES_AS_BASE, GLOVES_AS_STEP = 0.40, 0.15     # Fury Gloves attack speed
 PREMIUM_DEF = [
     ("Vampire Fang", "modt", "BTNMaskOfDeath", "AIva", [("Ivam", "U", 1)],
      lambda L: [0.30 + 0.10 * (L - 1)], lambda L: f"{30 + 10 * (L - 1)}% lifesteal"),
@@ -490,6 +370,8 @@ KINDS_DEF += [
      "key": "A", "slot": (0, 1), "icon": CB + "BTNShockWave.blp", "effect": "Shockwave: 25% of their max HP to all wave monsters near the castle"},
 ]
 CASTLE_TREE_COST = 1          # every castle upgrade costs 1 tree (lumber), no gold
+CASTLE_SHOP_RANGE = 3400.0    # the whole plaza
+CASTLE_OWN_REGEN = 5          # HP per second, the castle's own (OnTick: +10 every 2 s), on top of what was bought
 KINDS = len(KINDS_DEF)
 KIND_TYPE = {"abil": 1, "xp": 2, "castleheal": 3, "castleabil": 4, "castleshock": 5}
 # Price steps per kind = item types + bonus abilities (copies stack only with distinct ids). 100 = the most the
@@ -536,6 +418,24 @@ def kind_slot(s):
     return (s % 4, s // 4)
 
 
+def kind_title(s, k):
+    """The name in the shop at step k (k buys so far). Lv = times bought; Castle Regeneration names what was bought (Jiri): a tier is its own item type."""
+    kd = KINDS_DEF[s]
+    if kd["item"] == "Ie":
+        return f"{kd['name']}  |cff4fc3ff+{k * kd['value']} HP/s|r  (|cffffcc00{kd['key']}|r)"
+    return f"{kd['name']}  |cff4fc3ffLv {k}|r  (|cffffcc00{kd['key']}|r)"
+
+
+def kind_body(s, k):
+    kd = KINDS_DEF[s]
+    if kd["item"] == "Ie":
+        return (f"Bought so far: +{k * kd['value']} HP/s. The castle's own +{CASTLE_OWN_REGEN} HP/s comes on top.|n"
+                f"|cffff8c00Next buy: +{kd['value']} HP/s|r|n|cff80ff80Costs {CASTLE_TREE_COST} tree|r")
+    if is_castle_kind(s):
+        return f"{kind_effect(s)}|n|n|cff80ff80Costs {CASTLE_TREE_COST} tree|r"
+    return f"{kind_effect(s)}|n|n|cffff8c00Next buy: +{PRICE_STEP_PCT}% gold|r"
+
+
 def kind_effect(s):
     kd = KINDS_DEF[s]
     return kd.get("effect", f"+{kd['value']} {kd['name']}")
@@ -577,6 +477,68 @@ TURRET_HP, TURRET_ARMOR, TURRET_DMG = 20000, 4, (24995, 1, 10)  # v3.9 (Jiri) HP
 NO_LIFESTEAL = [("utyp", S, "Mechanical")]
 BOSS_HP = [35000, 60000, 90000]                               # v3.9 (Jiri): x10 (was 3500 / 6000 / 9000)
 BOSS_ARMOR = [3, 4, 5]
+# v4.3 (Jiri: bosses far too easy, ultra fast, high damage, durable, no stun). Lane and gate bosses grow with THEIR lane's wave when they rise, n = wave - 1:
+# HP x (1 + BOSS_HP_GROWTH n^2), damage x (1 + BOSS_DMG_GROWTH n^2); their spells are their own, level 1 + wave / 5 + the gate's level (BOSS_SPELLS).
+BOSS_HP_GROWTH, BOSS_DMG_GROWTH = 0.02, 0.008
+BOSS_HP_FACTOR_MAX = 16.0                           # from about wave 28 the HP stops growing: the biggest boss, Level 5 with 8 players, has 39.7 million
+BOSS_DMG_FACTOR_MAX = 8.0                           # from about wave 31 the attack stops growing: the Inferno boss hits for about 65 000; every bonus fits the bits
+BOSS_COOLDOWN = 1.0
+BOSS_SPEED = 522                                    # the engine's top speed; war3mapMisc.txt raises the map's cap from 400 for it
+BOSS_SPELL_LEVELS = 10
+BOSS_SPELL_DAMAGE = 1200.0                          # per spell level, what a single target takes
+# base ability: our copy and how much of BOSS_SPELL_DAMAGE per field. Boss spells never touch a hero's copy of the same spell.
+BOSS_SPELLS = {
+    "ACfn": ("Xbfn", [("Ufn1", 1, 0.8), ("Ufn2", 2, 1.2)]),
+    "ACbz": ("Xbbz", [("Hbz2", 2, 0.25), ("Hbz6", 6, 1.5)]),
+    "Awrs": ("Xbws", [("Wrs1", 1, 1.0)]),
+    "ACrf": ("Xbrf", [("Hbz2", 2, 0.25), ("Hbz6", 6, 1.5)]),
+    "ACcv": ("Xbcv", [("Ucs1", 1, 1.0), ("Ucs2", 2, 20.0)]),
+    "ACsh": ("Xbsh", [("Osh1", 1, 1.0), ("Osh2", 2, 20.0)]),
+    "ACtc": ("Xbtc", [("Ctc1", 1, 1.0)]),
+}
+
+
+def boss_abils(abils):
+    """A boss's ability list with its own spell copies."""
+    return ",".join(BOSS_SPELLS[a][0] if a in BOSS_SPELLS else a for a in abils.split(","))
+
+
+def boss_spell_ids(abils):
+    """The ids of cast 1 and cast 2: the first two abilities of the list."""
+    first, second = abils.split(",")[:2]
+    return BOSS_SPELLS[first][0], BOSS_SPELLS[second][0]
+
+
+def boss_spell_abilities():
+    out = []
+    meta = _ref_slk("Units_AbilityMetaData.slk")
+    data = _ref_slk("Units_AbilityData.slk")
+    common = {"atar": "targs", "aare": "Area", "aran": "Rng", "acas": "Cast", "adur": "Dur", "ahdu": "HeroDur", "abuf": "BuffID", "aeff": "EfctID"}
+    for base, (aid, fields) in BOSS_SPELLS.items():
+        row = data[base]
+        ours = {f for (f, _p, _s) in fields}
+        mods = [("alev", I, 0, 0, BOSS_SPELL_LEVELS)]
+        specific = {f: m for f, m in meta.items() if m.get("field") == "Data" and base in (m.get("useSpecific") or "").split(",") and f not in ours}
+        for level in range(1, BOSS_SPELL_LEVELS + 1):
+            mods += [("amcs", I, level, 0, 0), ("acdn", U, level, 0, 1.0)]
+            mods += [(field, U, level, pointer, BOSS_SPELL_DAMAGE * share * level) for (field, pointer, share) in fields]
+            # a new level has nothing of level 1 unless it is written: range, area, targets, waves, buffs
+            for field, column in common.items():
+                value = row.get(f"{column}1", "")
+                if value in ("", "-", "_", None):
+                    continue
+                kind = S if field in ("atar", "abuf", "aeff") else U
+                mods.append((field, kind, level, 0, value if kind == S else float(value)))
+            for field, m in specific.items():
+                value = row.get("Data" + "ABCDEFGHI"[int(m["data"]) - 1] + "1", "")
+                if value in ("", "-", "_", None):
+                    continue
+                if m.get("type") == "int":
+                    mods.append((field, I, level, int(m["data"]), int(float(value))))
+                elif m.get("type") in ("unreal", "real"):
+                    mods.append((field, U if m.get("type") == "unreal" else R, level, int(m["data"]), float(value)))
+        out.append((base, aid, mods))
+    return out
 BOSS_DMG = [(1400, 2, 400), (1900, 2, 500), (2400, 2, 600)]       # v3.9 (Jiri): x50 (was 28+2d8, 38+2d10, 48+2d12)
 
 
@@ -684,19 +646,7 @@ def custom_units():
         ("utub", S, f"Your lane. Buy stats for your champion here - instant; every buy costs {PRICE_STEP_PCT}% more.")]))
     for (tid, name, heroes) in TAVERNS:
         units.append(("ntav", tid, [("unam", S, name), ("useu", S, ",".join(heroes))]))
-    units.append(dryad_hero())
-    # the extra-spear dummy: full scale (a scaled-down unit scales its missile when uscb = 1), "Scale Projectiles" off,
-    # no sounds, no corpse (death type 0 = vanishes); the script sets its vertex alpha to 0 the moment it is created
-    spear_dummy = [
-        ("unam", S, "Spear"), ("usca", R, 1.0), ("uscb", I, 0), ("ushu", S, ""), ("usnd", S, ""), ("udea", I, 0),
-        ("uabi", S, "Aloc"), ("upgr", S, ""), ("ureq", S, ""),
-        ("umvs", I, 0), ("ucol", U, 0.0), ("ufoo", I, 0), ("uhpm", I, 100),
-        ("ua1b", I, 0), ("ua1d", I, 1), ("ua1s", I, 1), ("ua1c", U, 5.0), ("ua1r", I, 800), ("uacq", U, 800.0),
-        ("udp1", U, 0.0), ("ubs1", U, 0.0), ("ulpx", U, 0.0), ("ulpy", U, 0.0),
-        ("ua1m", S, "Abilities\\Weapons\\Dryadmissile\\Dryadmissile.mdl"), ("ua1z", I, DRYAD_MISSILE_SPEED),
-        ("uma1", U, DRYAD_MISSILE_ARC), ("umh1", I, 1), ("ua1g", S, "ground,air,structure,ward"), ("ulpz", U, 100.0)]
-    assert ("uscb", I, 0) in spear_dummy and ("usca", R, 1.0) in spear_dummy, "spear dummy would shrink its missile"
-    units.append(("earc", SPEAR_DUMMY, spear_dummy + no_bounty))
+    units += xhs_custom_units()
     for (sid, name, items) in SHOPS.values():
         mods = [("unam", S, name), ("usei", S, ",".join(items))]
         if sid == SHOPS["bank"][0]:      # looks like a gold mine
@@ -723,10 +673,10 @@ def custom_units():
                 ("unam", S, b["name"]), ("uhpm", I, BOSS_HP[k]), ("udef", I, BOSS_ARMOR[k]),
                 ("udty", S, "hero"), ("uhpr", U, 2.0), ("uhrt", S, "always"),
                 ("umpm", I, 1000), ("umpi", I, 1000), ("umpr", U, 4.0),
-                ("ua1b", I, base), ("ua1d", I, dice), ("ua1s", I, sides), ("ua1c", U, 1.6),
-                ("ua1r", I, b["range"]), ("uacq", U, 700.0), ("ua1t", S, "chaos"),
-                ("uabi", S, b["abils"]), ("usca", R, b["scale"]), ("ussc", R, 3.0),
-                ("ucol", U, 40.0), ("umvs", I, 240), ("ulev", I, 10), ("usid", I, 1000), ("usin", I, 1000),
+                ("ua1b", I, base), ("ua1d", I, dice), ("ua1s", I, sides), ("ua1c", U, BOSS_COOLDOWN),
+                ("ua1r", I, b["range"]), ("uacq", U, 900.0), ("ua1t", S, "chaos"),
+                ("uabi", S, boss_abils(b["abils"])), ("usca", R, b["scale"]), ("ussc", R, 3.0),
+                ("ucol", U, 40.0), ("umvs", I, BOSS_SPEED), ("ulev", I, 10), ("usid", I, 1000), ("usin", I, 1000),
                 ("ubba", I, 300), ("ubdi", I, 1), ("ubsi", I, 1),
             ]
             for key, fid in (("model", "umdl"), ("icon", "uico"), ("missile", "ua1m"), ("sound", "usnd")):
@@ -756,10 +706,10 @@ def custom_units():
             ("unam", S, bname), ("uhpm", I, BOSS_HP[1] * hpm), ("udef", I, BOSS_ARMOR[1] + 2 * g["level"]),
             ("udty", S, "hero"), ("uhpr", U, 2.0 * hpm), ("uhrt", S, "always"),
             ("umpm", I, 2000), ("umpi", I, 2000), ("umpr", U, 8.0),
-            ("ua1b", I, int(base * dmgm)), ("ua1d", I, dice), ("ua1s", I, sides), ("ua1c", U, 1.6),
-            ("ua1r", I, b["range"]), ("uacq", U, 700.0), ("ua1t", S, "chaos"),
-            ("uabi", S, b["abils"]), ("usca", R, bscale), ("ussc", R, 3.0),
-            ("ucol", U, 40.0), ("umvs", I, 240), ("ulev", I, 10 + g["level"]), ("usid", I, 1000), ("usin", I, 1000),
+            ("ua1b", I, int(base * dmgm)), ("ua1d", I, dice), ("ua1s", I, sides), ("ua1c", U, BOSS_COOLDOWN),
+            ("ua1r", I, b["range"]), ("uacq", U, 900.0), ("ua1t", S, "chaos"),
+            ("uabi", S, boss_abils(b["abils"])), ("usca", R, bscale), ("ussc", R, 3.0),
+            ("ucol", U, 40.0), ("umvs", I, BOSS_SPEED), ("ulev", I, 10 + g["level"]), ("usid", I, 1000), ("usin", I, 1000),
             ("ubba", I, g["gold"]), ("ubdi", I, 1), ("ubsi", I, 1),
             ("uclr", I, tr), ("uclg", I, tg), ("uclb", I, tb)]
         for key, fid in (("model", "umdl"), ("icon", "uico"), ("missile", "ua1m"), ("sound", "usnd")):
@@ -785,18 +735,16 @@ def custom_units():
     return units
 
 
-# Hero levels: practically unlimited (MAX_HERO_LEVEL in war3mapMisc.txt). Q/W/E have 5 levels, R 3 (hero level
-# 6/11/16); from level 11 a skill point can also go into "Attributes" (+ATTR_PER_LEVEL Str/Agi/Int per level).
+# Hero levels: practically unlimited (MAX_HERO_LEVEL in war3mapMisc.txt). A hero's five skills are all learnable by level 20; past that every
+# level-up adds ATTR_PER_LEVEL to Str/Agi/Int by itself. (A sixth "Attributes" skill does not fit: a hero ability list holds at most 5.)
 MAX_HERO_LEVEL = 1000
-ATTR_ABIL = "Xatt"            # custom hero ability based on 'Aamk' (Attribute Bonus)
-ATTR_PER_LEVEL = 30           # Jiri (v3.5): +30 Str/Agi/Int per Attributes level
-ATTR_LEVELS = 100             # learnable at hero levels 11..110; above that the script adds the stats itself
-ATTR_REQ_LEVEL = 11
+ATTR_PER_LEVEL = 30           # Jiri (v3.5): +30 Str/Agi/Int
+ATTR_AUTO_ABOVE = 20
 
 
 def hero_base_armor(hero_id):
-    """Base armor of a hero in the game's data (Units\\UnitBalance.slk `def`; the Dryad is a copy of its base unit)."""
-    base = {DRYAD_ID: "Emoo"}.get(hero_id, hero_id)
+    """Base armor of a hero in the game's data (Units\\UnitBalance.slk `def`; a custom hero copies its base unit)."""
+    base = XHS.UNITS[hero_id][0]
     return float(_ref_slk("Units_UnitBalance.slk")[base]["def"]) - 2.0     # MiscGame AgiDefenseBase = -2
 
 
@@ -809,99 +757,171 @@ def _ref_slk(name):
     return cache[name]
 
 
-def attribute_ability():
-    """('Aamk', ATTR_ABIL, mods): 100 levels, each level = +ATTR_PER_LEVEL more Str/Agi/Int (values are cumulative)."""
-    mods = [("alev", I, 0, 0, ATTR_LEVELS), ("arlv", I, 0, 0, ATTR_REQ_LEVEL), ("alsk", I, 0, 0, 1),
-            ("aher", I, 0, 0, 1), ("arhk", S, 0, 0, "T"), ("arpx", I, 0, 0, 0), ("arpy", I, 0, 0, 1),
-            ("abpx", I, 0, 0, 2), ("abpy", I, 0, 0, 1),
-            ("aart", S, 0, 0, CB + "BTNStatUp.blp"), ("arar", S, 0, 0, CB + "BTNStatUp.blp"),
-            ("aret", S, 0, 0, "|cffffcc00[T]|r Learn |cffffcc00Attributes|r - Level %d"),
-            ("arut", S, 0, 0, f"+{ATTR_PER_LEVEL} Strength, Agility and Intelligence per level.|n|cffff8c00From hero level {ATTR_REQ_LEVEL}.|r")]
-    for lvl in range(1, ATTR_LEVELS + 1):
-        v = ATTR_PER_LEVEL * lvl
-        mods += [("Iagi", I, lvl, 1, v), ("Iint", I, lvl, 2, v), ("Istr", I, lvl, 3, v),
-                 ("atp1", S, lvl, 0, f"Attributes - Level {lvl}"), ("aub1", S, lvl, 0, f"+{v} Strength, Agility and Intelligence.")]
-    return ("Aamk", ATTR_ABIL, mods)
+def _no_level(mods):
+    return [(f, k, v) for (f, k, _l, _p, v) in mods]
 
 
-def _hero_targets_with_air(h):
-    """Attack-1 target list of hero h (Units/UnitWeapons.slk) with "air" added: melee heroes must hit flyers too."""
+# Natives our own bosses and final boss also use (Awrs, ACce): the champions' edited copies get ids of their own, so nothing else changes.
+XHS_REMAP = {"ACce": "Xhce", "Awrs": "Xhws"}
+
+
+def _remap_list(value):
+    return ",".join(XHS_REMAP.get(a, a) for a in value.split(","))
+
+
+def _xhs_unit_mods(uid, base, mods):
+    """A unit's mods from the reference, with its ability list naming our copies. A list it only inherits gets written out when it names one."""
+    plain = _no_level(mods)
+    if any(m[0] == "uabi" for m in plain):
+        return [(f, k, _remap_list(v)) if f == "uabi" else (f, k, v) for (f, k, v) in plain]
+    inherited = _ref_slk("Units_UnitAbilities.slk").get(base, {}).get("abilList", "")
+    if any(a in XHS_REMAP for a in inherited.split(",")):
+        return plain + [("uabi", S, _remap_list(inherited))]
+    return plain
+
+
+def hero_tavern_mods(h):
+    """A tavern hero: free, 12 fixed buttons, one hotkey each, short tooltip."""
+    i = ALL_HEROES.index(h)
+    x, y = i % 4, i // 4
+    name = next((v for (f, _k, _l, _p, v) in XHS.UNITS[h][2] if f == "unam"), None) or _ref_profile_name(h)
+    key = TAVERN_KEYS[i]
+    skills = ", ".join(f"|cffffcc00{SKILL_KEYS[k]}|r {XHS_SKILLS[a][0]}" for k, a in enumerate(HERO_SKILLS[h]))
+    # (a standard hero needs a Keep and a Castle for a second purchase: tiers of a base-building game. This map builds nothing, and a second round is a first hero again.)
+    return [("ugol", I, 0), ("ulum", I, 0), ("ufoo", I, 0), ("usst", I, 0), ("usma", I, 8), ("usrg", I, 1), ("ureq", S, ""),
+            ("urqc", I, 0), ("urq1", S, ""), ("urq2", S, ""),
+            ("ubpx", I, x), ("ubpy", I, y), ("uhot", S, key),
+            ("uhab", S, ",".join(HERO_SKILLS[h])),
+            ("utip", S, f"|cffffcc00{name}|r  (|cffffcc00{key}|r)"),
+            ("utub", S, f"{XHS_TIPS[h]} {skills}.")]
+
+
+def _ref_profile_name(h):
+    import glob
     import os
-    from slk import read_slk
-    global _WEAPONS
-    if "_WEAPONS" not in globals():
-        _WEAPONS = read_slk(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ref", "Units_UnitWeapons.slk"))
-    targs = [x for x in _WEAPONS[h]["targs1"].split(",") if x]
-    if "air" not in targs:
-        targs.insert(targs.index("debris") + 1 if "debris" in targs else len(targs), "air")
-    return ",".join(targs)
+    from slk import read_profile
+    root = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ref")
+    for path in glob.glob(os.path.join(root, "Units_*UnitStrings.txt")):
+        section = read_profile(path).get(h)
+        if section and section.get("Name"):
+            return section["Name"].strip('"')
+    raise SystemExit(f"no name for hero {h}")
+
+
+def xhs_custom_units():
+    """The Dryad (a custom hero in the reference too) and the custom summons."""
+    out = []
+    for uid, (base, custom, mods) in XHS.UNITS.items():
+        if custom:
+            plain = [m for m in _xhs_unit_mods(uid, base, mods) if not (uid in HERO_SKILLS and m[0] == "uhab")]
+            out.append((base, uid, plain + (hero_tavern_mods(uid) if uid in HERO_SKILLS else [])))
+    return out
 
 
 def original_unit_mods():
-    """The 6 AoE champions are the standard heroes, edited: free tavern heroes, attack air, our skills + Attributes,
-    AoE attack (ranged: splash / bounce missile; melee: the script's innate cleave), short tavern tooltip."""
+    """The standard heroes and summons, edited as in the reference; the heroes also sold in our tavern."""
     out = []
-    for (h, attack, _cleave, (bx, by), tip, skills) in AOE_CHAMPIONS:
-        mods = [("ugol", I, 0), ("ulum", I, 0), ("ufoo", I, 0), ("usst", I, 0), ("usma", I, 8), ("usrg", I, 1), ("ureq", S, ""),
-                ("ua1g", S, _hero_targets_with_air(h)),
-                ("uhab", S, ",".join(sk[0] for sk in skills) + "," + ATTR_ABIL),
-                ("upgr", S, _hero_upgrades_with_reach(h, False)),
-                ("ubpx", I, bx), ("ubpy", I, by), ("utub", S, tip + " " + skills_line(skills))]
-        if attack == "splash":
-            mods += CHAMP_SPLASH
-        elif attack == "bounce":
-            mods += CHAMP_BOUNCE
-        out.append((h, mods))
+    for uid, (base, custom, mods) in XHS.UNITS.items():
+        if custom:
+            continue
+        plain = _xhs_unit_mods(uid, base, mods)
+        if uid in HERO_SKILLS:
+            plain = [m for m in plain if m[0] != "uhab"] + hero_tavern_mods(uid)
+        elif uid == "Edmm":      # his demon form has the same five skills, in the same order
+            plain = [m for m in plain if m[0] != "uhab"] + [("uhab", S, ",".join(HERO_SKILLS["Edem"]))]
+        out.append((uid, plain))
     return out
 
 
-def dryad_hero():
-    """The one champion: a free tavern hero (Priestess of the Moon base) that looks like a Dryad and throws spears."""
-    base = "Emoo"
-    ua = _ref_slk("Units_UnitAbilities.slk")[base]
-    return (base, DRYAD_ID, [
-        ("unam", S, "Dryad"), ("upro", S, "Sylvara,Elunna,Ashwen,Thalia,Myrael,Keira"),
-        ("umdl", S, "units\\nightelf\\Dryad\\Dryad.mdl"), ("uico", S, CB + "BTNDryad.blp"),
-        ("ua1m", S, "Abilities\\Weapons\\Dryadmissile\\Dryadmissile.mdl"), ("usnd", S, "Dryad"),
-        # slow, high spear (Jiri: see it fly even at short range): base 900 speed / 0.15 arc
-        ("ua1z", I, DRYAD_MISSILE_SPEED), ("uma1", U, DRYAD_MISSILE_ARC),
-        ("usca", R, 1.25), ("ussc", R, 1.4),
-        ("ugol", I, 0), ("ulum", I, 0), ("ufoo", I, 0), ("usst", I, 0), ("usma", I, 8), ("usrg", I, 1), ("ureq", S, ""),
-        ("ua1g", S, _hero_targets_with_air(base)),
-        ("uabi", S, ua["abilList"]),
-        ("uhab", S, ",".join(sk[0] for sk in DRYAD_SKILLS) + "," + ATTR_ABIL),
-        ("upgr", S, _hero_upgrades_with_reach(base, False)),
-        ("ubpx", I, 0), ("ubpy", I, 0), ("utip", S, "|cffffcc00Dryad|r"),
-        ("utub", S, "Throws spears. " + skills_line(DRYAD_SKILLS))])
+def _skill_text(aid, base, text, level):
+    ref = aid if aid == base else f"{aid}:{base}"
+
+    def fill(match):
+        key, percent = match.group(1), match.group(2)
+        field = f"Data{key}{level}" if len(key) == 1 else f"{key}{level}"
+        return f"<{ref},{field}{',%' if percent else ''}>"
+    return re.sub(r"\{(\w+)(%?)\}", fill, text)
 
 
-def dryad_abilities():
-    """Every champion's 4 learnable skills (passive AEev level holders, effects in the script) + the hidden helpers."""
-    out = []
-    for (aid, name, key, icon, kind, pct, _rad, _fx) in ALL_SKILLS:
-        i = "QWER".index(key)
-        levels, req, skip = skill_levels(key)
-        tip = (lambda L, kind=kind, pct=pct: skill_tip(kind, pct, L))
-        research = skill_research(kind, pct) + (f"|n|cffff8c00From hero level {req} ({req} / {req + skip} / {req + 2 * skip}).|r" if key == "R" else "")
-        mods = [("aher", I, 0, 0, 1), ("alev", I, 0, 0, levels), ("arlv", I, 0, 0, req), ("alsk", I, 0, 0, skip),
-                ("aart", S, 0, 0, CB + icon + ".blp"), ("arar", S, 0, 0, CB + icon + ".blp"),
-                ("ahky", S, 0, 0, key), ("arhk", S, 0, 0, key),
-                ("abpx", I, 0, 0, i), ("abpy", I, 0, 0, 2), ("arpx", I, 0, 0, i), ("arpy", I, 0, 0, 0),
-                ("aret", S, 0, 0, f"|cffffcc00[{key}]|r Learn {name} - Level %d"), ("arut", S, 0, 0, research)]
-        for L in range(1, levels + 1):
-            mods += [("Eev1", U, L, 1, 0.0), ("atp1", S, L, 0, f"|cffffcc00[{key}]|r {name} - Level {L}"),
-                     ("aub1", S, L, 0, tip(L))]
-        out.append(("AEev", aid, mods))
-    for aid in SWIFT_ABILS:
-        out.append(("AIsx", aid, [("Isx1", U, 1, 1, SWIFT_STEP)]))
-    return out
+def _ability_levels(aid, base):
+    for (f, _k, _l, _p, v) in XHS.ABILS[aid][2] if aid in XHS.ABILS else ():
+        if f == "alev":
+            return int(v)
+    return int(_ref_slk("Units_AbilityData.slk")[base]["levels"])
 
 
-def _hero_upgrades_with_reach(h, melee):
-    """The hero's "upgrades used" (Units/UnitBalance.slk) + the Long Reach range upgrade (melee champions only)."""
-    cur = _ref_slk("Units_UnitBalance.slk").get(h, {}).get("upgrades") or "_"
-    ups = [u for u in cur.split(",") if u and u != "_"]
-    return ",".join(ups + ([REACH_TECH] if melee else [])) or "_"
+def _card_mods(aid, key, pos, learn_pos):
+    """The hotkey and the button of an ability, cast and switch-off state alike (Immolation, autocast); learn_pos only for learnable skills."""
+    x, y = pos
+    mods = [("ahky", S, 0, 0, key), ("auhk", S, 0, 0, key), ("abpx", I, 0, 0, x), ("abpy", I, 0, 0, y), ("aubx", I, 0, 0, x), ("auby", I, 0, 0, y)]
+    if learn_pos:
+        mods += [("arhk", S, 0, 0, key), ("arpx", I, 0, 0, learn_pos[0]), ("arpy", I, 0, 0, learn_pos[1])]
+    return mods
+
+
+def _text_mods(aid, base, key, learnable):
+    name, _kind, text, _o, _t, _e = XHS_SKILLS[aid]
+    levels = _ability_levels(aid, base)
+    tag = f"|cffffcc00[{key}]|r "
+    mods = []
+    for level in range(1, levels + 1):
+        tip = f"{tag}{name}" + (f" - Level {level}" if levels > 1 else "")
+        mods += [("atp1", S, level, 0, tip), ("aub1", S, level, 0, _skill_text(aid, base, text, level))]
+    if learnable:
+        mods += [("aret", S, 0, 0, f"{tag}Learn {name} - Level %d"), ("arut", S, 0, 0, _skill_text(aid, base, text, 1) + " |cff4fc3ffMore every level.|r")]
+    return mods
+
+
+def xhs_ability_mods():
+    """{ability id: our mods}: the card every champion has, the same as the reference's. Q W E R on the bottom row, T beside the innate
+    ability (D), and the level 20 ability (F) where the Learn button is once every skill is learned."""
+    ours = {}
+    for h, skills in XHS.ROSTER:
+        for slot, aid in enumerate(skills):
+            pos = (slot, 2) if slot < 4 else (2, 1)
+            learn = (slot, 0) if slot < 4 else (0, 1)
+            base = XHS.ABILS[aid][0] if aid in XHS.ABILS else aid
+            ours[aid] = _card_mods(aid, SKILL_KEYS[slot], pos, learn) + _text_mods(aid, base, SKILL_KEYS[slot], True)
+        uabi = next((v for (f, _k, _l, _p, v) in XHS.UNITS[h][2] if f == "uabi"), "")
+        for aid in [a for a in uabi.split(",") if a and a != "AInv"]:
+            base = XHS.ABILS[aid][0] if aid in XHS.ABILS else aid
+            ours[aid] = _card_mods(aid, INNATE_KEY, (1, 1), None) + _text_mods(aid, base, INNATE_KEY, False)
+        for aid in XHS.LEVEL20[h][0]:
+            base = XHS.ABILS[aid][0] if aid in XHS.ABILS else aid
+            key, pos = (INNATE_KEY, (1, 1)) if aid == "A03Q" else (GRANT_KEY, (3, 1))      # the Tauren's new roar replaces his old one
+            ours[aid] = _card_mods(aid, key, pos, None) + _text_mods(aid, base, key, False)
+    return ours
+
+
+LAYOUT_FIELDS = {"ahky", "auhk", "arhk", "abpx", "abpy", "aubx", "auby", "arpx", "arpy"}
+
+
+def _with_ours(aid, mods, ours):
+    """The reference's mods, its layout replaced by ours where we set one."""
+    if aid not in ours:
+        return list(mods)
+    return [m for m in mods if m[0] not in LAYOUT_FIELDS] + ours[aid]
+
+
+def xhs_original_abilities():
+    ours = xhs_ability_mods()
+    out = [(aid, _with_ours(aid, mods, ours)) for aid, (_b, custom, mods) in XHS.ABILS.items() if not custom and aid not in XHS_REMAP]
+    done = {a for a, _m in out}
+    # a skill the reference left as it is (no mods) still gets our card and text
+    return out + [(aid, mods) for aid, mods in ours.items() if aid not in done and aid not in XHS.ABILS]
+
+
+def xhs_custom_abilities():
+    ours = xhs_ability_mods()
+    out = [(base, aid, _with_ours(aid, mods, ours)) for aid, (base, custom, mods) in XHS.ABILS.items() if custom]
+    return out + [(aid, new, XHS.ABILS[aid][2]) for aid, new in XHS_REMAP.items()]
+
+
+def custom_buffs():
+    """war3map.w3h: (custom, originals) as the reference has them, with art and no text."""
+    custom = [(base, bid, _no_level(mods)) for bid, (base, is_custom, mods) in XHS.BUFFS.items() if is_custom]
+    originals = [(bid, _no_level(mods)) for bid, (_b, is_custom, mods) in XHS.BUFFS.items() if not is_custom]
+    return custom, originals
 
 
 def custom_upgrades():
@@ -928,11 +948,15 @@ def original_item_mods():
     return list(mods.items())
 
 
+# The tavern's Select Unit button would take the first of the 12 hero buttons: it moves off the card. The ability itself stays, it is what sells.
+TAVERN_SELECT_HIDDEN = [("abpx", I, 0, 0, 0), ("abpy", I, 0, 0, -11), ("aubx", I, 0, 0, 0), ("auby", I, 0, 0, -11)]
+
+
 def original_ability_mods():
     """Taverns sell to a player's soul anywhere in the Hall of Champions - no walking needed.
     'Ane2' = tavern Select Unit: aran = range, Neu1 = activation radius (AbilityMetaData.slk). 600 covers the small
     hall (souls 288 from the tavern) and nothing outside it - no champion can buy another hero from a corridor."""
-    return [("Ane2", [("aran", U, 1, 0, 600.0), ("Neu1", U, 1, 1, 600.0)]),
+    return [("Ane2", [("aran", U, 1, 0, 600.0), ("Neu1", U, 1, 1, 600.0)] + TAVERN_SELECT_HIDDEN),
             # grove shops (Premium Armory, Bank, Apothecary = 'Aneu'): sell to your champion anywhere on the map
             ("Aneu", [("aran", U, 1, 0, 20000.0), ("Neu1", U, 1, 1, 20000.0)]),
             # Fountain of Power: HP (ACnr/Aoar) and mana (ANre/Aarm) regeneration 1 % -> 2 % of max per second
@@ -940,7 +964,7 @@ def original_ability_mods():
             ("ANre", [("Arm1", U, 1, 1, 0.02)])] + [
             # potions: the native fixed heal is zeroed, the script heals the percent (DrinkPotion)
             (ab, [(f, I, 1, d, 0) for (f, d) in fields] + [("acdn", U, 1, 0, cd)])
-            for (_i, _n, _e, _g, _hp, _mp, ab, fields, cd) in POTIONS if ab]
+            for (_i, _n, _e, _g, _hp, _mp, ab, fields, cd) in POTIONS if ab] + xhs_original_abilities()
 
 
 def custom_items():
@@ -949,10 +973,9 @@ def custom_items():
     for si, kd in enumerate(KINDS_DEF):
         castle = is_castle_kind(si)
         for k in range(kind_tiers(si)):
-            mods = [("unam", S, kd.get("unam", f"{kd['name']} +{kd['value']}")), ("iico", S, kd["icon"]), ("uhot", S, kd["key"]),
-                    ("utip", S, f"{kd['name']}  |cff4fc3ffLv {k}|r  (|cffffcc00{kd['key']}|r)"),   # Lv = times already bought
-                    ("utub", S, f"{kind_effect(si)}|n|n" + (f"|cff80ff80Costs {CASTLE_TREE_COST} tree|r" if castle
-                                                              else f"|cffff8c00Next buy: +{PRICE_STEP_PCT}% gold|r")),
+            mods = [("unam", S, f"{kd['name']} +{k * kd['value']} HP/s" if kd["item"] == "Ie" else kd.get("unam", f"{kd['name']} +{kd['value']}")), ("iico", S, kd["icon"]), ("uhot", S, kd["key"]),
+                    ("utip", S, kind_title(si, k)),
+                    ("utub", S, kind_body(si, k)),
                     ("ides", S, kind_effect(si)),
                     ("igol", I, 0 if castle else stat_price(k, kd.get("price", STAT_BASE_PRICE))),
                     ("ilum", I, CASTLE_TREE_COST if castle else 0), ("isto", I, 1), ("istr", I, 1), ("isst", I, 0),
@@ -1016,10 +1039,10 @@ def custom_abilities():
         for k in range(STAT_TIERS):
             out.append((kd["base"], bonus_abil_id(si, k), [(f, I, 1, dp, kd["value"]) for f, dp in kd["fields"]]))
     # the castle's allied-shop ability: activation radius + range cover the whole plaza
-    out.append(("Aneu", CASTLE_SHOP_ABIL, [("aran", U, 1, 0, 3000.0), ("Neu1", U, 1, 1, 3000.0)]))
-    out.append(("Aall", CASTLE_SHARE_ABIL, [("aran", U, 1, 0, 3000.0), ("Neu1", U, 1, 1, 3000.0)]))
-    out.append(attribute_ability())
-    out += dryad_abilities()
+    out.append(("Aneu", CASTLE_SHOP_ABIL, [("aran", U, 1, 0, CASTLE_SHOP_RANGE), ("Neu1", U, 1, 1, CASTLE_SHOP_RANGE)]))
+    out.append(("Aall", CASTLE_SHARE_ABIL, [("aran", U, 1, 0, CASTLE_SHOP_RANGE), ("Neu1", U, 1, 1, CASTLE_SHOP_RANGE)]))
+    out += xhs_custom_abilities()
+    out += boss_spell_abilities()
     out += final_boss_abilities()
     for (_lvl, _iid, aid, _name, bonus, _icon) in EPIC_ITEMS:      # epic crown: +all stats (green)
         out.append(("AIx1", aid, [("Iagi", I, 1, 1, bonus), ("Iint", I, 1, 2, bonus), ("Istr", I, 1, 3, bonus)]))

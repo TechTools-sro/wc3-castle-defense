@@ -1,8 +1,9 @@
 //---------------------------------------------------------------------------
 // Balance probe. Only in `build.py --probe` maps, never in a release: see docs/balance.md.
 // It plays the production game with ordinary orders: it buys the champion in the tavern, learns skills, buys in the
-// real shops with the real gold, moves and attacks. During a fight it never sets HP, gold, level, time or
+// real shops with the real gold, moves, attacks and casts its champion's spells. During a fight it never sets HP, gold, level, time or
 // invulnerability and never kills or pauses anything. It only reads and logs. A lost fight is data.
+// One labelled exception: mode 3 kills the lane's tower and Nexus once, to bring a boss on at the wave asked for (the bot does not push).
 //---------------------------------------------------------------------------
 function ProbeNow takes nothing returns string
     return R2SW(TimerGetElapsed(gPrClock), 1, 1)
@@ -81,9 +82,26 @@ function ProbeOnHeroDeath takes nothing returns nothing
     call ProbeLog("event=death level=" + I2S(GetHeroLevel(gHero[0])) + " maxhp=" + I2S(R2I(GetUnitState(gHero[0], UNIT_STATE_MAX_LIFE))))
 endfunction
 
+function ProbeOtherDamage takes integer id, real d returns nothing
+    local integer i = 0
+    loop
+        exitwhen i >= gPrOtherN
+        if gPrOtherType[i] == id then
+            set gPrOtherDmg[i] = gPrOtherDmg[i] + d
+            return
+        endif
+        set i = i + 1
+    endloop
+    if gPrOtherN < 16 then
+        set gPrOtherType[gPrOtherN] = id
+        set gPrOtherDmg[gPrOtherN] = d
+        set gPrOtherN = gPrOtherN + 1
+    endif
+endfunction
+
 // Raw = the damage events (after armor, overkill included). Hp = what the target really lost. Neither is DPS by itself.
 // hero_wave: the champion on wave monsters. hero_other: the champion on towers, Nexus, bosses, Protectors.
-// other: damage by any other unit of a player (the Dryad's spear dummies, summons), never expected from an ally in a solo probe.
+// other: damage by any other unit of a player (summons), by type in event=other_damage; never expected from an ally in a solo probe.
 function ProbeOnEnemyHit takes nothing returns nothing
     local real d = GetEventDamage()
     local unit s = GetEventDamageSource()
@@ -107,6 +125,7 @@ function ProbeOnEnemyHit takes nothing returns nothing
         else
             set gPrOtherRaw = gPrOtherRaw + d
             set gPrOtherHp = gPrOtherHp + lost
+            call ProbeOtherDamage(GetUnitTypeId(s), d)
         endif
     endif
     set s = null
@@ -165,7 +184,7 @@ function ProbeAlive takes nothing returns integer
 endfunction
 
 function ProbeState takes nothing returns string
-    return "level=" + I2S(GetHeroLevel(gHero[0])) + " xp=" + I2S(GetHeroXP(gHero[0])) + " kills=" + I2S(gKills[0]) + " deaths=" + I2S(gDeaths[0]) + " castle=" + I2S(R2I(GetWidgetLife(gCastle))) + " gold=" + I2S(ProbeGold()) + " spent=" + I2S(gPrSpent) + " earned=" + I2S(ProbeGold() + gPrSpent - 1000) + " pending=" + I2S(gPrPendType) + " income=" + I2S(gIncome[0]) + " trees=" + I2S(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER)) + " alive=" + I2S(ProbeAlive())
+    return "level=" + I2S(GetHeroLevel(gHero[0])) + " xp=" + I2S(GetHeroXP(gHero[0])) + " kills=" + I2S(gKills[0]) + " deaths=" + I2S(gDeaths[0]) + " castle=" + I2S(R2I(GetWidgetLife(gCastle))) + " gold=" + I2S(ProbeGold()) + " spent=" + I2S(gPrSpent) + " earned=" + I2S(ProbeGold() + gPrSpent - 1000) + " pending=" + I2S(gPrPendType) + " income=" + I2S(gIncome[0]) + " trees=" + I2S(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER)) + " alive=" + I2S(ProbeAlive()) + " casts=" + I2S(gPrCasts)
 endfunction
 
 // One summary per wave, written once, when it is cleared or when the run ends with it still open. The engine's Preload
@@ -200,6 +219,28 @@ function ProbeResetWave takes nothing returns nothing
     set gPrHpMin = GetWidgetLife(gHero[0])
 endfunction
 
+// What the champion has learned, in the order of his card.
+function ProbeRanks takes nothing returns nothing
+    local integer i = 0
+    local string r = "event=ranks"
+    loop
+        exitwhen i >= gSkillsPerHero
+        set r = r + " r" + I2S(i) + "=" + I2S(GetUnitAbilityLevel(gHero[0], gHeroSkill[gPrHero * gSkillsPerHero + i]))
+        set i = i + 1
+    endloop
+    call ProbeLog(r)
+endfunction
+
+// Who else of the player did damage, by unit type (summons, or anything else he owns).
+function ProbeOthers takes nothing returns nothing
+    local integer i = 0
+    loop
+        exitwhen i >= gPrOtherN
+        call ProbeLog("event=other_damage type=" + I2S(gPrOtherType[i]) + " raw=" + I2S(R2I(gPrOtherDmg[i])))
+        set i = i + 1
+    endloop
+endfunction
+
 function ProbeFinish takes string why returns nothing
     if gPrDone then
         return
@@ -212,6 +253,8 @@ function ProbeFinish takes string why returns nothing
         call ProbeWaveLine("open_at_end")
     endif
     call ProbeStats("final")
+    call ProbeRanks()
+    call ProbeOthers()
     call ProbeLog("event=end why=" + why + " tower_hits=" + I2S(gPrTowerHits) + " nexus_hits=" + I2S(gPrNexusHits) + " wave=" + I2S(gLaneWave[0]) + " deaths=" + I2S(gDeaths[0]) + " taken_total=" + I2S(R2I(gPrTakenAll)))
     call ProbeLog("event=team " + ProbeTeam())
     call TestLog("PASS probe finished: " + why)
@@ -338,17 +381,22 @@ function ProbeBuy takes string c returns boolean
     return false
 endfunction
 
-// A skill point goes to Q, W, E in turn, and R as soon as the hero level allows it. Fixed for every run.
+// Every point into the next skill that takes it, the bot's order: its ultimate (R) first, then the others in turn.
+// The Dryad has nothing to cast: her Multiple Arrows go first, as far as her levels allow them, or the run would not measure what she is.
 function ProbeLearn takes unit h returns nothing
-    local integer c = ChampIndex(GetUnitTypeId(h))
     local integer tries = 0
     local integer before
     loop
-        exitwhen GetHeroSkillPoints(h) <= 0 or tries >= 8
+        exitwhen GetHeroSkillPoints(h) <= 0 or tries >= 10
         set before = GetHeroSkillPoints(h)
-        call SelectHeroSkill(h, gSkAbil[gSkPer * c + 3])
+        if gPrHero == 0 then
+            call SelectHeroSkill(h, gHeroSkill[gPrHero * gSkillsPerHero + 1])
+        endif
         if GetHeroSkillPoints(h) == before then
-            call SelectHeroSkill(h, gSkAbil[gSkPer * c + ModuloInteger(gPrSkillNext, 3)])
+            call SelectHeroSkill(h, gHeroSkill[gPrHero * gSkillsPerHero + 3])
+        endif
+        if GetHeroSkillPoints(h) == before then
+            call SelectHeroSkill(h, gHeroSkill[gPrHero * gSkillsPerHero + ModuloInteger(gPrSkillNext, gSkillsPerHero)])
             set gPrSkillNext = gPrSkillNext + 1
         endif
         set tries = tries + 1
@@ -456,6 +504,138 @@ function ProbeProgress takes nothing returns nothing
     endif
 endfunction
 
+// A spell around the champion only when the enemy is inside its radius, at the level learned: no mana for an empty clap.
+function ProbeReaches takes unit h, unit tgt, integer n returns boolean
+    local real area
+    if gCastTarget[n] != 0 or gCastEffect[n] != 1 then
+        return true
+    endif
+    set area = gCastArea[n * 6 + GetUnitAbilityLevel(h, gCastAbil[n])]
+    return area <= 0.0 or ProbeDist(GetUnitX(h), GetUnitY(h), GetUnitX(tgt), GetUnitY(tgt)) <= area
+endfunction
+
+// The champion's kit: every second the next spell it has learned that takes the order, at the nearest enemy.
+function ProbeCast takes unit h, unit tgt returns nothing
+    local real now = TimerGetElapsed(gPrClock)
+    local integer tries = 0
+    local integer n
+    local boolean ok
+    if now < gPrCastAt + 1.0 or tgt == null or GetWidgetLife(tgt) <= 0.405 then
+        return
+    endif
+    // the last spell is still on its way to the target
+    if gPrCastOrder != 0 and GetUnitCurrentOrder(h) == gPrCastOrder and now < gPrCastAt + 3.0 then
+        return
+    endif
+    loop
+        exitwhen tries >= gCastN
+        set gPrCastRow = ModuloInteger(gPrCastRow + 1, gCastN)
+        set n = gPrCastRow
+        set tries = tries + 1
+        if gCastHero[n] == gPrHero and gCastEffect[n] != 6 and GetUnitAbilityLevel(h, gCastAbil[n]) > 0 and ProbeReaches(h, tgt, n) then
+            if gCastTarget[n] == 1 then
+                set ok = IssueTargetOrder(h, gCastOrder[n], tgt)
+            elseif gCastTarget[n] == 2 then
+                set ok = IssuePointOrder(h, gCastOrder[n], GetUnitX(tgt), GetUnitY(tgt))
+            elseif gCastTarget[n] == 3 or gCastTarget[n] == 4 then
+                set ok = IssueTargetOrder(h, gCastOrder[n], h)
+            else
+                set ok = IssueImmediateOrder(h, gCastOrder[n])
+            endif
+            if ok then
+                set gPrCastAt = now
+                set gPrOrderAt = now
+                set gPrCastOrder = OrderId(gCastOrder[n])
+                return
+            endif
+        endif
+    endloop
+endfunction
+
+// A spell of the champion's own kit, not a potion.
+function ProbeOwnSpell takes integer id returns boolean
+    local integer n = 0
+    loop
+        exitwhen n >= gCastN
+        if gCastHero[n] == gPrHero and gCastAbil[n] == id then
+            return true
+        endif
+        set n = n + 1
+    endloop
+    return false
+endfunction
+
+function ProbeOnSpell takes nothing returns nothing
+    local integer id = GetSpellAbilityId()
+    if GetTriggerUnit() == gHero[0] and ProbeOwnSpell(id) then
+        set gPrCasts = gPrCasts + 1
+        call ProbeLog("event=cast id=" + I2S(id) + " level=" + I2S(GetUnitAbilityLevel(gHero[0], id)) + " wave=" + I2S(gLaneWave[0]))
+    endif
+endfunction
+
+function ProbeOnChannel takes nothing returns nothing
+    if GetTriggerUnit() == gHero[0] and ProbeOwnSpell(GetSpellAbilityId()) then
+        set gPrChannel = true
+        set gPrChannelAt = TimerGetElapsed(gPrClock)
+    endif
+endfunction
+
+// How long a spell really ran: what a channel is worth. Instant ones stay out of the log.
+function ProbeOnEndCast takes nothing returns nothing
+    if GetTriggerUnit() == gHero[0] then
+        if gPrChannel and TimerGetElapsed(gPrClock) - gPrChannelAt >= 1.0 then
+            call ProbeLog("event=channel id=" + I2S(GetSpellAbilityId()) + " start=" + R2SW(gPrChannelAt, 1, 1) + " seconds=" + R2SW(TimerGetElapsed(gPrClock) - gPrChannelAt, 1, 1))
+        endif
+        set gPrChannel = false
+    endif
+endfunction
+
+function ProbeOnSummon takes nothing returns nothing
+    if GetSummoningUnit() == gHero[0] then
+        call ProbeLog("event=summon type=" + I2S(GetUnitTypeId(GetSummonedUnit())) + " wave=" + I2S(gLaneWave[0]))
+    endif
+endfunction
+
+// A spell that is running stays running: every ordinary order would end a Blizzard or a Stampede. Only low HP or the tower's range break it, in the log.
+function ProbeKeepChannel takes unit h, real hp, real mx, real x, real y returns boolean
+    if not gPrChannel or GetUnitCurrentOrder(h) == 0 then
+        set gPrChannel = false
+        return false
+    endif
+    if hp >= mx * 0.25 and (GetWidgetLife(gTower[0]) <= 0.405 or ProbeDist(x, y, GetUnitX(gTower[0]), GetUnitY(gTower[0])) >= gPrSafeDist) then
+        return true
+    endif
+    set gPrChannel = false
+    call ProbeLog("event=channel_cancelled hp=" + I2S(R2I(hp)) + " maxhp=" + I2S(R2I(mx)))
+    return false
+endfunction
+
+// Mode 3: the wave asked for is reached: the tower and the Nexus go, the boss of this lane's wave rises and the champion goes for it.
+function ProbeBossFight takes unit h returns boolean
+    local real now = TimerGetElapsed(gPrClock)
+    if gPrBossAt < 0.0 then
+        set gPrBossAt = now
+        call ProbeLog("event=boss_fixture wave=" + I2S(gLaneWave[0]) + " " + ProbeState())
+        call KillUnit(gTower[0])
+        call KillUnit(gNexus[0])
+        set gPrBoss = gBoss[0]
+        set gPrBossMax = GetUnitState(gPrBoss, UNIT_STATE_MAX_LIFE)
+        set gPrDeathsAtBoss = gDeaths[0]
+        call ProbeLog("event=boss_start hp=" + I2S(R2I(gPrBossMax)) + " spell_level=" + I2S(GetUnitAbilityLevel(gPrBoss, gBossSpell[0])) + " speed=" + I2S(R2I(GetUnitMoveSpeed(gPrBoss))))
+    endif
+    if gPrBoss == null or GetWidgetLife(gPrBoss) <= 0.405 then
+        return false
+    endif
+    if ProbeDist(GetUnitX(h), GetUnitY(h), GetUnitX(gPrBoss), GetUnitY(gPrBoss)) < 900.0 then
+        call ProbeCast(h, gPrBoss)
+    endif
+    if GetUnitCurrentOrder(h) == 0 or now >= gPrOrderAt + 4.0 then
+        set gPrOrderAt = now
+        call IssueTargetOrder(h, "attack", gPrBoss)
+    endif
+    return true
+endfunction
+
 function ProbeNearestEnum takes nothing returns nothing
     local unit u = GetEnumUnit()
     local real d
@@ -465,6 +645,7 @@ function ProbeNearestEnum takes nothing returns nothing
             set gPrBest = d
             set gPrBestX = GetUnitX(u)
             set gPrBestY = GetUnitY(u)
+            set gPrBestU = u
         endif
     endif
     set u = null
@@ -489,8 +670,18 @@ function ProbeHero takes nothing returns nothing
         set gPrHpMin = hp
     endif
     call ProbeLearn(h)
+    if ProbeKeepChannel(h, hp, mx, x, y) then
+        set h = null
+        return
+    endif
     if hp < mx * 0.4 then
         call ProbeDrink(h)
+    endif
+    if gPrMode == 3 and (gPrBossAt >= 0.0 or gLaneWave[0] >= gPrStallWave) then
+        if ProbeBossFight(h) then
+            set h = null
+            return
+        endif
     endif
     if gPrMode == 2 and gLaneWave[0] >= gPrStallWave and (gPrStalling or ProbeAlive() <= gPrStallAlive) then
         // the stall: leave the last monsters alive, stay away from them for good and let the clock run
@@ -529,7 +720,11 @@ function ProbeHero takes nothing returns nothing
     // like a player: go after the nearest monster the tower does not cover; no new order while the champion is
     // fighting, because every order would restart his swing
     set gPrBest = 1000000.0
+    set gPrBestU = null
     call ForGroup(gWaveUnits, function ProbeNearestEnum)
+    if gPrBest < 900.0 then
+        call ProbeCast(h, gPrBestU)
+    endif
     if gPrBest < 1000000.0 then
         if GetUnitCurrentOrder(h) == 0 or (gPrBest > 900.0 and TimerGetElapsed(gPrClock) >= gPrOrderAt + 3.0) then
             set gPrOrderAt = -100.0
@@ -576,9 +771,20 @@ function ProbeTick takes nothing returns nothing
         endif
         return
     endif
-    if gPrMode >= 1 and gPrBuyDone and now >= gPrSpendAt + 1.0 and gHero[0] != null and GetWidgetLife(gHero[0]) > 0.405 then
+    if (gPrMode == 1 or gPrMode == 3) and gPrBuyDone and now >= gPrSpendAt + 1.0 and gHero[0] != null and GetWidgetLife(gHero[0]) > 0.405 then
         set gPrSpendAt = now
         call ProbeSpend()
+    endif
+    if gPrMode == 3 and gPrBossAt >= 0.0 and now >= gPrBossLogAt + 5.0 then
+        set gPrBossLogAt = now
+        if gPrBoss != null and GetWidgetLife(gPrBoss) > 0.405 then
+            call ProbeLog("event=boss_tick life=" + I2S(R2I(GetWidgetLife(gPrBoss))) + " hero_hp=" + I2S(R2I(GetWidgetLife(gHero[0]))) + " deaths=" + I2S(gDeaths[0] - gPrDeathsAtBoss) + " casts=" + I2S(gPrCasts))
+        elseif not gPrBossLogged then
+            set gPrBossLogged = true
+            call ProbeLog("event=boss_dead fight_s=" + R2SW(now - gPrBossAt, 1, 0) + " deaths=" + I2S(gDeaths[0] - gPrDeathsAtBoss) + " casts=" + I2S(gPrCasts))
+            call ProbeFinish("boss_dead")
+            return
+        endif
     endif
     if now >= gPrBeatAt + 30.0 then
         set gPrBeatAt = now
@@ -688,6 +894,18 @@ function ProbeBoot takes nothing returns nothing
     call TriggerAddAction(t, function ProbeOnEnter)
     set gPrDealTrig = CreateTrigger()
     call TriggerAddAction(gPrDealTrig, function ProbeOnEnemyHit)
+    set t = CreateTrigger()
+    call TriggerRegisterPlayerUnitEvent(t, Player(0), EVENT_PLAYER_UNIT_SPELL_EFFECT, null)
+    call TriggerAddAction(t, function ProbeOnSpell)
+    set t = CreateTrigger()
+    call TriggerRegisterPlayerUnitEvent(t, Player(0), EVENT_PLAYER_UNIT_SUMMON, null)
+    call TriggerAddAction(t, function ProbeOnSummon)
+    set t = CreateTrigger()
+    call TriggerRegisterPlayerUnitEvent(t, Player(0), EVENT_PLAYER_UNIT_SPELL_CHANNEL, null)
+    call TriggerAddAction(t, function ProbeOnChannel)
+    set t = CreateTrigger()
+    call TriggerRegisterPlayerUnitEvent(t, Player(0), EVENT_PLAYER_UNIT_SPELL_ENDCAST, null)
+    call TriggerAddAction(t, function ProbeOnEndCast)
     set gPrClock = CreateTimer()
     if gTestMode then
         call TestLog("FAIL probe: a test build is not a measurement")

@@ -753,6 +753,12 @@ def host_windows():
     return {"available": True, "total": len(lines), "wine": [line.strip()[:120] for line in lines if re.search(r"cdiso|Wine desktop|war3\.exe|Warcraft", line)]}
 
 
+def start_video(env, display, path, seconds):
+    """A short film of the hidden display, asked for by the map itself: a 'VIDEO name seconds' line in its results."""
+    return subprocess.Popen(["ffmpeg", "-loglevel", "error", "-y", "-f", "x11grab", "-framerate", "25", "-video_size", f"{WIDTH}x{HEIGHT}", "-i", f":{display}",
+                             "-t", str(seconds), "-c:v", "libx264", "-preset", "ultrafast", "-qp", "10", str(path)], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
 def screenshot(env, display, path):
     try:
         done = subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "x11grab", "-video_size", f"{WIDTH}x{HEIGHT}", "-i", f":{display}", "-frames:v", "1", str(path)],
@@ -925,6 +931,7 @@ def run_monitor(slot, args, evidence, env, display, started, result, log, foreig
     audited = False
     outcome = None
     foreign_last = foreign_start
+    videos = {}
     while outcome is None:
         pause(1.0)
         elapsed = time.time() - started
@@ -940,6 +947,11 @@ def run_monitor(slot, args, evidence, env, display, started, result, log, foreig
             write_json(evidence / "war3-env.json", war3_environment(war3["pid"]))
         lines = read_results(slot.results)
         state = evaluate_results(lines)
+        for line in lines:
+            parts = line.split()
+            if len(parts) == 3 and parts[0] == "VIDEO" and parts[1] not in videos and re.fullmatch(r"[a-z0-9-]+", parts[1]) and parts[2].isdigit():
+                videos[parts[1]] = start_video(env, display, evidence / f"video-{parts[1]}.mp4", min(int(parts[2]), 60))
+                log(f"filming {parts[1]} for {parts[2]} s")
         if state["lines"] != last_lines:
             last_lines, last_change = state["lines"], time.time()
             append_jsonl(evidence / "progress.jsonl", {"at": now(), "elapsed_s": round(elapsed, 1), "pass": state["pass"], "fail": state["fail"], "lines": state["lines"],

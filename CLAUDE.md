@@ -22,14 +22,16 @@ Start here, then read only what the task needs:
 python3 build.py            # dist/TechToolsCastleDefence.w3x + pjass + base-id check + installs into the game
 python3 build.py --test     # dist/TechToolsCastleDefence_TEST.w3x (8 s select, revealed map, scripted self-test)
 tools/test_env.py run       # builds the TEST map, runs the full self-test hidden (safe while he plays); exit 0 = clean. docs/test-env.md
-tools/balance_matrix.py     # balance model, no game
+tools/balance_matrix.py     # monsters and bosses by wave, no game
+tools/layout_audit.py       # lanes, stages, biggest army, walls and rooms on paper, with a picture
+tools/xhs_port.py check     # gen/xhs_data.py against the local X Hero Siege 3.28 (never copied into the repo)
 tools/balance_probe.py run LABEL --set fight   # real fights, hidden, played by a bot. docs/balance.md
 ```
 
 - **Test results file:** the TEST build writes one `PASS ...` / `FAIL ...` line per check (`TestCheck` / `TestLog`,
   flushed by `TestFlush` through the Preload writer) to `CustomMapData/TestResults/cd_test.txt` of the game that runs it.
   `tools/test_env.py run` copies it to `~/games/wc3-test-env/evidence/<run-id>/cd_test.txt`, with `result.json`, screenshots and logs; read it with
-  `grep -o 'Preload( "[^"]*" )' …`. The full run (both rounds + edge cases + stress + final boss + victory) takes about 3 min; the runner closes the game on the `SELFTEST DONE` line.
+  `grep -o 'Preload( "[^"]*" )' …`. The full run (both rounds, 13 real selections, formations, edge cases + stress + final boss + victory) takes about 10 min; the runner closes the game on the `SELFTEST DONE` line.
   ⚠️ No results and a frozen clock in the screenshots = the game paused or hung, not a map bug: the runner fails such a run.
   Test champions belong to the empty slot player 2 (a shop sells to the player's closest inventory unit). ⚠️ Jiří: **every feature must
   be verified in-game** — add a `TestCheck` for it in `TestStep` (round 0 = shop/champion checks, round 1 = lanes/gates).
@@ -49,7 +51,7 @@ tools/balance_probe.py run LABEL --set fight   # real fights, hidden, played by 
 
 ## Versions
 
-- `MAP_VERSION` in `build.py` (now **v4.2**) is in the map name, the file name (`TechToolsCastleDefence_v4.2.w3x`) and
+- `MAP_VERSION` in `build.py` (now **v4.3**) is in the map name, the file name (`TechToolsCastleDefence_v4.3.w3x`) and
   the catalogue title. ⚠️ **Jiří's rule: every feature = a new version (1.2, 1.3, …) AND an upload to the
   catalogue** (LAN players must have the identical file). Bump, build, commit, upload, verify the download's
   SHA-256, record the new entry below + in `CHANGELOG.md`. Install removes older `TechToolsCastleDefence*.w3x`.
@@ -76,9 +78,9 @@ tools/balance_probe.py run LABEL --set fight   # real fights, hidden, played by 
 - WarCraft III colours mixed with TechTools blue; gold `|cffffcc00` = names/hotkeys, light blue `|cff4fc3ff`
   = levels/commands, orange `|cffff8c00` = next-price hints, green = bonuses.
 - Fixed positions: shop buttons never move (`ubpx/ubpy` on every item).
-- Keep the map small (~200 KiB): low-res art is fine.
+- Keep the map small (~200 KiB was the guideline; v4.3 is 474 KiB: 12 champions' data, and 111 KiB for the native table `ability_slk_doom_fix` needs): low-res art is fine.
 - Never drift back to base-building or complexity (v1 was rejected as "too complex, too big").
-- Spells on Q W E R. Commands: `-help`, `-zoom N`, `-cam`; Space = jump to hero, Esc = follow toggle.
+- Spells on Q W E R, a fifth skill on T, innate D, level 20 F. Commands: `-help`, `-zoom N`, `-cam`; Space = jump to hero, Esc = follow toggle.
 
 ## Conventions
 

@@ -22,8 +22,8 @@ sys.path.insert(0, os.path.join(ROOT, "tools"))
 
 import layout as LY                       # noqa: E402
 import objects as OB                      # noqa: E402
+import xhs_data as XHS                    # noqa: E402
 import w3files as WF                      # noqa: E402
-import hotkeys as HK                      # noqa: E402
 import splash as SP                       # noqa: E402
 import icons as IC                        # noqa: E402
 from mpq import write_w3x, GameData       # noqa: E402
@@ -38,7 +38,7 @@ if TEST and PROBE is not None:
     sys.exit("--probe and --test cannot be combined: --test changes the timers and runs TestStep")
 # VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
 # map name (game list, lobby, loading screen), the file name and the catalogue title.
-MAP_VERSION = "4.2"
+MAP_VERSION = "4.3"
 MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else "TechToolsCastleDefence_PROBE.w3x" if PROBE is not None else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
@@ -106,9 +106,9 @@ def ground_texture(x, y, kind, idx):
         return T["Oaby"]
     if kind == "plaza":
         r = max(abs(x), abs(y))
-        if math.hypot(x, y) < 700:
+        if math.hypot(x, y) < 1050:
             return T["Kdkt"]
-        return T["Klgb"] if r < 1300 else T["Ksmb"]
+        return T["Klgb"] if r < 1950 else T["Ksmb"]
     if kind == "grove":
         return T["Kfsl"] if n > 0.5 else T["Kfst"]
     if kind == "shared":                                  # gate levels 2-5 (idx 0-3)
@@ -131,7 +131,7 @@ def ground_texture(x, y, kind, idx):
             return T["Kfsl"] if n > 0.4 else T["Kdrt"]
         return T["Kdtr"] if n > 0.5 else T["Kdrt"]
     # lane
-    if LY.road_distance(x, y) < 230:
+    if LY.road_distance(x, y) < 460:
         return T["Kfst"]
     return T["Kdtr"] if n > 0.55 else T["Kdrt"]
 
@@ -283,7 +283,7 @@ def build_minimap():
             elif kind == "shared":
                 c = [(125, 30, 40), (60, 120, 170), (100, 50, 150), (190, 100, 30)][idx]
             else:
-                c = (88, 72, 58) if LY.road_distance(x, y) < 230 else (60, 50, 44)
+                c = (88, 72, 58) if LY.road_distance(x, y) < 460 else (60, 50, 44)
             px[pxl, py] = c
     return img
 
@@ -364,33 +364,32 @@ globals
     integer gPotCount = 0
     integer array gPotToken
     integer array gPotPrice
-    trigger gDmgTrig = null
-    integer gDmgRegs = 0
-    boolean gDmgLock = false
-    group gDmgGroup = CreateGroup()
-    integer gSpearAbil = 0
-    integer gSwiftSkill = 0
-    integer gFireSkill = 0
-    integer array gSwiftAbil
-    integer array gChampType
-    integer array gChampCleave
-    integer gChampN = 0
-    integer array gSkAbil
-    integer array gSkKind
-    integer array gSkPct
-    real array gSkRad
-    string array gSkFx
-    string array gSkFx2
-    integer gSkN = 0
-    integer gSkPer = 4
-    integer gStormEvery = 5
-    integer array gStormCount
-    integer gVolleyAbil = 0
-    integer gVolleyPer = 3
-    integer gVolleyEvery = 4
-    integer array gVolleyCount
-    integer array gTestStorm
-    integer gTestVolley = 0
+    integer array gHeroSkill
+    integer gSkillsPerHero = 5
+    integer array gGrantHero
+    integer array gGrantAbil
+    integer array gGrantDrop
+    boolean array gGrantPerm
+    integer gGrantN = 0
+    integer gGrantLevel = 20
+    integer gDemonHero = 'Edem'
+    integer gDemonForm = 'Edmm'
+    integer array gDrumAura
+    integer gOrderClap = 852096
+    integer gOrderStomp = 852127
+    integer gOrderCreepClap = 852253
+    integer gOrderCreepBolt = 852252
+    integer gOrderCreepSwarm = 852218
+    integer array gCastHero
+    integer array gCastAbil
+    string array gCastName
+    string array gCastOrder
+    integer array gCastTarget
+    integer array gCastEffect
+    integer array gCastUnit
+    integer array gCastCount
+    real array gCastArea
+    integer gCastN = 0
     unit gFinalBoss = null
     boolean gFinalPhase = false
     timer gFinalTimer = CreateTimer()
@@ -431,40 +430,108 @@ globals
     integer gTestTrees = 0
     integer gTestGateWave = 0
     unit gTestSentinel = null
+    hashtable gTestHT = null
+    trigger gTestHitTrig = null
+    trigger gTestSpellTrig = null
+    timer gTestClockT = null
+    unit array gTestH
+    unit array gTestFoe
+    unit array gTestFriend
+    unit gTestScene = null
+    unit array gTestSceneFoe
+    integer gTestC = 0
+    integer gTestN = 0
+    integer gTestRow = 0
+    integer gTestRows = 0
+    integer array gTestRowOf
+    integer gTestHeroT = 0
+    integer gTestCardT = 0
+    integer gTestSoldType = 0
+    integer gTestPickBuy = 0
+    integer gTestPickC = 0
+    integer gTestPickStep = 0
+    boolean gTestPickStarted = false
+    boolean gTestPicksDone = false
+    unit gTestPickOld = null
+    boolean gTestCardDue = false
+    trigger gTestDoomTrig = null
+    integer gTestDoomStep = 0
+    boolean gTestDoomStarted = false
+    boolean gTestDoomDone = false
+    boolean gTestDoomOrder = false
+    integer gTestDoomSpell = 0
+    unit gTestDoomHero = null
+    unit gTestDoomFoe = null
+    real gTestDoomLife = 0.0
+    real gTestWeapon = 0.0
+    integer gTestBossT = 0
+    unit gTestBossHero = null
+    real gTestBossX = 0.0
+    real gTestBossY = 0.0
+    real gTestBossLife = 0.0
+    integer gTestBossSummons = 0
+    boolean gTestBossDone = false
+    integer gTestFormT = 0
+    integer gTestFormFirst = 0
+    integer gTestFormLast = 11
+    boolean array gTestFormStill
+    integer gTestFormStage = 0
+    boolean gTestFormDone = false
+    integer gTestDeathsSplit = 0
+    integer gTestSceneControl = 0
+    real array gTestFormStartX
+    real array gTestFormStartY
+    real gTestSceneEvery = 0.0
+    boolean gTestScenePoison = false
+    integer gTestBountyCalls = 0
+    integer gTestRegenKind = 11
+    integer gTestRegenT = 0
+    real gTestRegenLife = 0.0
+    unit gTestEnemyFound = null
+    real array gTestFormAX
+    real array gTestFormAY
+    real array gTestFormFX
+    real array gTestFormFY
+    real array gTestFormStart
+    real gDirSign0 = 1.0
+    unit array gTestFormU
+    integer array gTestFormRole
+    integer array gTestFormLane
+    integer gTestFormN = 0
+    integer gChampMax = 6
+    integer gTestSceneT = 0
+    integer gTestTaurenT = 0
+    integer gTestSplitT = 0
+    boolean gTestSceneDone = false
+    boolean gTestTaurenDone = false
+    boolean gTestSplitDone = false
+    boolean gTestDhChecked = false
+    integer gTestDhMorphT = 0
+    real gTestDhLife = 0.0
+    integer gTestStatBefore = 0
+    integer gTestDeathsBefore = 0
+    real array gTestLifeBefore
+    real array gTestFriendBefore
+    integer array gTestOthersBefore
+    integer array gTestCountBefore
+    real array gTestManaBefore
+    boolean array gTestOrderOk
+    real array gTestHitT
+    unit array gTestHitU
+    real array gTestHitD
+    integer gTestHitN = 0
+    real gTestArrowMin = 150.0
+    integer gTestBurstMost = 0
+    integer gTestBurstFewest = 0
+    integer gTestBurstDistinct = 0
+    real gTestBurstEvery = 0.0
+    real gTestBurstSpread = 0.0
+    real gTestBurstDmgLow = 0.0
+    real gTestBurstDmgHigh = 0.0
     real gTestFinalCastle = 0.0
     integer array gTestFinalCast
     real gTestFinalHp = 0.0
     real gTestFinalLife = 0.0
-    integer gTestVolleySpears = 0
-    integer gTestVolleyFirst = 0
-    unit gTestTau = null
-    hashtable gSpearHT = InitHashtable()
-    group gSpearLive = CreateGroup()
-    integer gSpearSlot = 0
-    integer gSpearTick = 0
-    unit array gSpearTgt
-    real array gSpearAmt
-    integer array gSpearEnd
-    timer array gVolleyTimer
-    unit array gVolleyTgt
-    boolean array gVolleyPending
-    real gDryadDmgPt = 0.3
-    real gSwiftStep = 0.2
-    real gAgiAs = 0.02
-    integer gGloveFam = 1
-    real gGloveAs0 = 0.4
-    real gGloveAsStep = 0.15
-    real gCleaveRad = 250.0
-    unit array gAtkTarget
-    integer array gHitCount
-    integer array gTestAoe
-    integer array gTestBonus
-    integer array gTestEv
-    integer array gTestPrim
-    real gSpearRange = 600.0
-    integer gSpearDummy = 0
-    string gFireFx = ""
-    real array gLastHit
     integer gReachTech = 0
     integer gReachMax = 5
     integer gReachStep = 150
@@ -482,6 +549,20 @@ globals
     real array gGateX
     real array gGateY
     real array gGateFace
+    real array gGateX2
+    real array gGateY2
+    destructable array gGate2
+    real gFormX = 0.0
+    real gFormY = 0.0
+    real gFormFX = 0.0
+    real gFormFY = -1.0
+    real gFormForward = 0.0
+    real gFormSide = 0.0
+    integer gFormRow = 12
+    real gFormStep = 96.0
+    real gFormGap = 64.0
+    integer gFormChampRow = 8
+    real gFormChampStep = 160.0
     real array gLaneMarkX
     real array gLaneMarkY
     real array gLaneLabelX
@@ -506,6 +587,40 @@ globals
     integer array gBossKind2
     integer array gBossSummon
     integer array gBossSummonCount
+    integer array gBossSpell
+    real array gBossAvgDmg
+    real gBossHpGrowth = 0.0
+    real gBossHpMax = 16.0
+    real gBossDmgMax = 8.0
+    trigger gTestSummonTrig = null
+    unit array gTestSumU
+    integer array gTestSumC
+    integer gTestSumN = 0
+    integer array gTestSumFrom
+    integer gTestPalT = 0
+    integer gTestPalCount = 0
+    boolean gTestPalDone = false
+    integer gTestLichT = 0
+    boolean gTestLichDone = false
+    boolean gTestLichSeen = false
+    boolean gTestDhRoar = false
+    unit gTestDhFresh = null
+    unit gTestLichHero = null
+    unit gTestLichFoe = null
+    integer array gStunShown
+    integer array gStunImpale
+    real gBossDmgGrowth = 0.0
+    integer gBossSpellLevels = 10
+    integer gBossEvery1 = 7
+    integer gBossEvery2 = 11
+    integer gBossEverySummon = 25
+    real gBossLeash = 1600.0
+    boolean array gBossDue1
+    boolean array gBossDue2
+    boolean array gBossDue3
+    integer array gBossBusy
+    integer array gStunBuff
+    integer gStunN = 0
     string array gDirName
     string array gDirColor
     string array gFactionName
@@ -563,11 +678,8 @@ globals
     integer gTestRound = 0
     string array gTestLog
     integer gTestLogN = 0
-    integer gTestSpearHits = 0
-    integer gTestFireHits = 0
     integer gTestLvl = 0
     integer gTestNext = 0
-    unit array gTestChamp
     boolean gTestHold = false
     integer gTestEdgeT = 0
     integer gTestGold = 0
@@ -618,7 +730,7 @@ endglobals
 DESCRIPTION = ("Pick a champion and defend YOUR lane! Up to 8 players, each with his own lane, tower and Nexus. "
                "Waves grow every round; destroy your tower and Nexus, kill the boss, open the Dark Gate. "
                "Stats at your circle, castle upgrades for trees, secret grove with shops and a bank. "
-               "Spells on Q W E R, -help for commands. A TechTools game.")
+               "Spells on Q W E R T, innate D, level 20 F, -help for commands. A TechTools game.")
 
 FRONT_NAMES = ["North", "North", "East", "East", "South", "South", "West", "West"]
 SIDE_NAMES = ["left", "right"]
@@ -656,7 +768,9 @@ def build_script():
         sx, sy = LY.nexus_spawn(lane)
         a(f"    set gNexusSpawnX[{lane}] = {jr(sx)}")
         a(f"    set gNexusSpawnY[{lane}] = {jr(sy)}")
-        gid, gx, gy, gf = LY.lane_gate(lane)
+        (gid, gx, gy, gf), (_g2, gx2, gy2, _f2) = LY.lane_gate(lane)
+        a(f"    set gGateX2[{lane}] = {jr(gx2)}")
+        a(f"    set gGateY2[{lane}] = {jr(gy2)}")
         a(f"    set gGateType[{lane}] = '{gid}'")
         a(f"    set gGateX[{lane}] = {jr(gx)}")
         a(f"    set gGateY[{lane}] = {jr(gy)}")
@@ -670,7 +784,7 @@ def build_script():
         a(f"    set gShopFxX[{i}] = {jr(x)}")
         a(f"    set gShopFxY[{i}] = {jr(y)}")
     a(f"    set gShopFxCount = {len(fx)}")
-    a(f"    set gAttrMaxHeroLevel = {OB.ATTR_REQ_LEVEL + OB.ATTR_LEVELS - 1}")
+    a(f"    set gAttrMaxHeroLevel = {OB.ATTR_AUTO_ABOVE}")
     a(f"    set gAttrPerLevel = {OB.ATTR_PER_LEVEL}")
     for i, n in enumerate(DEV_NAMES):
         a(f"    set gDevName[{i}] = {jstr(n)}")
@@ -701,28 +815,24 @@ def build_script():
         a(f"    set gPotHp[{i}] = {hp}")
         a(f"    set gPotMp[{i}] = {mp}")
     a(f"    set gPotCount = {len(OB.POTIONS)}")
-    a(f"    set gSpearAbil = '{OB.DRYAD_SKILLS[0][0]}'")
-    a(f"    set gSwiftSkill = '{OB.DRYAD_SKILLS[1][0]}'")
-    a(f"    set gFireSkill = '{OB.DRYAD_SKILLS[2][0]}'")
-    for lv, aid in enumerate(OB.SWIFT_ABILS, start=1):     # (not "L": that is the script's line list here)
-        a(f"    set gSwiftAbil[{lv}] = '{aid}'")
-    for c, (h, cleave, _skills) in enumerate(OB.ALL_CHAMPIONS):
-        a(f"    set gChampType[{c}] = '{h}'")
-        a(f"    set gChampCleave[{c}] = {cleave}")
-    a(f"    set gChampN = {len(OB.ALL_CHAMPIONS)}")
-    for k, (aid, _n, _key, _icon, kind, pct, rad, fx) in enumerate(OB.ALL_SKILLS):
-        a(f"    set gSkAbil[{k}] = '{aid}'")
-        a(f"    set gSkKind[{k}] = {OB.SKILL_KIND[kind]}")
-        a(f"    set gSkPct[{k}] = {pct}")
-        a(f"    set gSkRad[{k}] = {jr(rad)}")
-        a(f"    set gSkFx[{k}] = {jstr(OB.FX[fx])}")
-        a(f"    set gSkFx2[{k}] = {jstr(OB.FX[OB.SKILL_FX2.get(aid, '')])}")
-    a(f"    set gSkN = {len(OB.ALL_SKILLS)}")
-    a(f"    set gSkPer = {OB.SKILLS_PER_CHAMPION}")
-    a(f"    set gStormEvery = {OB.STORM_EVERY}")
-    a(f"    set gVolleyAbil = '{OB.DRYAD_SKILLS[3][0]}'")
-    a(f"    set gVolleyPer = {OB.DRYAD_SKILLS[3][5]}")
-    a(f"    set gVolleyEvery = {OB.VOLLEY_EVERY}")
+    # the champions: their five skills and what the script needs of them (HeroGrants, OnHeroGlue*)
+    for c, h in enumerate(OB.ALL_HEROES):
+        for s, aid in enumerate(OB.HERO_SKILLS[h]):
+            a(f"    set gHeroSkill[{c * OB.SKILLS_PER_HERO + s}] = '{aid}'")
+    a(f"    set gSkillsPerHero = {OB.SKILLS_PER_HERO}")
+    k = 0
+    for h, (add, remove, permanent) in XHS.LEVEL20.items():
+        for i, aid in enumerate(add):
+            a(f"    set gGrantHero[{k}] = '{h}'")
+            a(f"    set gGrantAbil[{k}] = '{aid}'")
+            a(f"    set gGrantDrop[{k}] = {chr(39) + remove[0] + chr(39) if remove and i == 0 else 0}")
+            a(f"    set gGrantPerm[{k}] = {'true' if permanent else 'false'}")
+            k += 1
+    a(f"    set gGrantN = {k}")
+    for level, aid in enumerate(("A033", "A046", "A047", "A048"), start=1):
+        a(f"    set gDrumAura[{level}] = '{aid}'")
+    if TEST or PROBE is not None:
+        build_cast_table(a)
     a(f"    set gFinalType = '{OB.FINAL_BOSS_ID}'")
     a(f"    set gFinalName = {jstr(OB.FINAL_BOSS_NAME)}")
     a(f"    set gFinalFx = {jstr(OB.FX['final'])}")
@@ -748,16 +858,6 @@ def build_script():
     a(f"    set gFinalY = {jr(LY.FINAL_BOSS_POS[1])}")
     a(f"    set gFinalLeash = {jr(LY.FINAL_LEASH)}")
     a(f"    set gFinalDelay = {jr(FINAL_DELAY)}")
-    a(f"    set gDryadDmgPt = {jr(OB.DRYAD_DAMAGE_POINT)}")
-    a(f"    set gSwiftStep = {jr(OB.SWIFT_STEP)}")
-    a(f"    set gAgiAs = {jr(OB.AGI_ATTACK_SPEED)}")
-    a(f"    set gGloveFam = {OB.GLOVES_FAMILY}")
-    a(f"    set gGloveAs0 = {jr(OB.GLOVES_AS_BASE)}")
-    a(f"    set gGloveAsStep = {jr(OB.GLOVES_AS_STEP)}")
-    a(f"    set gCleaveRad = {jr(OB.CLEAVE_RAD)}")
-    a(f"    set gSpearRange = {jr(OB.SPEAR_RANGE)}")
-    a(f"    set gSpearDummy = '{OB.SPEAR_DUMMY}'")
-    a(f"    set gFireFx = {jstr(OB.FX['fire'])}")
     # gate lanes 8-11 = Levels 2-5 (arms 4-7), all owned by the Scourge computer (Player 9)
     for g in OB.GATE_LEVELS:
         lane, arm, f = g["lane"], g["arm"], g
@@ -768,7 +868,9 @@ def build_script():
         for name, (x, y) in (("Tower", tower), ("Nexus", nexus), ("TowerSpawn", tspawn), ("NexusSpawn", nspawn)):
             a(f"    set g{name}X[{lane}] = {jr(x)}")
             a(f"    set g{name}Y[{lane}] = {jr(y)}")
-        gid, gx, gy, gf = gate
+        (gid, gx, gy, gf), (_g2, gx2, gy2, _f2) = gate
+        a(f"    set gGateX2[{lane}] = {jr(gx2)}")
+        a(f"    set gGateY2[{lane}] = {jr(gy2)}")
         a(f"    set gGateType[{lane}] = '{gid}'")
         a(f"    set gGateX[{lane}] = {jr(gx)}")
         a(f"    set gGateY[{lane}] = {jr(gy)}")
@@ -800,6 +902,11 @@ def build_script():
         a(f"    set gBossKind2[{arm}] = {sb['cast2'][1]}")
         a(f"    set gBossSummon[{arm}] = '{sb['summon'][0]}'")
         a(f"    set gBossSummonCount[{arm}] = {sb['summon'][1] + g['level'] // 2}")
+        spell1, spell2 = OB.boss_spell_ids(sb["abils"])
+        a(f"    set gBossSpell[{arm * 2}] = '{spell1}'")
+        a(f"    set gBossSpell[{arm * 2 + 1}] = '{spell2}'")
+        boss_base, boss_dice, boss_sides = OB.BOSS_DMG[1]
+        a(f"    set gBossAvgDmg[{arm}] = {jr(int(boss_base * g['boss'][3]) + boss_dice * (boss_sides + 1) / 2)}")
     # stage rosters: gStageUnit[arm*6 + stage*2 + 0 front / 1 back]; arm 4 = the Dark Gate
     for d, f in enumerate(OB.FACTIONS + OB.GATE_LEVELS):      # standardized copies (q<arm><stage><m|r>)
         for st in range(len(f["stages"])):
@@ -813,6 +920,20 @@ def build_script():
     for d in range(4 + len(OB.GATE_LEVELS)):
         a(f"    set gWaveChamp[{d}] = '{OB.wave_champion_id(d)}'")
     a(f"    set gChampEvery = {OB.WAVE_CHAMP_EVERY}")
+    a(f"    set gChampMax = {OB.WAVE_CHAMP_MAX}")
+    a(f"    set gFormRow = {LY.FORM_ROW}")
+    a(f"    set gFormStep = {jr(LY.FORM_STEP)}")
+    a(f"    set gFormGap = {jr(LY.FORM_GAP)}")
+    a(f"    set gFormChampRow = {LY.FORM_CHAMP_ROW}")
+    a(f"    set gFormChampStep = {jr(LY.FORM_CHAMP_STEP)}")
+    a(f"    set gBossHpGrowth = {OB.BOSS_HP_GROWTH}")
+    a(f"    set gBossHpMax = {OB.BOSS_HP_FACTOR_MAX}")
+    a(f"    set gBossDmgMax = {OB.BOSS_DMG_FACTOR_MAX}")
+    a(f"    set gBossDmgGrowth = {OB.BOSS_DMG_GROWTH}")
+    a(f"    set gBossSpellLevels = {OB.BOSS_SPELL_LEVELS}")
+    for i, buff in enumerate(("BPSE", "BSTN", "BHtb", "BHbd")):      # what stuns in the 12 champions' kits and the final boss's own
+        a(f"    set gStunBuff[{i}] = '{buff}'")
+    a("    set gStunN = 4")
     for d, f in enumerate(OB.FACTIONS):
         a(f"    set gInvader[{d}] = Player({8 + d})")
         a(f"    set gDirName[{d}] = {jstr(LY.DIR_NAMES[d])}")
@@ -838,6 +959,10 @@ def build_script():
         a(f"    set gBossKind2[{d}] = {b['cast2'][1]}")
         a(f"    set gBossSummon[{d}] = '{b['summon'][0]}'")
         a(f"    set gBossSummonCount[{d}] = {b['summon'][1]}")
+        spell1, spell2 = OB.boss_spell_ids(b["abils"])
+        a(f"    set gBossSpell[{d * 2}] = '{spell1}'")
+        a(f"    set gBossSpell[{d * 2 + 1}] = '{spell2}'")
+        a(f"    set gBossAvgDmg[{d}] = {jr(OB._avg(OB.BOSS_DMG[1]))}")
     tav_of = {h: k for k, (_, _, hs) in enumerate(OB.TAVERNS) for h in hs}
     for i, h in enumerate(OB.ALL_HEROES):
         a(f"    set gHeroPool[{i}] = '{h}'")
@@ -1023,6 +1148,68 @@ def build_mmp():
 
 
 # ----------------------------------------------------------------------------- main
+def native_areas(game):
+    """The game's own Area of Effect of every ability, by level: code -> {level: area}."""
+    cells = slk_cells(game.read("Units\\AbilityData.slk"))
+    col = {cell[0].strip(b'"').decode(): c for (r, c), cell in cells.items() if r == 1}
+    out = {}
+    for (r, c), cell in cells.items():
+        if c != col["alias"] or r == 1:
+            continue
+        areas = out.setdefault(cell[0].strip(b'"').decode(), {})
+        for level in range(1, 5):
+            value = cells.get((r, col[f"Area{level}"]), (None,))[0]
+            try:
+                areas[level] = float(value)
+            except (TypeError, ValueError):
+                pass
+    return out
+
+
+def spell_area(area_of, aid, level):
+    """A spell's real radius at a level: the reference's own value, or the native row it is built on."""
+    base, _custom, mods = XHS.ABILS[aid]
+    for field, _kind, lvl, _data, value in mods:
+        if field == "aare" and lvl == level:
+            return float(value)
+    native = area_of.get(base, {})
+    return native.get(level, native.get(max(native, default=0), 0.0))
+
+
+def build_cast_table(a):
+    """The self-test's table of every champion's castable abilities (test build only): gen/xhs_text.py + the summons of the data."""
+    targets = {"none": 0, "enemy": 1, "point": 2, "ally": 3, "self": 4, "corpse": 5}
+    effects = {"damage": 1, "heal": 2, "summon": 3, "buff": 4, "morph": 5, "split": 6, "toggle": 7, "foebuff": 8, "allybuff": 9, "images": 10}
+    area_of = native_areas(GameData(GAME_DIR))
+    n = 0
+    for c, h in enumerate(OB.ALL_HEROES):
+        uabi = next((v for (f, _k, _l, _p, v) in XHS.UNITS[h][2] if f == "uabi"), "")
+        extras = [x for x in uabi.split(",") if x and x != "AInv"] + XHS.LEVEL20[h][0]
+        # the innate and level 20 abilities first: the Tauren's roar must be on before his Stomp and Shockwave strike twice
+        rows = [aid for aid in extras + OB.HERO_SKILLS[h] if OB.XHS_SKILLS[aid][3] and aid != "ACro"]
+        # a split or a demon form stays on, so it comes last
+        rows.sort(key=lambda aid: OB.XHS_SKILLS[aid][5].split(":")[0] in ("split", "morph"))
+        for aid in rows:
+            name, _kind, _text, order, target, effect = OB.XHS_SKILLS[aid]
+            what, detail, count = (effect.split(":") + ["", ""])[:3]
+            if what == "images":
+                detail, count = "", detail
+            a(f"    set gCastHero[{n}] = {c}")
+            a(f"    set gCastAbil[{n}] = '{aid}'")
+            a(f"    set gCastName[{n}] = {jstr(name)}")
+            a(f"    set gCastOrder[{n}] = {jstr(order)}")
+            a(f"    set gCastTarget[{n}] = {targets[target]}")
+            a(f"    set gCastEffect[{n}] = {effects[what]}")
+            a(f"    set gCastUnit[{n}] = {chr(39) + detail + chr(39) if detail else 0}")
+            a(f"    set gCastCount[{n}] = {count or 0}")
+            for level in range(1, 6):
+                area = spell_area(area_of, aid, level)
+                if area:
+                    a(f"    set gCastArea[{n * 6 + level}] = {jr(area)}")
+            n += 1
+    a(f"    set gCastN = {n}")
+
+
 def pjass(script_path):
     exe = os.path.join(ROOT, "tools", "pjass-src", "pjass")
     if not os.path.exists(exe):
@@ -1038,11 +1225,59 @@ def pjass(script_path):
         sys.exit("pjass failed")
 
 
+def slk_cells(raw):
+    """A SYLK table: (row, column) -> (raw value, byte offset of the record, the record). Records keep their row until the next Y."""
+    cells = {}
+    x = y = None
+    offset = 0
+    for line in raw.split(b"\n"):
+        record = line.rstrip(b"\r")
+        if record.startswith(b"C;"):
+            value = None
+            for part in record.split(b";")[1:]:
+                if part[:1] == b"X":
+                    x = int(part[1:])
+                elif part[:1] == b"Y":
+                    y = int(part[1:])
+                elif part[:1] == b"K":
+                    value = part[1:]
+            cells[(y, x)] = (value, offset, record)
+        offset += len(line) + 1
+    return cells
+
+
+def ability_slk_doom_fix(game):
+    """The game's own Units\\AbilityData.slk, whole, with one cell changed: Doom's Max Creep Level at level 2 (docs/wc3-127-gotchas.md).
+
+    The native row has one level and "-" there. A map's Doom with two levels then refuses every monster of the creep race at level 2, and no
+    object field reaches that cell. The map carries the game's table with this one difference; generated at build, never committed.
+    """
+    raw = game.read("Units\\AbilityData.slk")
+    if raw is None:
+        raise SystemExit("no Units\\AbilityData.slk in the game")
+    cells = slk_cells(raw)
+    col = {cell[0]: c for (r, c), cell in cells.items() if r == 1}
+    rows = [r for (r, c), cell in cells.items() if c == col[b'"alias"'] and cell[0] == b'"ANdo"']
+    if len(rows) != 1:
+        raise SystemExit(f"Doom rows in the ability table: {rows}")
+    row = rows[0]
+    first, second = cells[(row, col[b'"DataD1"'])], cells[(row, col[b'"DataD2"'])]
+    if first[0] != b"5" or second[0] != b'"-"':
+        raise SystemExit(f"Doom's creep level cells are not what this fix is for: {first[0]} {second[0]}")
+    new_record = second[2].replace(b'K"-"', b"K" + first[0])
+    fixed = raw[:second[1]] + new_record + raw[second[1] + len(second[2]):]
+    after = slk_cells(fixed)
+    changed = sorted(k for k in set(cells) | set(after) if cells.get(k, (None,))[0] != after.get(k, (None,))[0])
+    if changed != [(row, col[b'"DataD2"'])] or raw.count(b"\r\n") != fixed.count(b"\r\n"):
+        raise SystemExit(f"the ability table differs in more than the one cell: {changed}")
+    return fixed
+
+
 def misc_constants(game):
     """war3mapMisc.txt = the game's full [Misc] gameplay constants (Units\\MiscGame.txt) with our edits.
     The whole section is written, like the World Editor does, so nothing falls back to 0."""
     lines = game.read("Units\\MiscGame.txt").decode("latin1").splitlines()
-    edits = {"MaxHeroLevel": str(OB.MAX_HERO_LEVEL)}
+    edits = {"MaxHeroLevel": str(OB.MAX_HERO_LEVEL), "MaxUnitSpeed": str(OB.BOSS_SPEED)}
     out = []
     for line in lines:
         key = line.split("=", 1)[0].strip()
@@ -1050,11 +1285,11 @@ def misc_constants(game):
     return ("\r\n".join(out) + "\r\n").encode("latin1")
 
 
-REQUIRED_SCRIPT_DATA = ["set gScaleBit[0] = ", "set gWaveHpGrowth = ", "set gTeamHpPer = ", "set gIncomeWaveSeconds = ", "set gFinalType = ", "set gFinalBit[0] = ", "set gFinalSpell[0] = ", "set gFinalHpBase = ", "set gGloveFam = ", "set gDryadDmgPt = ", "set gVolleyAbil = ", "set gSkPer = ", "set gSkFx2[0] = ", "set gBankItem = ", "set gIncomeStep = ", "set gPremItem[1] = ", "set gPremCount = ",
+REQUIRED_SCRIPT_DATA = ["set gScaleBit[0] = ", "set gWaveHpGrowth = ", "set gTeamHpPer = ", "set gIncomeWaveSeconds = ", "set gFinalType = ", "set gFinalBit[0] = ", "set gFinalSpell[0] = ", "set gFinalHpBase = ", "set gBankItem = ", "set gIncomeStep = ", "set gPremItem[1] = ", "set gPremCount = ",
                         "set gShopFxCount = ", "set gDevCount = ", "set gAttrPerLevel = ", "set gReachItem = ",
                         "set gGateState[11] = ", "set gStageUnit[0] = ", "set gEpicItem[5] = ", "set gStatItem[0] = ", "set gHeroPool[0] = ",
-                        "set gPotCount = ", "set gSpearAbil = ", "set gSwiftAbil[5] = ", "set gSpearDummy = ",
-                        "set gChampN = ", "set gSkN = "]
+                        "set gPotCount = ", "set gHeroSkill[0] = ", "set gGrantN = ", "set gDrumAura[4] = ",
+                        ]
 
 
 def check_script_data(script):
@@ -1116,6 +1351,22 @@ def check_object_bases():
 
 PROBE_GLOBALS = """    // balance probe: only in --probe maps
     integer gPrHero = 0
+    integer gPrCasts = 0
+    integer gPrCastOrder = 0
+    boolean gPrChannel = false
+    real gPrChannelAt = 0.0
+    integer gPrOtherN = 0
+    integer array gPrOtherType
+    real array gPrOtherDmg
+    integer gPrCastRow = 0
+    real gPrCastAt = -100.0
+    unit gPrBestU = null
+    real gPrBossAt = -1.0
+    real gPrBossLogAt = 0.0
+    real gPrBossMax = 0.0
+    unit gPrBoss = null
+    integer gPrDeathsAtBoss = 0
+    boolean gPrBossLogged = false
     integer gPrMode = 0
     integer gPrSeed = 1
     integer gPrMaxWave = 0
@@ -1261,8 +1512,8 @@ def main():
         "war3mapMap.blp": WF.write_blp_paletted(build_minimap()),
         "war3map.w3u": WF.write_w3u(OB.custom_units(), OB.original_unit_mods()),
         "war3map.w3t": WF.write_w3u(OB.custom_items(), OB.original_item_mods()),
-        "war3map.w3a": WF.write_w3a(OB.original_ability_mods() + HK.hero_hotkey_mods(os.path.join(ROOT, "ref"), []),
-                                    OB.custom_abilities()),
+        "war3map.w3a": WF.write_w3a(OB.original_ability_mods(), OB.custom_abilities()),
+        "war3map.w3h": WF.write_w3u(*OB.custom_buffs()),
         "war3map.w3q": WF.write_w3a([], OB.custom_upgrades()),
         "war3mapPreview.tga": SP.preview_tga(art),
     }
@@ -1271,6 +1522,7 @@ def main():
     game = GameData(GAME_DIR)
     files.update(IC.stat_icons(game))                          # Str / Agi / Int shop icons
     files["war3mapMisc.txt"] = misc_constants(game)            # gameplay constants: hero max level
+    files["Units\\AbilityData.slk"] = ability_slk_doom_fix(game)
     check_icons(game, files)
     check_fx(game, files)
     out = os.path.join(ROOT, "dist", MAP_FILE)

@@ -3,6 +3,10 @@
 The binding description of how the map plays. Numbers name their source so they can be changed in one place.
 Update this file in the same change as the behaviour.
 
+## The map (v4.3, Jiří: too narrow at high waves)
+
+128 × 128 tiles (was 112). Every lane and gate corridor is **1280 wide** (was 640), the plaza 4608 wide (was 3072). A lane is as long as before: Circle to tower 1776, Circle to spawn 1536. **Only the plaza grew: a leak walks about 720 further to the castle** (lane 4370, was 3653; Levels 2–4 6128, was about 5200; Level 5 9616, was 7765), and a champion crossing the plaza takes about 3 s longer. Every entrance has a gate of two pieces. `tools/layout_audit.py` checks all of it and draws it.
+
 ## Players and lobby
 
 | Slot | Who | Notes |
@@ -16,34 +20,7 @@ Invader of arm `d` = Player(8 + d): 0 North **The Scourge**, 1 East **The Burnin
 
 ## Round flow
 
-1. **Champion select** (45 s, `SELECT_TIME`). Camera on the Hall of Champions — a small walled room (768 × 768, `HALL_CENTRE` / `HALL_HALF`) in the empty
-   top-right corner, far from every spawn: **one** tavern (sells within 600 only) with **7 champions**
-   (`TAVERNS`; stock 8 each, so several players may pick the same one). An invisible helper unit does the buying (no
-   walking). A big gold **"Select a Champion"** floats over the hall for players who haven't picked. Time out → a
-   random champion (untaken first). Every champion has 4 passive skills on **Q W E R** (`AEev` copies with 0 % evasion
-   = level holders; Q/W/E 5 levels from hero level 1, **R = ultimate, 3 levels at hero level 6 / 11 / 16**,
-   `skill_levels`; the build asserts Q, W, E, R for every champion) + **Attributes** on T; the script does every effect.
-
-   | Champion | Attack | Q | W | E | R (ultimate) |
-   |---|---|---|---|---|---|
-   | **Dryad** (`Edry`, custom: Priestess base, Dryad model, high spear 700 / arc 0.25) | ranged, single target | Extra Spear: +1 **flying** spear per level, thrown the moment her spear leaves her hand (`DryadReleaseDelay`) at another enemy **within her own range** that the spears in flight won't kill (full damage); leftover spears hit her target, as many as it survives, each starting beside her | Swift Throw: speed | Fire Spears: bonus (fire burst on every spear) | Spear Storm: volley |
-   | **Mountain King** (`Hmkg`) | melee, innate **cleave 30 %** | Thunder Clap: nova | Storm Hammer: bonus | Battle Fury: speed | Avatar: storm (lightning on every victim) |
-   | **Tauren Chieftain** (`Otch`) | melee, innate **cleave 30 %** | Shockwave: blast | War Stomp: nova | Endurance: speed | Stampede: storm |
-   | **Pit Lord** (`Nplh`) | melee, innate **cleave 40 %** | Rain of Fire: nova | Howl of Terror: bonus | Doom Strike: blast | Inferno: storm (meteor) |
-   | **Archmage** (`Hamg`) | ranged **splash** (100 / 200 / 300, 60 % / 30 %) | Blizzard: nova | Arcane Power: bonus | Brilliance: speed | Flame Strike: storm |
-   | **Lich** (`Ulic`) | ranged **splash** | Frost Nova: blast | Death and Decay: nova | Dark Ritual: bonus | Frost Wyrm: storm |
-   | **Far Seer** (`Ofar`) | ranged **bounce** to 4 enemies (−20 % per jump) | Chain Lightning: blast | Earthquake: nova | Spirit Wolf: speed | Thunderstorm: storm |
-
-   Skill kinds (`SKILL_KIND`, per level): **bonus** +20 % of every hit as extra damage on the target · **blast** every
-   hit 20 % of it to every enemy within 300 of the target · **nova** every 3rd hit 40 % of it to the target and every
-   enemy within 450 · **speed** +20 % attack speed (`OnHeroSkill` adds hidden `Xsw1`–`Xsw5`) · R **storm** every 5th
-   hit 100 / 200 / 300 % of it to the target and every enemy within 650 (`STORM_*`; a big effect on the target + a small
-   one on every victim, `SKILL_FX2`) · R **volley** (Dryad) every 4th throw +3 / 6 / 9 extra spears (`VOLLEY_EVERY`). Innate cleave hits
-   enemies within 250 of the target. Effects use the champion's **primary** hit only — the unit it started the attack
-   on (`gAtkTarget`, set in `OnAttacked`) — never splash / bounce victims or our own damage (`gDmgLock`), so AoE never
-   multiplies. 1.27 has no generic damage event: every enemy unit (players 8–11) is registered on `gDmgTrig` when it
-   enters the map (`OnEnterMap`); `DmgRebuild` starts a fresh trigger past 3000 registrations (`OnTick`). Extra damage
-   is chaos/universal (no second armour reduction).
+1. **Champion select** (45 s, `SELECT_TIME`). Camera on the Hall of Champions — a small walled room (768 × 768, `HALL_CENTRE` / `HALL_HALF`), far from every spawn: **one** tavern (sells within 600 only) with **12 champions** on its 12 buttons (`TAVERN_KEYS` Q W E R / A S D F / Z X C V; stock 8 each, so several players may pick the same one). An invisible helper unit does the buying (no walking). **One champion per player per round** is the map's own rule (`OnUnitSold`): only a playing player without a champion, during the selection, from this tavern, for one of the 12; anything else sold is removed at once. The game's own hero limits are off, see the gotchas. A big gold **"Select a Champion"** floats over the hall for players who haven't picked. Time out → a random champion (untaken first). See **Champions** below.
 2. **Start.** Hero appears on the player's **Champion's Circle** (lane entrance), lane hint (coloured circle,
    floating "Name's lane", minimap ping). One message: "Defend your lane! -help = commands".
    Starting gold **1000** (`SetupChampionSelect`). A second message tells players to spend it at the Circle: the first wave is strong.
@@ -90,24 +67,24 @@ Jiří: every lane has its own wave level, each player his own, based on how fas
 | 2 | Nexus destroyed, boss alive | the ruins | stage-2 pair (strongest) |
 | — | boss slain | — | the lane stops |
 
-- **Front line** (melee) = `4 + 2 × wave` (wave 1 → 6, +2 per wave, max 40). **Back line** (ranged) = `wave`
-  (+1 per wave, max 20) — `WAVE_FRONT_PER` / `WAVE_BACK_PER`, `WAVE_FRONT_MAX` / `WAVE_BACK_MAX`. Every 10th wave adds **wave/10 wave champions** per lane (base 2100 HP, armor 3, 90 damage, normal size, growing like the rest; `nc{d}0`,
+- **v4.3 (Jiří: far too many weak monsters): fewer, far stronger.** **Front line** (melee) = `5 + wave` (wave 1 → 6, max 16). **Back line** (ranged) = `(wave + 1) / 2`
+  (max 8) — `WAVE_FRONT_*`, `WAVE_BACK_*`. Every 10th wave adds **wave/10 wave champions**, at most 6, per lane (base 2100 HP, armor 3, 90 damage, normal size, growing like the rest; `nc{d}0`,
   `WAVE_CHAMP_*`), announced one wave before. Constants `WAVE_*` in `gen/objects.py`.
-- **Monsters scale by the wave (v4.1, Jiří: stronger monsters, predictable scaling), with `n = wave − 1`:** HP × (1 + 0.03 n²), damage × (1 + 0.018 n²). HP grows faster than damage.
+- **Monsters scale by the wave (v4.1, Jiří: stronger monsters, predictable scaling), with `n = wave − 1`:** HP × (1 + 0.092 n²), damage × (1 + 0.045 n²). HP grows faster than damage.
   `WAVE_*` in `gen/objects.py`, `ScaleHpBonus` / `ScaleDmgBonus` in the script. The added bonus is rounded down to steps of 100 HP and 5 damage.
 
-  | | Wave 1 HP / damage | Wave 5 | Wave 10 | Wave 20 |
-  |---|---|---|---|---|
-  | Melee | 700 / 60 | 1000 / 75 | 2400 / 145 | 8200 / 445 |
-  | Ranged | 420 / 120 | 620 / 150 | 1420 / 290 | 4920 / 895 |
-  | Wave champion | 2100 / 90 | 3100 / 115 | 7200 / 220 | 24800 / 670 |
+  | | Wave 1 HP / damage | Wave 5 | Wave 10 | Wave 20 | Wave 30 |
+  |---|---|---|---|---|---|
+  | Melee | 700 / 60 | 1700 / 100 | 5900 / 275 | 23 900 / 1030 | 54 800 / 2330 |
+  | Ranged | 420 / 120 | 1020 / 205 | 3520 / 555 | 14 320 / 2065 | 32 820 / 4660 |
+  | Wave champion | 2100 / 90 | 5100 / 150 | 17 700 / 415 | 71 800 / 1550 | 164 500 / 3495 |
 
   Melee: every 1.5 s, range 100, armor 2. Ranged: every 1.8 s, range 500, armor 0. Wave champion: every 1.5 s, armor 3.
 - **Tower down ×1.5 HP, ×1.25 damage. Nexus down ×2 HP, ×1.5 damage** (`WAVE_STAGE_HP`, `WAVE_STAGE_DMG`), for melee and ranged; a wave champion has no stage factor.
 - **Every faction fights alike:** attack type normal, no spells, no regeneration, same speed and armor. The model and its movement type stay its own: a few fly or hover (frost wyrms, banshees, revenants) or swim (nagas), and those can cross terrain a walker cannot.
 - **A rescale never heals:** a unit keeps its actual HP when its maximum changes, cut only if the new maximum is lower (`ScaleKeepHp`). Applying a scale twice changes nothing. A bonus past the last bit stays at the maximum, it never wraps (`ScaleClamp`; +3 276 700 HP, +81 915 damage). `check_scaling` fails the build if a monster gets weaker with the wave or if a bonus would saturate before wave 80; at the current values none does.
 - Protectors grow with their wave too: their own HP × the factor of their lane, damage + a wave champion's growth.
-- **Minion kill gold = the wave number of its lane** (wave 1 → 1 gold, wave 5 → 5), × the level on the gate lanes (×2 … ×5), to
+- **A whole wave pays the gold and XP it paid with up to 60 monsters** (`WavePayRatio`): a regular monster's kill gold = its lane's wave × (the old count / the new count), up to ×2.5, and the rest of the XP on top of the game's own (`UnitKillXp`). A wave champion pays its wave, as before. × the level on the gate lanes (×2 … ×5), to
   the killer (`MinionBounty`; wave unit types have built-in bounty 0 via `NO_BOUNTY`). Towers, Nexus, bosses and
   Protectors keep their normal bounty.
 - Gold per wave: `50 + 50*wave` → 100, 150, 200, … (no cap), paid when the lane's wave is **cleared** (with the tree), see the table above for who gets it.
@@ -136,6 +113,7 @@ Higher level = harder.
   -1 closed, 0 open, 1 boss alive, 2 cleared), all owned by the Scourge computer (Player 9). Geometry per lane in
   `GATE_GEOMETRY` (`gen/layout.py`). Tower in the leg far in front of the Nexus (no range overlap).
 - Tower down → a **Protector** (the level's champion, 1.8× size, level colour) + instant wave.
+- **A wave starts in ranks (v4.3):** ranged at the back, melee in front of them, wave champions first, across the lane and looking at its first waypoint (`WaveAnchor`, `SpawnRanks`, `FORM_*`: 8 a rank, 128 apart; 96 made the engine swap ranks with big units). This is the order at the spawn, not a formation in battle: once they march and fight, the game moves them as it likes, and fliers pass ahead.
 - **The team scales shared obstacles, mainly in HP:** gate wave monsters, Protectors, towers, Nexuses and bosses × `1 + 0.35 × (team − 1)` (1 / 2 / 4 / 8 players: ×1, ×1.35, ×2.05, ×3.45; `TEAM_HP_PER_PLAYER`). Their damage does not depend on the team. Personal lanes never do: each player already adds a lane.
 - **The team** (`gTeamCount`) is the number of players at the start of the round. Leaving during the round lowers nothing, because the others can control that champion (`OnPlayerLeave`) and his lane goes on at its own wave. A player who picked and left before the round began has no lane, no champion and does not count. A real leave has not been tested in a game: the hidden test has one player.
 - Bosses copy their spells/summons from a lane boss (L2 Lich, L3 Tidelord, L4/L5 Pit Lord), armor +2 per level.
@@ -155,7 +133,7 @@ Higher level = harder.
 - **When:** every active lane boss and all 4 gate levels are done (`CheckVictory` → `StartFinalBoss`). Waves stop for
   good, the castle is shielded (invulnerable), a 30 s warning runs (`FINAL_DELAY`), then he rises south of the castle
   (`FINAL_BOSS_POS`). **His death wins the game** (`OnFinalBossDead`). He is leashed to the plaza and the lane entrances
-  (`FINAL_LEASH` 1700 from the castle), so revived champions are back quickly.
+  (`FINAL_LEASH` 2500 from the castle), so revived champions are back quickly.
 - **Stats follow the game clock**, minute m, at spawn and on every new minute of the fight (`FinalApplyStats`). **Growing never heals him (v4.1):** his actual HP stays, only his maximum rises. (Keeping the percentage, as before, gave him free HP every minute.)
   - max HP = (5 000 000 + 250 000 × m) × 1 / 2 / 3 for a team of 1–2 / 3–5 / 6–8, rounded down to 100 000; regen 500 HP/s
   - damage = 20 000 + 1000 × m chaos, every 1.2 s; armor = 30 + m / 2
@@ -178,16 +156,35 @@ Every Nexus boss drops one EPIC crown at its ruins (purple ping + "EPIC DROP" me
 | Level 4 boss | Shadow Crown | +800 |
 | Level 5 boss | Inferno Crown | +1000 |
 
-## Champions
+## Champions (v4.3, Jiří: twelve champions of X Hero Siege 3.28, as they are there)
 
-- Spells on **Q W E R** for cast and learn, tooltips retagged `[Q]` (`gen/hotkeys.py`).
-- Every hero can attack **air** units, melee heroes too (`ua1g` += air, `original_unit_mods`).
-- **Hero level is practically unlimited** (`MAX_HERO_LEVEL` = 1000 via `war3mapMisc.txt`). 1 skill point per
-  level: Q/W/E 5 levels each, R 3 (hero level 6 / 11 / 16) = 18 points, so spells are maxed at hero level 18 at the
-  earliest. From level 11 a point can also go into **Attributes** (`Xatt`, learn key T): +30 Str/Agi/Int per level,
-  100 levels. Past hero level 110 every level-up adds +30 to all three automatically.
+Their abilities are the game's own native abilities with the numbers of X Hero Siege 3.28 (Sogat, 2007). `gen/xhs_data.py` holds them, generated from the owner's local copy of that map by `tools/xhs_port.py`, which also checks them against it. The map itself is not in this repo. The text a player reads is ours (`gen/xhs_text.py`).
+
+| Tavern | Champion | Q | W | E | R (ultimate, 2 levels; the Dryad's has 4) | T | D (innate) | F (hero level 20) |
+|---|---|---|---|---|---|---|---|---|
+| Q | **Dryad** | Evasion | **Multiple Arrows** | Critical Arrows | Trueshot Aura | Endurance Aura | Envenomed Spears | Spell Immunity |
+| W | **Mountain King** | Storm Bolt | Thunder Clap | Bash | Avatar | Muradin's Hammer | Thunder Spirit | Lightning Shield |
+| E | **Tauren Chieftain** | Shockwave | War Stomp | Pulverize | Lightning Stroke | Endurance Aura | Battle Roar | Reincarnation + a stronger Roar |
+| R | **Pit Lord** | Rain of Fire | War Stomp | Cleaving Attack | Doom | Unholy Aura | Howl of Terror | Finger of Death |
+| A | **Archmage** | Blizzard | Water Elemental | Frost Bolt | Starfall | Debilitation Aura | Anti-magic Shield | Water Shield |
+| S | **Lich** | Frost Nova | Breath of Frost | Frost Arrows | Frost Beast | Frost Armor | Frost Frenzy | Frost Chaos |
+| D | **Paladin** | Healing Wave | Howl of Weakness | Fan of Light | Pure Light | Devotion Aura | Taunt | Light Frenzy |
+| F | **Blademaster** | Wind Walk | Critical Strike | Mirror Image | Bladestorm | War Drums | Berserk | Partition |
+| Z | **Beastmaster** | Summon Bear | Feral Spirit | Summon Hawk | Stampede | Thorns Aura | Spirit Pig | Terror Wolf |
+| X | **Crypt Lord** | Impale | Spiked Carapace | Carrion Beetles | Locust Swarm | Poison Sting | Anub'arak's Claw | Burrow Impale |
+| C | **Demon Hunter** | Immolation | Negative Energy | Evasion | Metamorphosis | Vampiric Aura | Roar | Resistant Skin |
+| V | **Priestess of the Moon** | Chain Lightning | Watery Minion | Forked Lightning | Monsoon | Trueshot Aura | Rejuvenation | Lightning Chaos |
+
+- **Card:** Q W E R on the bottom row, D and T above them, F where the Learn button is once every skill is learned (the reference's layout). With a skill point left, the Learn button covers F: spend it. Every button is reachable then, also on the fullest card, the Lich's 7: seen in a hidden film.
+- **The Dryad's Multiple Arrows, measured:** the spears come **with her attack**, at different enemies, landing within about 0.1 s. Enemies hit per attack, her own hit included: **4 / 6 / 8 / up to 10** at levels 1 to 4 (12 enemies around her; at level 4 it was 8 to 10). Faster attacks mean more volleys: one every 0.97 s, with +200 Agility one every 0.37 s. A spear does the damage of **her weapon** (43 to 51; 223 to 230 with +200 Agility): the native ability ignores its 250 / 500 / 1000 / 2000 fields. On one lone enemy one hit; holding position with nobody in reach none; stop orders add nothing. These are the game's own rules for this ability, kept as they are.
+- **Doom, level 2:** takes monsters up to level 5 like level 1 does, thanks to one changed cell in the game's ability table that the map carries (gotchas). 500 / 1000 damage per second, 1 / 2 Doom Guards at its target's death.
+- **Level 20** (`HeroGrants`): the F ability, also when a level-up jumps past 20. The Tauren's old Roar makes room for the new one.
+- **The few triggers they need** (`OnHeroGlue*`), from the reference: from level 20 the Mountain King's Thunder Clap and Storm Bolt and, with Roar on, the Tauren's War Stomp and Shockwave strike twice; Light Frenzy resets its target's cooldowns; each level of War Drums swaps in the real aura.
+- **Different from the reference, on purpose:** our max hero level is 1000 (there 30), and from level 21 every level-up adds +30 to all stats (`ATTR_*`), because the old Attributes skill no longer fits: a hero has at most 5 learnable abilities. Their gameplay constants stay ours (armor per Agility and so on, the shops depend on them) except the speed cap, see the bosses. Natives our bosses also use got their own ids (`XHS_REMAP`), so their numbers stay apart.
+- **Not in the reference, not here:** the Far Seer, who was a champion until v4.2. The Priestess takes his lightning role.
+- Spells on **Q W E R T**, innate on **D**, level 20 on **F**. Death → revive on the Champion's Circle after `4 + 2*level` s, max 24 s (`StartRevive`), not if Reincarnation has already brought him back. Deaths counted.
+- **Partition and Terror Wolf:** the hero is hidden while the summoned form fights. It buys and collects as usual; if all forms die he dies and revives.
 - **Level 2** when the player's first wave is cleared (or at his wave 2). Every level-up refills HP + mana.
-- Death → revive on the Champion's Circle after `4 + 2*level` s, max 24 s (`StartRevive`). Deaths counted.
 
 ## Champion's Circle shop (per player, `KINDS_DEF` rows 1–3 in `gen/objects.py`)
 
@@ -215,14 +212,14 @@ Every Nexus boss drops one EPIC crown at its ruins (purple ping + "EPIC DROP" me
 
 ## Castle (`hcd0`): 8000 HP, armor 10 — and the castle shop
 
-Select the castle and buy with a champion anywhere on the plaza (3000 radius). Every castle buy costs
+Select the castle and buy with a champion anywhere on the plaza (3400 radius, `CASTLE_SHOP_RANGE`). Every castle buy costs
 **1 tree** (`CASTLE_TREE_COST`), no gold. Everyone sees "Name: +3 castle armor".
 
 | Key | Buy | Effect |
 |---|---|---|
 | Q | Castle Health | +1000 max HP (stacks) |
 | W | Castle Armor | +3 armor (stacks) |
-| E | Castle Regeneration | +10 HP per second (stacks) |
+| E | Castle Regeneration +N HP/s | +10 HP per second (stacks). The button names what was bought (N), and its own +5 HP/s comes on top: every step is its own item type |
 | R | Repair Castle | +2000 HP heal (repeatable) |
 | A | Shockwave | 25 % of their max HP to every wave monster within 1100 of the castle; a boss takes 300 + 30 × the highest wave of any lane (repeatable) |
 
@@ -278,9 +275,13 @@ anywhere on the map (`Aneu` radius 20 000). Bought items go straight into his in
   then its stronger waves, then the Nexus.
 - **Nexus: 15 000 HP, armor 10, huge attack** ~27 500 (27400 + 4d50) chaos missile every 2.5 s, range 700, hits air too
   (`BASE_HP`, `NEXUS_*`, `nexus_attack`).
-- Lane boss: **always the middle tier**, 60 000 HP, armor 4, ~2400 chaos per hit, for any player count
-  (`BOSS_HP[1]`, `BOSS_DMG[1]`; the script spawns `gBossType[d * 3 + 1]`, tiers 0 and 2 exist in the data but are unused).
-  Bosses cast spells, summon, and are leashed to their ruins (`BossTick`).
+- Lane boss: **always the middle tier**, base 60 000 HP, armor 4, ~2400 chaos per hit (`BOSS_HP[1]`, `BOSS_DMG[1]`; tiers 0 and 2 exist in the data but are unused).
+- **Bosses since v4.3 (Jiří: far too easy; ultra fast, high damage, durable, no stun):**
+  - **As strong as their lane's wave when they rise** (`BossEquip`), n = wave − 1: HP × (1 + 0.02 n²), at most ×16, damage × (1 + 0.008 n²), at most ×8; gate bosses also × the team in HP. Lane boss at wave 20: 493 200 HP, 9335 a hit.
+  - **Speed 522, the engine's top** (`BOSS_SPEED`; the map's `MaxUnitSpeed` is raised from 400 for it, so a hero's speed auras can reach further too), an attack every second.
+  - **No stun holds them** (`StunStrip`, the final boss's rule for all): the stun buffs come off at once, damage and slows stay. Impale throws one up for its second and its damage lands; the rest of its stun comes off then.
+  - **Their own spells** (`BOSS_SPELLS`, `Xb**`, 10 levels, level 1 + wave / 5 + the gate's level, 1200 damage per level on one target), so the champions' copies of the same spell stay faithful. Spells are due every 7 and 11 s, and adds every 25 s (`BossTick`; since v4.3 they really come, the old schedule could never reach them) with the wave's strength.
+  - Leashed to their ruins at 1600. They ignore invulnerable targets.
 
 ## UI and commands
 

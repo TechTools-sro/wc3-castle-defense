@@ -27,7 +27,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 ROOT = Path(os.environ.get("CD_TEST_ROOT", Path.home() / "games" / "wc3-test-env"))
 
-HEROES = {"dryad": (0, "S"), "mk": (1, "A"), "archmage": (4, "D")}      # index in the tavern, primary stat shop key
+HEROES = {"dryad": (0, "S"), "mk": (1, "A"), "archmage": (4, "D"), "beastmaster": (8, "A")}      # index in the tavern, primary stat shop key: ranged, melee, caster, summoner
 # 1000 gold: every build is legal at the start and costs what the shop asks.
 BUILDS = {
     "naked": lambda primary: "",
@@ -58,17 +58,23 @@ def stall_set():
     return [{"name": "dryad-stall-s1", "hero": "dryad", "build": "starter", "seed": 1, "mode": 2, "stall_wave": 3, "duration": 420, "timeout": 800}]
 
 
+def boss_set():
+    """A lane boss at wave 10 and 20, after playing there with every coin spent. The tower and Nexus are killed once for it: the bot does not push."""
+    return [{"name": f"{hero}-boss-w{wave}", "hero": hero, "build": "starter", "seed": 1, "mode": 3, "stall_wave": wave, "duration": 900, "timeout": 1300}
+            for hero in ("dryad", "mk", "archmage", "beastmaster") for wave in (10, 20)]
+
+
 def smoke_set():
     return [{"name": "dryad-smoke", "hero": "dryad", "build": "starter", "seed": 1, "mode": 0, "duration": 80, "timeout": 300}]
 
 
-SETS = {"fight": fight_set, "progress": progress_set, "stall": stall_set, "smoke": smoke_set}
+SETS = {"fight": fight_set, "progress": progress_set, "stall": stall_set, "boss": boss_set, "smoke": smoke_set}
 
 
 def build_map(run, out_dir):
     index, primary = HEROES[run["hero"]]
     cycle = CYCLES.get(run["build"], "")
-    if run["mode"] != 1:
+    if run["mode"] not in (1, 3):
         cycle = ""            # fight: no purchase after the start; stall: gold stays unspent, so the log shows the Bank directly
     elif cycle is None:
         cycle = primary
@@ -88,7 +94,7 @@ def build_map(run, out_dir):
 WAVE_PARTS = {"wave": ("why", "spawned_at", "spawned", "first_hit", "first_deal", "hp_min", "deaths_wave"),
               "incoming": ("taken", "from_wave", "from_tower", "from_nexus", "from_boss", "from_other", "hits"),
               "dealt": ("hero_wave_raw", "hero_wave_hp", "hero_other_raw", "hero_other_hp", "other_raw", "other_hp"),
-              "state": ("level", "xp", "kills", "deaths", "castle", "gold", "spent", "earned", "income", "trees", "alive"),
+              "state": ("level", "xp", "kills", "deaths", "castle", "gold", "spent", "earned", "income", "trees", "alive", "casts"),
               "team": ("playing", "heroes")}
 PRELOAD_LIMIT = 259     # the engine cuts a Preload line there
 
@@ -126,6 +132,10 @@ def summarize(run, parsed):
     end = next((e for e in reversed(events) if e.get("event") == "end"), {})
     return {"name": run["name"], "hero": run["hero"], "build": run["build"], "seed": run["seed"], "mode": run["mode"],
             "start": first.get("start"), "ready": first.get("ready"), "waves": parsed["records"], "errors": parsed["errors"],
+            "casts": [e for e in events if e.get("event") == "cast"], "ranks": next((e for e in reversed(events) if e.get("event") == "ranks"), {}),
+            "channels_cancelled": [e for e in events if e.get("event") == "channel_cancelled"],
+            "channels": [e for e in events if e.get("event") == "channel"], "summons": [e for e in events if e.get("event") == "summon"],
+            "other_damage": [e for e in events if e.get("event") == "other_damage"],
             "levels": [e for e in events if e.get("event") == "level"], "deaths": [e for e in events if e.get("event") == "death"],
             "tower_hits": [e for e in events if e.get("event") == "tower_hit"], "progress": [e for e in events if e.get("event") in ("tower_destroyed", "nexus_destroyed", "boss_slain", "castle_destroyed")],
             "pending_at_end": [e for e in events if e.get("event") == "buy_pending_at_end"],
@@ -205,6 +215,12 @@ def validate_row(row):
         problems.append(f"runner: exit {row.get('runner_exit')} verdict {row.get('verdict')}")
     if not row.get("done"):
         problems.append("no SELFTEST DONE")
+    # a champion who only swung his weapon says nothing about his spells; the Dryad's kit is passive, but her Multiple Arrows must be learned
+    if row.get("hero") == "dryad":
+        if str(row.get("ranks", {}).get("r1", "0")) in ("0", ""):
+            problems.append("the Dryad never learned Multiple Arrows")
+    elif not row.get("casts"):
+        problems.append(f"{row.get('hero')}: not one spell cast")
     for name in ("start", "ready", "final", "end"):
         if not row.get(name):
             problems.append(f"no {name} record")
@@ -250,6 +266,25 @@ def report_rows(label):
 def cmd_report(args):
     rows = report_rows(args.label)
     rows.sort(key=lambda r: (r["hero"], r["build"], r["seed"]))
+    code = lambda text: int(text).to_bytes(4, "big").decode("latin1")
+    print("| run | learned (card order) | spell casts by id | channels: id, seconds | summoned: type x n | damage: champion / other player units, by type | channels cancelled |")
+    print("|---|---|---|---|---|---|---|")
+    for row in rows:
+        counts = {}
+        for cast in row.get("casts", []):
+            counts[code(cast["id"])] = counts.get(code(cast["id"]), 0) + 1
+        summoned = {}
+        for summon in row.get("summons", []):
+            summoned[code(summon["type"])] = summoned.get(code(summon["type"]), 0) + 1
+        ranks = " ".join(row.get("ranks", {}).get(f"r{i}", "?") for i in range(5))
+        hero_damage = sum(float(w["hero_wave_raw"]) + float(w["hero_other_raw"]) for w in row["waves"])
+        other_damage = sum(float(w["other_raw"]) for w in row["waves"])
+        spells = ", ".join(f"{name} {n}" for name, n in sorted(counts.items()))
+        channels = ", ".join(f"{code(c['id'])} {c['seconds']}" for c in row.get("channels", []))
+        kinds = ", ".join(f"{name} x{n}" for name, n in sorted(summoned.items()))
+        others = ", ".join(f"{code(o['type'])} {o['raw']}" for o in row.get("other_damage", []))
+        print(f"| {row['name']} | {ranks} | {spells} | {channels} | {kinds} | {hero_damage:.0f} / {other_damage:.0f} ({others}) | {len(row.get('channels_cancelled', []))} |")
+    print()
     print("A row with a tower hit is a separate class (tower): never evidence of how strong the monsters are.\n")
     print("| run | class | ready HP | wave | spawned | fight s | first hit s | taken wave/tower | HP min | deaths | level | gold spent+earned | castle |")
     print("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
@@ -270,9 +305,9 @@ def fixture_log(waves=2, drop=(), replace=None):
         out += [f"M t={30 + w}.0 event=wave wave={w} why=cleared spawned_at=30.0 spawned=7 first_hit=34.1 first_deal=31.9 hp_min=2496 deaths_wave=0",
                 f"M t={30 + w}.0 event=incoming wave={w} taken=78 from_wave=78 from_tower=0 from_nexus=0 from_boss=0 from_other=0 hits=7",
                 f"M t={30 + w}.0 event=dealt wave={w} hero_wave_raw=1801 hero_wave_hp=1314 hero_other_raw=0 hero_other_hp=0 other_raw=9 other_hp=9",
-                f"M t={30 + w}.0 event=state wave={w} level=2 xp=200 kills=7 deaths=0 castle=8000 gold=83 spent=924 earned=7 income=0 trees=1 alive=0",
+                f"M t={30 + w}.0 event=state wave={w} level=2 xp=200 kills=7 deaths=0 castle=8000 gold=83 spent=924 earned=7 income=0 trees=1 alive=0 casts=0",
                 f"M t={30 + w}.0 event=team wave={w} playing=0,8,9,10,11, heroes=0,"]
-    out += [f"M t=80.0 event=final hero=Dryad level=2 maxhp=2575 gold=83 spent=924 earned=7", f"M t=80.0 event=end why=limit tower_hits=0 nexus_hits=0 wave={waves} deaths=0", "PASS probe finished: limit", "SELFTEST DONE"]
+    out += [f"M t=80.0 event=final hero=Dryad level=2 maxhp=2575 gold=83 spent=924 earned=7", "M t=80.0 event=ranks r0=0 r1=2 r2=0 r3=0 r4=0", f"M t=80.0 event=end why=limit tower_hits=0 nexus_hits=0 wave={waves} deaths=0", "PASS probe finished: limit", "SELFTEST DONE"]
     out = [line for line in out if not any(d in line for d in drop)]
     if replace:
         out = [line.replace(*replace) for line in out]
@@ -320,7 +355,11 @@ def cmd_selfcheck(_args):
              ("a line at the engine's limit", fixture_row(fixture_log(replace=("event=final", "event=final pad=" + "x" * 260))), False),
              ("FAIL line", fixture_row(fixture_log() + '\ncall Preload( "FAIL probe: wrong hero" )'), False),
              ("runner exit not 0", fixture_row(fixture_log(), runner_exit=3), False),
-             ("runner verdict not PASS", fixture_row(fixture_log(), verdict="TIMEOUT"), False)]
+             ("runner verdict not PASS", fixture_row(fixture_log(), verdict="TIMEOUT"), False),
+             ("a Dryad without her spears", fixture_row(fixture_log(replace=("r1=2", "r1=0"))), False),
+             ("casts field missing", fixture_row(fixture_log(replace=(" casts=0", ""))), False),
+             ("a caster without one spell", dict(fixture_row(fixture_log()), hero="mk"), False),
+             ("a caster with a spell", dict(fixture_row(fixture_log()), hero="mk", casts=[{"event": "cast", "id": "1"}]), True)]
     bad = 0
     pending = fixture_row(fixture_log() + '\ncall Preload( "M t=80.0 event=buy_pending_at_end item=F price=103 gold_before=900 gold=797" )')
     settled = fixture_row(fixture_log(replace=("income=0", "pending=0 income=0")))

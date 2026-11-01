@@ -25,6 +25,8 @@ While he plays, his game changes those files itself: the diff is recorded in `pe
 Other commands: `tools/test_env.py status`, `cleanup [--slot a] [--force]`, `concurrency`, `verify-branches`.
 Options of `run`: `--slot a|b` (default: the first free one), `--map FILE`, `--timeout` (default 1200 s), `--stall`.
 
+A map can ask for a film of the hidden display: a `VIDEO name seconds` line in its results (`TestLog` + `TestFlush`) makes the runner record `video-name.mp4` at 25 fps into the run's evidence. The self-test uses it for what numbers cannot show: the tavern card, the Dryad's volley, the fullest champion card.
+
 ## Where everything is
 
 `~/games/wc3-test-env/` (`CD_TEST_ROOT`), outside this repo and outside the game. Nothing there is committed.

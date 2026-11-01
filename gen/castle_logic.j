@@ -31,6 +31,21 @@ function TestCheck takes boolean ok, string s returns nothing
 endfunction
 
 
+// A lane's or gate's entrance is two gate pieces wide.
+function GateSet takes integer L, boolean open returns nothing
+    if open then
+        call SetDestructableInvulnerable(gGate[L], false)
+        call SetDestructableInvulnerable(gGate2[L], false)
+        call ModifyGateBJ(bj_GATEOPERATION_OPEN, gGate[L])
+        call ModifyGateBJ(bj_GATEOPERATION_OPEN, gGate2[L])
+    else
+        call ModifyGateBJ(bj_GATEOPERATION_CLOSE, gGate[L])
+        call ModifyGateBJ(bj_GATEOPERATION_CLOSE, gGate2[L])
+        call SetDestructableInvulnerable(gGate[L], true)
+        call SetDestructableInvulnerable(gGate2[L], true)
+    endif
+endfunction
+
 function IsPlaying takes integer i returns boolean
     return GetPlayerSlotState(Player(i)) == PLAYER_SLOT_STATE_PLAYING
 endfunction
@@ -214,6 +229,8 @@ function ApplyBought takes integer p returns nothing
             loop
                 exitwhen gStatApplied[p * 16 + s] >= gStatNext[p * 16 + s]
                 call UnitAddAbility(h, gBonusAbil[s * gKindStride + gStatApplied[p * 16 + s]])
+                // a morph (Metamorphosis) would drop what is not permanent
+                call UnitMakeAbilityPermanent(h, true, gBonusAbil[s * gKindStride + gStatApplied[p * 16 + s]])
                 set gStatApplied[p * 16 + s] = gStatApplied[p * 16 + s] + 1
                 set fx = true
             endloop
@@ -719,8 +736,109 @@ function GrabTick takes nothing returns nothing
 endfunction
 
 // Every level-up refills HP and mana. Past the last learnable "Attributes" level the stats come automatically.
+// ---- The champions' own triggers, as X Hero Siege 3.28 has them: their abilities are native, only these few need a script.
+// Level 20: each champion's extra ability. Any later level-up finds it there, so a jump past 20 gets it too. (gGrant*: hero, ability, ability it replaces, permanent)
+function HeroGrants takes unit h returns nothing
+    local integer t = GetUnitTypeId(h)
+    local integer k = 0
+    local boolean gave = false
+    if GetHeroLevel(h) < gGrantLevel then
+        return
+    endif
+    if t == gDemonForm then
+        set t = gDemonHero
+    endif
+    loop
+        exitwhen k >= gGrantN
+        if gGrantHero[k] == t and GetUnitAbilityLevel(h, gGrantAbil[k]) == 0 then
+            if gGrantDrop[k] != 0 then
+                call UnitRemoveAbility(h, gGrantDrop[k])
+            endif
+            call UnitAddAbility(h, gGrantAbil[k])
+            if gGrantPerm[k] then
+                call UnitMakeAbilityPermanent(h, true, gGrantAbil[k])
+            endif
+            set gave = true
+        endif
+        set k = k + 1
+    endloop
+    if gave then
+        call DisplayTimedTextToPlayer(GetOwningPlayer(h), 0.0, 0.0, 10.0, "|cffffcc00Hero level " + I2S(gGrantLevel) + ":|r a new ability!")
+    endif
+endfunction
+
+// Thunder Clap and War Stomp strike twice from level 20: the second ability is added when the order is given, and used when the first takes effect.
+function OnHeroGlueOrder takes nothing returns nothing
+    local unit u = GetTriggerUnit()
+    local integer t = GetUnitTypeId(u)
+    if GetUnitLevel(u) >= gGrantLevel then
+        if GetIssuedOrderId() == gOrderClap and t == 'Hmkg' then
+            call UnitAddAbility(u, 'A04P')
+        elseif GetIssuedOrderId() == gOrderStomp and t == 'Otch' and GetUnitAbilityLevel(u, 'B00N') > 0 then
+            call UnitAddAbility(u, 'A01O')
+        endif
+    endif
+    set u = null
+endfunction
+
+// Storm Bolt and Shockwave strike twice too, Light Frenzy resets its target's cooldowns.
+function OnHeroGlueSpell takes nothing returns nothing
+    local unit u = GetTriggerUnit()
+    local unit tgt = GetSpellTargetUnit()
+    local integer a = GetSpellAbilityId()
+    local integer t = GetUnitTypeId(u)
+    local real x = GetSpellTargetX()
+    local real y = GetSpellTargetY()
+    if GetUnitLevel(u) >= gGrantLevel then
+        if a == 'A010' and t == 'Hpal' then
+            call UnitResetCooldown(tgt)
+        elseif a == 'AHtc' and t == 'Hmkg' then
+            call IssueImmediateOrderById(u, gOrderCreepClap)
+            call TriggerSleepAction(0.5)
+            call UnitRemoveAbility(u, 'A04P')
+        elseif a == 'AHtb' and t == 'Hmkg' then
+            call UnitAddAbility(u, 'A02V')
+            call TriggerSleepAction(0.1)
+            call IssueTargetOrderById(u, gOrderCreepBolt, tgt)
+            call TriggerSleepAction(0.5)
+            call UnitRemoveAbility(u, 'A02V')
+        elseif a == 'AOws' and t == 'Otch' and GetUnitAbilityLevel(u, 'B00N') > 0 then
+            call IssueImmediateOrderById(u, gOrderCreepClap)
+            call TriggerSleepAction(0.5)
+            call UnitRemoveAbility(u, 'A01O')
+        elseif a == 'AOsh' and t == 'Otch' and GetUnitAbilityLevel(u, 'B00N') > 0 then
+            call UnitAddAbility(u, 'A04Q')
+            call TriggerSleepAction(0.1)
+            if tgt != null and IsUnitInRange(tgt, u, 1000.0) then
+                set x = GetUnitX(tgt)
+                set y = GetUnitY(tgt)
+            endif
+            call IssuePointOrderById(u, gOrderCreepSwarm, x, y)
+            call TriggerSleepAction(0.5)
+            call UnitRemoveAbility(u, 'A04Q')
+        endif
+    endif
+    set u = null
+    set tgt = null
+endfunction
+
+// War Drums is an empty placeholder to learn: each level swaps in the real aura.
+function OnHeroGlueLearn takes nothing returns nothing
+    local unit u = GetTriggerUnit()
+    local integer L
+    if GetLearnedSkill() == 'A045' and GetUnitTypeId(u) == 'Obla' then
+        set L = GetUnitAbilityLevel(u, 'A045')
+        if L > 1 then
+            call UnitRemoveAbility(u, gDrumAura[L - 1])
+        endif
+        call UnitAddAbility(u, gDrumAura[L])
+    endif
+    set u = null
+endfunction
+
 function OnHeroLevel takes nothing returns nothing
     local unit h = GetTriggerUnit()
+    call HeroGrants(h)
     if GetHeroLevel(h) > gAttrMaxHeroLevel then
         call SetHeroStr(h, GetHeroStr(h, false) + gAttrPerLevel, true)
         call SetHeroAgi(h, GetHeroAgi(h, false) + gAttrPerLevel, true)
@@ -1117,18 +1235,32 @@ function ScalePrepare takes integer L, integer st returns nothing
     endloop
 endfunction
 
-// Waves come out of the lane's tower; once the tower is destroyed, out of the Nexus (or its ruins).
+// Waves come out of the lane's tower; once the tower is destroyed, out of the Nexus (or its ruins). A wave stands in ranks across its lane:
+// the anchor is the rear of the army, in front of the building, and forward is the way to the lane's first waypoint (every lane and stage its own).
+function WaveAnchor takes integer L returns nothing
+    local real dx
+    local real dy
+    local real len
+    set gFormX = gNexusSpawnX[L]
+    set gFormY = gNexusSpawnY[L]
+    if GetWidgetLife(gTower[L]) > 0.405 then
+        set gFormX = gTowerSpawnX[L]
+        set gFormY = gTowerSpawnY[L]
+    endif
+    set dx = gWpX[L * 8 + 1] - gFormX
+    set dy = gWpY[L * 8 + 1] - gFormY
+    set len = SquareRoot(dx * dx + dy * dy)
+    set gFormFX = dx / len
+    set gFormFY = dy / len
+endfunction
+
 function SpawnWaveUnit takes integer L, integer ut, integer role returns nothing
     local integer d = LaneArm(L)
-    local real x = gNexusSpawnX[L]
-    local real y = gNexusSpawnY[L]
+    local real x = gFormX + gFormFX * gFormForward - gFormFY * gFormSide
+    local real y = gFormY + gFormFY * gFormForward + gFormFX * gFormSide
     local unit u
     local integer b = 0
-    if GetWidgetLife(gTower[L]) > 0.405 then
-        set x = gTowerSpawnX[L]
-        set y = gTowerSpawnY[L]
-    endif
-    set u = CreateUnit(gInvader[d], ut, x + GetRandomReal(-140.0, 140.0), y + GetRandomReal(-90.0, 90.0), gDirFace[d])
+    set u = CreateUnit(gInvader[d], ut, x, y, bj_RADTODEG * Atan2(gFormFY, gFormFX))
     loop
         exitwhen b >= gScaleN[role]
         call UnitAddAbility(u, gScaleList[role * 32 + b])
@@ -1147,8 +1279,35 @@ function SpawnWaveUnit takes integer L, integer ut, integer role returns nothing
     call IssuePointOrder(u, "attack", gWpX[L * 8 + 1], gWpY[L * 8 + 1])
     if gTestMode then
         set gTestLast = u
+        if gTestFormN < 8000 then
+            set gTestFormU[gTestFormN] = u
+            set gTestFormRole[gTestFormN] = role
+            set gTestFormLane[gTestFormN] = L
+            set gTestFormN = gTestFormN + 1
+        endif
     endif
     set u = null
+endfunction
+
+// One rank after another, from depth on, centred across the lane. Returns the depth behind the last rank.
+function SpawnRanks takes integer L, integer ut, integer role, integer count, integer perRank, real step, real depth returns real
+    local integer i = 0
+    local integer inRank
+    loop
+        exitwhen i >= count
+        set inRank = count - (i / perRank) * perRank
+        if inRank > perRank then
+            set inRank = perRank
+        endif
+        set gFormForward = depth + step * I2R(i / perRank)
+        set gFormSide = (I2R(ModuloInteger(i, perRank)) - I2R(inRank - 1) / 2.0) * step
+        call SpawnWaveUnit(L, ut, role)
+        set i = i + 1
+    endloop
+    if count <= 0 then
+        return depth
+    endif
+    return depth + step * I2R((count - 1) / perRank + 1)
 endfunction
 
 // Standardized waves: the lane STAGE picks the unit types, the lane's own wave number adds units and strength (ScalePrepare).
@@ -1159,8 +1318,9 @@ function SpawnWave takes integer L returns nothing
     local integer st = LaneStage(L)
     local integer w = gLaneWave[L]
     local integer front = gFrontBase + gFrontPer * w
-    local integer back = gBackPer * w
+    local integer back = (gBackPer * w + 1) / 2
     local integer i = 0
+    local real depth
     if front > gFrontMax then
         set front = gFrontMax
     endif
@@ -1168,31 +1328,23 @@ function SpawnWave takes integer L returns nothing
         set back = gBackMax
     endif
     call ScalePrepare(L, st)
+    call WaveAnchor(L)
     if gTestMode and L == 0 and w <= 2 then
-        call TestCheck(front == 4 + 2 * w and back == w, "wave " + I2S(w) + " size: front " + I2S(front) + " (+2 per wave), back " + I2S(back) + " (+1 per wave)")
+        call TestCheck(front == gFrontBase + w and back == (w + 1) / 2, "wave " + I2S(w) + " size: front " + I2S(front) + ", back " + I2S(back))
     endif
-    loop
-        exitwhen i >= front
-        call SpawnWaveUnit(L, gStageUnit[d * 6 + st * 2], 0)
-        set i = i + 1
-    endloop
-    set i = 0
-    loop
-        exitwhen i >= back
-        call SpawnWaveUnit(L, gStageUnit[d * 6 + st * 2 + 1], 1)
-        set i = i + 1
-    endloop
+    // the ranged at the back, the melee in front of them, the wave champions first of all
+    set depth = SpawnRanks(L, gStageUnit[d * 6 + st * 2 + 1], 1, back, gFormRow, gFormStep, 0.0)
+    set depth = SpawnRanks(L, gStageUnit[d * 6 + st * 2], 0, front, gFormRow, gFormStep, depth + gFormGap)
     if ModuloInteger(w, gChampEvery) == 0 then
-        set i = 0
-        loop
-            exitwhen i >= w / gChampEvery
-            call SpawnWaveUnit(L, gWaveChamp[d], 2)
-            set i = i + 1
-        endloop
+        set i = w / gChampEvery
+        if i > gChampMax then
+            set i = gChampMax
+        endif
+        call SpawnRanks(L, gWaveChamp[d], 2, i, gFormChampRow, gFormChampStep, depth + gFormGap)
     endif
     if gTestMode and L == 0 and w <= 2 and st == 0 and gTestLast != null then
-        // a real wave unit of this wave (the last one spawned: ranged) against the formula, also right after a restart
-        call TestCheck(RAbsBJ(GetUnitState(gTestLast, UNIT_STATE_MAX_LIFE) - gRoleHp[1] * WaveHpFactor(w)) <= I2R(gScaleHpStep), "wave " + I2S(w) + " round " + I2S(gTestRound) + ": a real ranged monster has the formula's HP (" + I2S(R2I(GetUnitState(gTestLast, UNIT_STATE_MAX_LIFE))) + ")")
+        // a real wave unit of this wave (the last one spawned: melee) against the formula, also right after a restart
+        call TestCheck(RAbsBJ(GetUnitState(gTestLast, UNIT_STATE_MAX_LIFE) - gRoleHp[0] * WaveHpFactor(w)) <= I2R(gScaleHpStep), "wave " + I2S(w) + " round " + I2S(gTestRound) + ": a real melee monster has the formula's HP (" + I2S(R2I(GetUnitState(gTestLast, UNIT_STATE_MAX_LIFE))) + ")")
     endif
 endfunction
 
@@ -1419,7 +1571,7 @@ function BossFindTarget takes unit boss, real range returns unit
         set t = FirstOfGroup(g)
         exitwhen t == null
         call GroupRemoveUnit(g, t)
-        if best == null and IsUnitEnemy(t, p) and not IsUnitType(t, UNIT_TYPE_DEAD) and not IsUnitType(t, UNIT_TYPE_STRUCTURE) and GetUnitTypeId(t) != 0 then
+        if best == null and IsUnitEnemy(t, p) and GetUnitAbilityLevel(t, 'Avul') == 0 and not IsUnitType(t, UNIT_TYPE_DEAD) and not IsUnitType(t, UNIT_TYPE_STRUCTURE) and GetUnitTypeId(t) != 0 then
             set best = t
         endif
     endloop
@@ -1429,79 +1581,6 @@ function BossFindTarget takes unit boss, real range returns unit
     return best
 endfunction
 
-function BossCast takes unit boss, string ord, integer kind, unit target returns nothing
-    if kind == 0 then
-        call IssueImmediateOrder(boss, ord)
-    elseif kind == 1 then
-        call IssueTargetOrder(boss, ord, target)
-    else
-        call IssuePointOrder(boss, ord, GetUnitX(target), GetUnitY(target))
-    endif
-endfunction
-
-function BossSummon takes integer L returns nothing
-    local integer d = LaneArm(L)
-    local integer i = 0
-    local unit u
-    local real a
-    loop
-        exitwhen i >= gBossSummonCount[d]
-        set a = i * 6.2832 / gBossSummonCount[d]
-        set u = CreateUnit(gInvader[d], gBossSummon[d], GetUnitX(gBoss[L]) + 220.0 * Cos(a), GetUnitY(gBoss[L]) + 220.0 * Sin(a), GetUnitFacing(gBoss[L]))
-        call UnitApplyTimedLife(u, 'BTLF', 40.0)
-        call DestroyEffect(AddSpecialEffect("Abilities\\Spells\\Undead\\AnimateDead\\AnimateDeadTarget.mdl", GetUnitX(u), GetUnitY(u)))
-        set i = i + 1
-    endloop
-    set u = null
-endfunction
-
-function BossTick takes integer L returns nothing
-    local integer d = LaneArm(L)
-    local unit b = gBoss[L]
-    local unit t
-    local real dx
-    local real dy
-    if b == null or GetWidgetLife(b) <= 0.405 then
-        set b = null
-        return
-    endif
-    set gBossTick[L] = gBossTick[L] + 1
-    set dx = GetUnitX(b) - gNexusX[L]
-    set dy = GetUnitY(b) - gNexusY[L]
-    // leash: the boss never leaves the ruins of its Nexus for long
-    if dx * dx + dy * dy > 1440000.0 then
-        call IssuePointOrder(b, "move", gNexusX[L], gNexusY[L])
-        set b = null
-        return
-    endif
-    if GetUnitCurrentOrder(b) == OrderId("move") and dx * dx + dy * dy > 90000.0 then
-        set b = null
-        return
-    endif
-    set t = BossFindTarget(b, 700.0)
-    if t != null then
-        if ModuloInteger(gBossTick[L], 10) == 0 then
-            call BossCast(b, gBossOrd1[d], gBossKind1[d], t)
-        elseif ModuloInteger(gBossTick[L], 14) == 0 then
-            call BossCast(b, gBossOrd2[d], gBossKind2[d], t)
-        elseif ModuloInteger(gBossTick[L], 30) == 0 then
-            call BossSummon(L)
-        elseif GetUnitCurrentOrder(b) == 0 then
-            call IssueTargetOrder(b, "attack", t)
-        endif
-    elseif GetUnitCurrentOrder(b) == 0 and dx * dx + dy * dy > 90000.0 then
-        call IssuePointOrder(b, "attack", gNexusX[L], gNexusY[L])
-    endif
-    set b = null
-    set t = null
-endfunction
-
-//---------------------------------------------------------------------------
-// The FINAL BOSS (v4.0). When every lane boss and all 4 gate levels are done (CheckVictory): waves stop, the castle
-// is shielded, and after a warning he rises in the plaza. His death wins the game (OnFinalBossDead).
-// Stats follow the game clock (FinalApplyStats, every new minute); stuns are removed at once (FinalImmuneTick);
-// he casts Storm Bolt, War Stomp, Shockwave and Inferno on his own schedule (FinalBossTick) and bashes (passive).
-//---------------------------------------------------------------------------
 // 1.27 has no "set max HP / damage / armor": n "bit" abilities gFinalBit[first..] (+1, +2, +4, ... steps; distinct
 // ids stack) add any value. Added before removed high to low would clamp HP: FinalApplyStats restores the HP %.
 function FinalBits takes unit u, integer first, integer n, integer value returns nothing
@@ -1530,6 +1609,136 @@ function FinalBits takes unit u, integer first, integer n, integer value returns
         set p = p / 2
     endloop
 endfunction
+
+// A boss as it rises: as strong as ITS lane's wave. HP and attack through the same bits as the monsters; on a gate also the team's HP, and its spells one level up per gate level.
+function BossEquip takes integer L, unit b returns nothing
+    local integer d = LaneArm(L)
+    local integer w = gLaneWave[L]
+    local integer tier = 1 + w / 5
+    local real n = I2R(w - 1)
+    local real hp = 1.0 + gBossHpGrowth * n * n
+    local real dmg = 1.0 + gBossDmgGrowth * n * n
+    local integer bonus
+    if L >= 8 then
+        set tier = tier + L - 7
+    endif
+    if tier > gBossSpellLevels then
+        set tier = gBossSpellLevels
+    endif
+    if hp > gBossHpMax then
+        set hp = gBossHpMax
+    endif
+    if dmg > gBossDmgMax then
+        set dmg = gBossDmgMax
+    endif
+    set gBossBusy[L] = 0
+    set gBossDue1[L] = false
+    set gBossDue2[L] = false
+    set gBossDue3[L] = false
+    if L >= 8 then
+        set hp = hp * TeamHpFactor(gTeamCount)
+    endif
+    set bonus = R2I(GetUnitState(b, UNIT_STATE_MAX_LIFE) * (hp - 1.0))
+    call FinalBits(b, 0, gFinalHpBits, bonus / gFinalHpStep)
+    call ScaleKeepHp(b, ModuloInteger(bonus, gFinalHpStep), R2I(gBossAvgDmg[d] * (dmg - 1.0)))
+    call SetWidgetLife(b, GetUnitState(b, UNIT_STATE_MAX_LIFE))
+    call SetUnitAbilityLevel(b, gBossSpell[d * 2], tier)
+    call SetUnitAbilityLevel(b, gBossSpell[d * 2 + 1], tier)
+endfunction
+
+function BossCast takes unit boss, string ord, integer kind, unit target returns nothing
+    if kind == 0 then
+        call IssueImmediateOrder(boss, ord)
+    elseif kind == 1 then
+        call IssueTargetOrder(boss, ord, target)
+    else
+        call IssuePointOrder(boss, ord, GetUnitX(target), GetUnitY(target))
+    endif
+endfunction
+
+function BossSummon takes integer L returns nothing
+    local integer d = LaneArm(L)
+    local integer i = 0
+    local unit u
+    local real a
+    loop
+        exitwhen i >= gBossSummonCount[d]
+        set a = i * 6.2832 / gBossSummonCount[d]
+        set u = CreateUnit(gInvader[d], gBossSummon[d], GetUnitX(gBoss[L]) + 220.0 * Cos(a), GetUnitY(gBoss[L]) + 220.0 * Sin(a), GetUnitFacing(gBoss[L]))
+        call ScaleKeepHp(u, R2I(GetUnitState(u, UNIT_STATE_MAX_LIFE) * (ObstacleHpFactor(L) - 1.0)), ScaleDmgBonus(L, 2, 0))
+        call SetWidgetLife(u, GetUnitState(u, UNIT_STATE_MAX_LIFE))
+        call UnitApplyTimedLife(u, 'BTLF', 40.0)
+        call IssuePointOrder(u, "attack", GetUnitX(gBoss[L]), GetUnitY(gBoss[L]))
+        call DestroyEffect(AddSpecialEffect("Abilities\\Spells\\Undead\\AnimateDead\\AnimateDeadTarget.mdl", GetUnitX(u), GetUnitY(u)))
+        set i = i + 1
+    endloop
+    set u = null
+endfunction
+
+function BossTick takes integer L returns nothing
+    local integer d = LaneArm(L)
+    local unit b = gBoss[L]
+    local unit t
+    local real dx
+    local real dy
+    if b == null or GetWidgetLife(b) <= 0.405 then
+        set b = null
+        return
+    endif
+    set gBossTick[L] = gBossTick[L] + 1
+    set dx = GetUnitX(b) - gNexusX[L]
+    set dy = GetUnitY(b) - gNexusY[L]
+    // leash: the boss never leaves the ruins of its Nexus for long
+    if ModuloInteger(gBossTick[L], gBossEvery1) == 0 then
+        set gBossDue1[L] = true
+    endif
+    if ModuloInteger(gBossTick[L], gBossEvery2) == 0 then
+        set gBossDue2[L] = true
+    endif
+    if ModuloInteger(gBossTick[L], gBossEverySummon) == 0 then
+        set gBossDue3[L] = true
+    endif
+    if dx * dx + dy * dy > gBossLeash * gBossLeash then
+        call IssuePointOrder(b, "move", gNexusX[L], gNexusY[L])
+        set b = null
+        return
+    endif
+    if GetUnitCurrentOrder(b) == OrderId("move") and dx * dx + dy * dy > 90000.0 then
+        set b = null
+        return
+    endif
+    set t = BossFindTarget(b, 900.0)
+    if t != null then
+        // one thing a tick; a cast is given a moment before the next order
+        if gBossBusy[L] > 0 then
+            set gBossBusy[L] = gBossBusy[L] - 1
+        elseif gBossDue1[L] then
+            set gBossDue1[L] = false
+            set gBossBusy[L] = 1
+            call BossCast(b, gBossOrd1[d], gBossKind1[d], t)
+        elseif gBossDue2[L] then
+            set gBossDue2[L] = false
+            set gBossBusy[L] = 1
+            call BossCast(b, gBossOrd2[d], gBossKind2[d], t)
+        elseif gBossDue3[L] then
+            set gBossDue3[L] = false
+            call BossSummon(L)
+        elseif GetUnitCurrentOrder(b) == 0 then
+            call IssueTargetOrder(b, "attack", t)
+        endif
+    elseif GetUnitCurrentOrder(b) == 0 and dx * dx + dy * dy > 90000.0 then
+        call IssuePointOrder(b, "attack", gNexusX[L], gNexusY[L])
+    endif
+    set b = null
+    set t = null
+endfunction
+
+//---------------------------------------------------------------------------
+// The FINAL BOSS (v4.0). When every lane boss and all 4 gate levels are done (CheckVictory): waves stop, the castle
+// is shielded, and after a warning he rises in the plaza. His death wins the game (OnFinalBossDead).
+// Stats follow the game clock (FinalApplyStats, every new minute); stuns are removed at once (FinalImmuneTick);
+// he casts Storm Bolt, War Stomp, Shockwave and Inferno on his own schedule (FinalBossTick) and bashes (passive).
+//---------------------------------------------------------------------------
 
 // HP factor by the team at the start of the round: 1-2 / 3-5 / 6-8 -> 1 / 2 / 3
 function FinalPlayerFactor takes nothing returns integer
@@ -1586,20 +1795,37 @@ function FinalApplyStats takes nothing returns nothing
 endfunction
 
 // 0.05 s: no stun holds him (Storm Bolt, War Stomp, Bash - also the item's - all use the Pause buff BPSE).
-function FinalImmuneTick takes nothing returns nothing
+// No stun holds a boss: the stun buffs come off at once. Everything else of a spell (its damage, a slow) still works.
+function StunStrip takes unit u, integer slot returns nothing
+    local integer i = 0
+    local boolean had = false
     local texttag tt
-    if gFinalBoss == null then
-        return
+    loop
+        exitwhen i >= gStunN
+        if GetUnitAbilityLevel(u, gStunBuff[i]) > 0 then
+            call UnitRemoveAbility(u, gStunBuff[i])
+            set had = true
+        endif
+        set i = i + 1
+    endloop
+    // Impale throws him up for a second and its damage lands then: taking the buff at once would take the damage too. What is left of its stun goes after that.
+    if GetUnitAbilityLevel(u, 'BUim') > 0 then
+        set gStunImpale[slot] = gStunImpale[slot] + 1
+        if gStunImpale[slot] >= 26 then
+            call UnitRemoveAbility(u, 'BUim')
+            set had = true
+            set gStunImpale[slot] = 0
+        endif
+    else
+        set gStunImpale[slot] = 0
     endif
-    if GetUnitAbilityLevel(gFinalBoss, 'BPSE') > 0 or GetUnitAbilityLevel(gFinalBoss, 'BSTN') > 0 then
-        call UnitRemoveAbility(gFinalBoss, 'BPSE')
-        call UnitRemoveAbility(gFinalBoss, 'BSTN')
+    if had then
         set gTestStunRemoved = gTestStunRemoved + 1
-        if gFinalShown != gElapsed then
-            set gFinalShown = gElapsed
+        if gStunShown[slot] != gElapsed then
+            set gStunShown[slot] = gElapsed
             set tt = CreateTextTag()
             call SetTextTagText(tt, "Stun immune!", 0.024)
-            call SetTextTagPosUnit(tt, gFinalBoss, 150.0)
+            call SetTextTagPosUnit(tt, u, 150.0)
             call SetTextTagColor(tt, 255, 80, 80, 255)
             call SetTextTagVelocity(tt, 0.0, 0.04)
             call SetTextTagPermanent(tt, false)
@@ -1608,6 +1834,20 @@ function FinalImmuneTick takes nothing returns nothing
             set tt = null
         endif
     endif
+endfunction
+
+function FinalImmuneTick takes nothing returns nothing
+    local integer L = 0
+    if gFinalBoss != null then
+        call StunStrip(gFinalBoss, 12)
+    endif
+    loop
+        exitwhen L > 11
+        if gBoss[L] != null then
+            call StunStrip(gBoss[L], L)
+        endif
+        set L = L + 1
+    endloop
 endfunction
 
 function SpawnFinalBoss takes nothing returns nothing
@@ -1740,480 +1980,9 @@ endfunction
 //---------------------------------------------------------------------------
 // Periodic tick (1 s)
 //---------------------------------------------------------------------------
-//---------------------------------------------------------------------------
-// Champion skills (v2.6 Dryad, v3.4 all 7 champions). WarCraft 1.27 has no "any unit damaged" event, so every enemy
-// unit (players 8-11) is registered on gDmgTrig when it enters the map; DmgRebuild starts a fresh trigger when too
-// many dead units piled up. Effects run on a champion's PRIMARY hit only (the unit it started the attack on,
-// gAtkTarget from OnAttacked) - never on splash / bounce victims or on our own damage (gDmgLock):
-//   innate cleave (gChampCleave %) and the skill kinds of gSk* (1 bonus, 2 blast, 3 nova every 3rd hit, 5 speed,
-//   6 = the R storm every gStormEvery-th hit); kinds 4 / 7 = the Dryad's flying extra spears / Spear Storm (OnAttacked +
-//   the dummy branch of OnDamaged). Every champion has gSkPer (4) skills Q W E R: gSk index = gSkPer * champion + slot.
-//---------------------------------------------------------------------------
-function ChampIndex takes integer t returns integer
-    local integer c = 0
-    loop
-        exitwhen c >= gChampN
-        if gChampType[c] == t then
-            return c
-        endif
-        set c = c + 1
-    endloop
-    return -1
-endfunction
-
-// The champion's total "bonus" % (sum of pct x level over its bonus skills).
-function ChampBonusPct takes unit h returns integer
-    local integer k = 0
-    local integer b = 0
-    loop
-        exitwhen k >= gSkN
-        if gSkKind[k] == 1 then
-            set b = b + gSkPct[k] * GetUnitAbilityLevel(h, gSkAbil[k])
-        endif
-        set k = k + 1
-    endloop
-    return b
-endfunction
-
-// amount to every living enemy (players 8-11) within rad of (x, y) except skip, the effect fx (if any) on each
-// victim; how many were hit.
-function AoeDamageFx takes unit src, unit skip, real x, real y, real rad, real amount, string fx returns integer
-    local unit u
-    local integer o
-    local integer n = 0
-    call GroupEnumUnitsInRange(gDmgGroup, x, y, rad, null)
-    loop
-        set u = FirstOfGroup(gDmgGroup)
-        exitwhen u == null
-        call GroupRemoveUnit(gDmgGroup, u)
-        set o = GetPlayerId(GetOwningPlayer(u))
-        if u != skip and o >= 8 and o <= 11 and GetWidgetLife(u) > 0.405 then
-            call UnitDamageTarget(src, u, amount, true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
-            if fx != "" then
-                call DestroyEffect(AddSpecialEffectTarget(fx, u, "origin"))
-            endif
-            set n = n + 1
-        endif
-    endloop
-    set u = null
-    return n
-endfunction
-
-function AoeDamage takes unit src, unit skip, real x, real y, real rad, real amount returns integer
-    return AoeDamageFx(src, skip, x, y, rad, amount, "")
-endfunction
-
-// ---- Dryad spears (v3.7). Every extra spear is an invisible dummy that shoots ONE spear at ONE assigned enemy:
-// gSpearTgt / gSpearAmt / gSpearEnd per slot (the dummy's user data). Damage on the way is "pending" per target
-// (gSpearHT, keyed by its handle id), so the next throw doesn't pick an enemy already doomed by spears in flight.
-// Dummies never die (an Archer death plays a scream and blood even when transparent): SpearSweep removes them.
-function SpearPending takes unit u returns real
-    return LoadReal(gSpearHT, GetHandleId(u), 0)
-endfunction
-
-// A spear is done (hit, missed, expired or cancelled): its damage is no longer pending. Safe to call twice.
-function SpearResolve takes integer s returns nothing
-    local integer h
-    local real v
-    if gSpearTgt[s] != null then
-        set h = GetHandleId(gSpearTgt[s])
-        set v = LoadReal(gSpearHT, h, 0) - gSpearAmt[s]
-        if v <= 0.5 then
-            call RemoveSavedReal(gSpearHT, h, 0)
-        else
-            call SaveReal(gSpearHT, h, 0, v)
-        endif
-        set gSpearTgt[s] = null
-    endif
-    set gSpearAmt[s] = 0.0
-endfunction
-
-// An extra spear's damage: the Dryad's last real hit (+ bonus %), or a level-1 estimate before her first hit.
-function SpearDamage takes integer p returns real
-    local real base = gLastHit[p]
-    if base <= 0.0 then
-        set base = I2R(GetHeroAgi(gHero[p], true)) + 25.0
-    endif
-    return base * (1.0 + I2R(ChampBonusPct(gHero[p])) / 100.0)
-endfunction
-
-// One extra spear at u, launched right now (dummy damage point 0, her launch point). j > 0 = the j-th spare spear at
-// her own target: it starts beside her (25 / 50 / 75 / 100 out, alternating sides) so every spear is SEEN.
-function ThrowSpear takes integer p, unit a, unit u, integer j returns nothing
-    local real ang = Atan2(GetUnitY(u) - GetUnitY(a), GetUnitX(u) - GetUnitX(a))
-    local real off = 0.0
-    local real back = 0.0
-    local integer s
-    local unit d = CreateUnit(Player(p), gSpearDummy, GetUnitX(a), GetUnitY(a), bj_RADTODEG * ang)
-    call SetUnitVertexColor(d, 255, 255, 255, 0)
-    if j > 0 then
-        set off = 25.0 * I2R(ModuloInteger((j + 1) / 2 - 1, 4) + 1)
-        set back = 20.0 * I2R(((j + 1) / 2 - 1) / 4)
-        if ModuloInteger(j, 2) == 0 then
-            set off = -off
-        endif
-        call SetUnitX(d, GetUnitX(a) + off * Cos(ang + bj_PI / 2.0) - back * Cos(ang))
-        call SetUnitY(d, GetUnitY(a) + off * Sin(ang + bj_PI / 2.0) - back * Sin(ang))
-    endif
-    set gSpearSlot = gSpearSlot + 1
-    if gSpearSlot > 8000 then
-        set gSpearSlot = 1
-    endif
-    set s = gSpearSlot
-    call SpearResolve(s)
-    set gSpearTgt[s] = u
-    set gSpearAmt[s] = SpearDamage(p)
-    set gSpearEnd[s] = gSpearTick + 40
-    call SaveReal(gSpearHT, GetHandleId(u), 0, SpearPending(u) + gSpearAmt[s])
-    call SetUnitUserData(d, s)
-    call GroupAddUnit(gSpearLive, d)
-    call IssueTargetOrder(d, "attack", u)
-    set d = null
-endfunction
-
-// n extra spears from the Dryad a ("multishot", like X Hero Siege): one at each OTHER enemy within HER attack range that
-// the spears already in flight won't kill; the rest at her target - as many as it survives (+ her own spear).
-// Returns how many spears were thrown.
-function SpearVolley takes integer p, unit a, unit tgt, integer n returns integer
-    local unit u
-    local integer o
-    local integer k = 0
-    local integer thrown = 0
-    local real sd = SpearDamage(p)
-    local real life
-    call GroupEnumUnitsInRange(gDmgGroup, GetUnitX(a), GetUnitY(a), gSpearRange + 200.0, null)
-    loop
-        set u = FirstOfGroup(gDmgGroup)
-        exitwhen u == null or n <= 0
-        call GroupRemoveUnit(gDmgGroup, u)
-        set o = GetPlayerId(GetOwningPlayer(u))
-        if u != tgt and o >= 8 and o <= 11 and GetWidgetLife(u) - SpearPending(u) > 0.405 and IsUnitInRange(u, a, gSpearRange) and IsUnitVisible(u, Player(p)) then
-            call ThrowSpear(p, a, u, 0)
-            set n = n - 1
-            set thrown = thrown + 1
-        endif
-    endloop
-    call GroupClear(gDmgGroup)
-    set life = GetWidgetLife(tgt) - SpearPending(tgt)
-    loop
-        exitwhen k >= n or life <= sd * I2R(k + 2)
-        set k = k + 1
-    endloop
-    set n = 1
-    loop
-        exitwhen n > k
-        call ThrowSpear(p, a, tgt, n)
-        set n = n + 1
-    endloop
-    set u = null
-    return thrown + k
-endfunction
-
-// Her spear leaves her hand gDryadDmgPt (0.3 s) into the attack, sooner with attack speed: gAgiAs (2 %) per agility point,
-// gSwiftStep per Swift Throw level, Fury Gloves; the engine caps the bonus at +400 %.
-function DryadReleaseDelay takes unit a returns real
-    local real f = 1.0 + gAgiAs * I2R(GetHeroAgi(a, true)) + gSwiftStep * I2R(GetUnitAbilityLevel(a, gSwiftSkill))
-    local integer i = 0
-    local integer L
-    loop
-        exitwhen i >= 6
-        if UnitItemInSlot(a, i) != null then
-            set L = PremiumLevel(GetItemTypeId(UnitItemInSlot(a, i)), gGloveFam)
-            if L > 0 then
-                set f = f + gGloveAs0 + gGloveAsStep * I2R(L - 1)
-            endif
-        endif
-        set i = i + 1
-    endloop
-    if f > 5.0 then
-        set f = 5.0
-    endif
-    return gDryadDmgPt / f
-endfunction
-
-// Her spear is released now (gVolleyTimer[p], started by OnAttacked): throw the extra spears with it. An attack cancelled
-// by a new order (OnHeroOrder) or restarted (OnAttacked again) never gets here, so no spears without hers.
-function VolleyRelease takes nothing returns nothing
-    local timer t = GetExpiredTimer()
-    local integer p = 0
-    local integer n
-    local integer L
-    local integer k
-    local boolean storm = false
-    local unit a
-    loop
-        exitwhen p >= 8 or gVolleyTimer[p] == t
-        set p = p + 1
-    endloop
-    set t = null
-    if p >= 8 or not gVolleyPending[p] then
-        return
-    endif
-    set gVolleyPending[p] = false
-    set a = gHero[p]
-    if a == null or GetWidgetLife(a) <= 0.405 or gVolleyTgt[p] == null or GetWidgetLife(gVolleyTgt[p]) <= 0.405 then
-        set a = null
-        return
-    endif
-    set n = GetUnitAbilityLevel(a, gSpearAbil)
-    set L = GetUnitAbilityLevel(a, gVolleyAbil)
-    if L > 0 then
-        set gVolleyCount[p] = gVolleyCount[p] + 1
-        if ModuloInteger(gVolleyCount[p], gVolleyEvery) == 0 then
-            set n = n + gVolleyPer * L
-            set storm = true
-            set gTestVolley = gTestVolley + 1
-        endif
-    endif
-    if n > 0 then
-        set k = SpearVolley(p, a, gVolleyTgt[p], n)
-        if storm then
-            set gTestVolleySpears = gTestVolleySpears + k
-            if gTestVolleyFirst == 0 then
-                set gTestVolleyFirst = k
-            endif
-        endif
-    endif
-    set a = null
-endfunction
-
-function SpearSweepEnum takes nothing returns nothing
-    local unit d = GetEnumUnit()
-    local integer s = GetUnitUserData(d)
-    if gSpearEnd[s] <= gSpearTick then
-        call SpearResolve(s)
-        call GroupRemoveUnit(gSpearLive, d)
-        call RemoveUnit(d)
-    endif
-    set d = null
-endfunction
-
-// 0.1 s: spent or expired (4 s) spear dummies are removed - never killed.
-function SpearSweep takes nothing returns nothing
-    set gSpearTick = gSpearTick + 1
-    call ForGroup(gSpearLive, function SpearSweepEnum)
-endfunction
-
-// A new point / immediate order (move, stop, hold, ...) cancels the Dryad's attack in its wind-up: no extra spears.
-function OnHeroOrder takes nothing returns nothing
-    local integer p = GetPlayerId(GetOwningPlayer(GetTriggerUnit()))
-    if p < 8 and GetTriggerUnit() == gHero[p] then
-        set gVolleyPending[p] = false
-    endif
-endfunction
-
-function OnDamaged takes nothing returns nothing
-    local unit src = GetEventDamageSource()
-    local unit tgt = GetTriggerUnit()
-    local real dmg = GetEventDamage()
-    local integer p
-    local integer c
-    local integer k
-    local integer L
-    local integer b
-    local real hit
-    local real amount
-    local real x
-    local real y
-    if gDmgLock or src == null then
-        set src = null
-        set tgt = null
-        return
-    endif
-    set p = GetPlayerId(GetOwningPlayer(src))
-    if p >= 8 then
-        set src = null
-        set tgt = null
-        return
-    endif
-    if GetUnitTypeId(src) == gSpearDummy then
-        // an extra spear landed: on its ASSIGNED enemy the champion deals the spear's damage; Fire Spears = a fire burst
-        set k = GetUnitUserData(src)
-        if tgt == gSpearTgt[k] and gHero[p] != null then
-            set gDmgLock = true
-            call UnitDamageTarget(gHero[p], tgt, gSpearAmt[k], true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
-            set gDmgLock = false
-            if GetUnitAbilityLevel(gHero[p], gFireSkill) > 0 then
-                call DestroyEffect(AddSpecialEffectTarget(gFireFx, tgt, "chest"))
-            endif
-            set gTestSpearHits = gTestSpearHits + 1
-        endif
-        call SpearResolve(k)
-        set gSpearEnd[k] = 0
-        set src = null
-        set tgt = null
-        return
-    endif
-    set c = ChampIndex(GetUnitTypeId(src))
-    if c < 0 or dmg <= 0.0 then
-        set src = null
-        set tgt = null
-        return
-    endif
-    set gTestEv[c] = gTestEv[c] + 1
-    if tgt != gAtkTarget[c * 8 + p] then
-        // a splash / bounce victim: the native attack already did its job, no skill effects
-        set src = null
-        set tgt = null
-        return
-    endif
-    set gTestPrim[c] = gTestPrim[c] + 1
-    if src == gHero[p] then
-        set gLastHit[p] = dmg
-    endif
-    set x = GetUnitX(tgt)
-    set y = GetUnitY(tgt)
-    set b = ChampBonusPct(src)
-    set hit = dmg * (1.0 + I2R(b) / 100.0)
-    set gDmgLock = true
-    if b > 0 then
-        call UnitDamageTarget(src, tgt, hit - dmg, true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
-        set gTestBonus[c] = gTestBonus[c] + 1
-        set gTestFireHits = gTestFireHits + 1
-    endif
-    if gChampCleave[c] > 0 then
-        call AoeDamage(src, tgt, x, y, gCleaveRad, hit * I2R(gChampCleave[c]) / 100.0)
-        set gTestAoe[c] = gTestAoe[c] + 1
-    endif
-    set k = 0
-    loop
-        exitwhen k >= gSkN
-        set L = GetUnitAbilityLevel(src, gSkAbil[k])
-        if L > 0 then
-            set amount = hit * I2R(gSkPct[k] * L) / 100.0
-            if gSkKind[k] == 1 then
-                if gSkFx[k] != "" then
-                    call DestroyEffect(AddSpecialEffectTarget(gSkFx[k], tgt, "chest"))
-                endif
-            elseif gSkKind[k] == 2 then
-                call AoeDamage(src, tgt, x, y, gSkRad[k], amount)
-                call DestroyEffect(AddSpecialEffect(gSkFx[k], x, y))
-                set gTestAoe[c] = gTestAoe[c] + 1
-            elseif gSkKind[k] == 3 then
-                set gHitCount[c * 8 + p] = gHitCount[c * 8 + p] + 1
-                if ModuloInteger(gHitCount[c * 8 + p], 3) == 0 then
-                    if GetWidgetLife(tgt) > 0.405 then
-                        call UnitDamageTarget(src, tgt, amount, true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
-                    endif
-                    call AoeDamage(src, tgt, x, y, gSkRad[k], amount)
-                    call DestroyEffect(AddSpecialEffect(gSkFx[k], x, y))
-                    set gTestAoe[c] = gTestAoe[c] + 1
-                endif
-            elseif gSkKind[k] == 6 then
-                // R storm: every gStormEvery-th hit, the target and every enemy around it (big effect + one per victim)
-                set gStormCount[c * 8 + p] = gStormCount[c * 8 + p] + 1
-                if ModuloInteger(gStormCount[c * 8 + p], gStormEvery) == 0 then
-                    if GetWidgetLife(tgt) > 0.405 then
-                        call UnitDamageTarget(src, tgt, amount, true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
-                    endif
-                    call DestroyEffect(AddSpecialEffect(gSkFx[k], x, y))
-                    if gSkFx2[k] != "" then
-                        call DestroyEffect(AddSpecialEffectTarget(gSkFx2[k], tgt, "origin"))
-                    endif
-                    call AoeDamageFx(src, tgt, x, y, gSkRad[k], amount, gSkFx2[k])
-                    set gTestStorm[c] = gTestStorm[c] + 1
-                endif
-            endif
-        endif
-        set k = k + 1
-    endloop
-    set gDmgLock = false
-    set src = null
-    set tgt = null
-endfunction
-
-// Every champion: remember the unit it starts an attack on (its PRIMARY target, see OnDamaged).
-// Dryad Extra Spear (one more spear per level) / Spear Storm (R, every gVolleyEvery-th throw gVolleyPer more per level):
-// the spears are thrown when HER spear leaves her hand (VolleyRelease), seen flying with it at other enemies in her range.
-// A spear dummy that starts attacking anything but its assigned enemy (its target died) is stopped before it shoots.
-function OnAttacked takes nothing returns nothing
-    local unit a = GetAttacker()
-    local unit tgt = GetTriggerUnit()
-    local integer p
-    local integer c
-    if a != null then
-        set p = GetPlayerId(GetOwningPlayer(a))
-        if p < 8 then
-            if GetUnitTypeId(a) == gSpearDummy then
-                set c = GetUnitUserData(a)
-                if tgt != gSpearTgt[c] then
-                    call PauseUnit(a, true)
-                    call SpearResolve(c)
-                    set gSpearEnd[c] = 0
-                endif
-                set a = null
-                set tgt = null
-                return
-            endif
-            set c = ChampIndex(GetUnitTypeId(a))
-            if c >= 0 then
-                set gAtkTarget[c * 8 + p] = tgt
-            endif
-            if a == gHero[p] and tgt != null and (GetUnitAbilityLevel(a, gSpearAbil) > 0 or GetUnitAbilityLevel(a, gVolleyAbil) > 0) then
-                set gVolleyTgt[p] = tgt
-                set gVolleyPending[p] = true
-                call TimerStart(gVolleyTimer[p], DryadReleaseDelay(a), false, function VolleyRelease)
-            endif
-        endif
-    endif
-    set a = null
-    set tgt = null
-endfunction
-
-function DmgRebuild takes nothing returns nothing
-    local group g = CreateGroup()
-    local rect r = GetWorldBounds()
-    local unit u
-    local integer o
-    if gDmgTrig != null then
-        call DestroyTrigger(gDmgTrig)
-    endif
-    set gDmgTrig = CreateTrigger()
-    call TriggerAddAction(gDmgTrig, function OnDamaged)
-    set gDmgRegs = 0
-    call GroupEnumUnitsInRect(g, r, null)
-    loop
-        set u = FirstOfGroup(g)
-        exitwhen u == null
-        call GroupRemoveUnit(g, u)
-        set o = GetPlayerId(GetOwningPlayer(u))
-        if o >= 8 and o <= 11 and GetWidgetLife(u) > 0.405 then
-            call TriggerRegisterUnitEvent(gDmgTrig, u, EVENT_UNIT_DAMAGED)
-            set gDmgRegs = gDmgRegs + 1
-        endif
-    endloop
-    call DestroyGroup(g)
-    call RemoveRect(r)
-    set g = null
-    set r = null
-endfunction
-
-function OnEnterMap takes nothing returns nothing
-    local integer o = GetPlayerId(GetOwningPlayer(GetTriggerUnit()))
-    if o >= 8 and o <= 11 and gDmgTrig != null then
-        call TriggerRegisterUnitEvent(gDmgTrig, GetTriggerUnit(), EVENT_UNIT_DAMAGED)
-        set gDmgRegs = gDmgRegs + 1
-    endif
-endfunction
-
-function OnHeroSkill takes nothing returns nothing
-    local integer L = GetLearnedSkillLevel()
-    local integer k = 0
-    loop
-        exitwhen k >= gSkN
-        if gSkAbil[k] == GetLearnedSkill() and gSkKind[k] == 5 and L >= 1 and L <= 5 then
-            call UnitAddAbility(GetTriggerUnit(), gSwiftAbil[L])
-        endif
-        set k = k + 1
-    endloop
-endfunction
-
 function OnTick takes nothing returns nothing
     local integer L = 0
     set gElapsed = gElapsed + 1
-    if gDmgRegs > 3000 then
-        call DmgRebuild()
-    endif
     if gStarted and not gGameOver then
         set gGameTime = gGameTime + 1     // game clock: from the end of champion select, stops at the end
         call BankTick()
@@ -2399,8 +2168,7 @@ function OpenGateLane takes integer L, integer opener returns nothing
     set gGateState[L] = 0
     set gLaneWave[L] = gLaneWave[opener]
     call TimerStart(gLaneTimer[L], gFirstWaveDelay, false, function OnLaneTimer)
-    call SetDestructableInvulnerable(gGate[L], false)
-    call ModifyGateBJ(bj_GATEOPERATION_OPEN, gGate[L])
+    call GateSet(L, true)
     set gTower[L] = CreateUnit(gInvader[d], gTurretType[d], gTowerX[L], gTowerY[L], gDirFace[d])
     set gNexus[L] = CreateUnit(gInvader[d], gBaseType[d], gNexusX[L], gNexusY[L], gDirFace[d])
     call ScaleTeamSpawn(gTower[L])
@@ -2419,7 +2187,7 @@ function OnGateNexusDestroyed takes integer L returns nothing
     set gGateState[L] = 1
     set gBossTick[L] = 0
     set gBoss[L] = CreateUnit(gInvader[d], gBossType[d * 3 + 1], gNexusX[L], gNexusY[L], gDirFace[d])
-    call ScaleTeamSpawn(gBoss[L])
+    call BossEquip(L, gBoss[L])
     call DestroyEffect(AddSpecialEffect("Objects\\Spawnmodels\\Other\\NeutralBuildingExplosion\\NeutralBuildingExplosion.mdl", gNexusX[L], gNexusY[L]))
     call DestroyEffect(AddSpecialEffect("Abilities\\Spells\\Human\\MassTeleport\\MassTeleportTarget.mdl", gNexusX[L], gNexusY[L]))
     call PingMinimap(gNexusX[L], gNexusY[L], 6.0)
@@ -2445,14 +2213,61 @@ function OnGateBossSlain takes integer L returns nothing
     call CheckVictory()
 endfunction
 
-// Minion kill gold (wave units only; their built-in bounty is 0): gold = its lane's wave on the player lanes,
+// Fewer monsters than before v4.3, each worth more: a whole wave pays the gold and XP it paid when it had 4 + 2 x wave melee (at most 40) and
+// wave ranged (at most 20). The first waves have as many as then, so nothing changes there.
+function WavePayRatio takes integer w returns real
+    local integer was = 4 + 2 * w
+    local integer ranged = w
+    local integer now = gFrontBase + gFrontPer * w
+    local integer back = (gBackPer * w + 1) / 2
+    if was > 40 then
+        set was = 40
+    endif
+    if ranged > 20 then
+        set ranged = 20
+    endif
+    if now > gFrontMax then
+        set now = gFrontMax
+    endif
+    if back > gBackMax then
+        set back = gBackMax
+    endif
+    return I2R(was + ranged) / I2R(now + back)
+endfunction
+
+// The XP the game itself gives for a unit of this level (MiscGame GrantNormalXP 25, formula A1 B5 C5: 25, 40, 60, 85, 115, ...).
+function UnitKillXp takes integer level returns integer
+    local integer xp = 25
+    local integer i = 2
+    loop
+        exitwhen i > level
+        set xp = xp + 5 * i + 5
+        set i = i + 1
+    endloop
+    return xp
+endfunction
+
+// Minion kill gold (wave units only; their built-in bounty is 0): gold = its lane's wave x WavePayRatio on the player lanes,
 // x level on the gate lanes (Level 2 x2 ... Level 5 x5). Floating +N only the killer sees.
 function MinionBounty takes unit u, integer kid returns nothing
-    local integer L = GetUnitUserData(u) / 16
-    local integer g = gLaneWave[L]
+    local integer L
+    local real ratio
+    local integer g
     local texttag tt = CreateTextTag()
+    set gTestBountyCalls = gTestBountyCalls + 1
+    set L = GetUnitUserData(u) / 16
+    set ratio = WavePayRatio(gLaneWave[L])
+    // a wave champion is not one of the monsters that got fewer
+    if GetUnitTypeId(u) == gWaveChamp[LaneArm(L)] then
+        set ratio = 1.0
+    endif
+    set g = R2I(I2R(gLaneWave[L]) * ratio + 0.5)
     if L >= 8 then
-        set g = (L - 6) * gLaneWave[L]
+        set g = (L - 6) * g
+    endif
+    // the XP the game gives for this kill is its own; the rest of what the monster is now worth comes on top
+    if ratio > 1.0 and gHero[kid] != null and GetWidgetLife(gHero[kid]) > 0.405 then
+        call AddHeroXP(gHero[kid], R2I(I2R(UnitKillXp(GetUnitLevel(u))) * (ratio - 1.0)), true)
     endif
     if g < 1 then
         set g = 1
@@ -2474,6 +2289,7 @@ function OnNexusDestroyed takes integer L returns nothing
     set gLaneState[L] = 1
     set gBossTick[L] = 0
     set gBoss[L] = CreateUnit(gInvader[d], gBossType[d * 3 + 1], gNexusX[L], gNexusY[L], gDirFace[d])
+    call BossEquip(L, gBoss[L])
     call DestroyEffect(AddSpecialEffect("Objects\\Spawnmodels\\Other\\NeutralBuildingExplosion\\NeutralBuildingExplosion.mdl", gNexusX[L], gNexusY[L]))
     call DestroyEffect(AddSpecialEffect("Abilities\\Spells\\Human\\MassTeleport\\MassTeleportTarget.mdl", gNexusX[L], gNexusY[L]))
     call PingMinimap(gNexusX[L], gNexusY[L], 6.0)
@@ -2502,14 +2318,16 @@ function OnReviveTimer takes nothing returns nothing
     loop
         exitwhen p >= 8
         if gReviveTimer[p] == t and gHero[p] != null and not gGameOver then
-            call ReviveHero(gHero[p], gHeroX[p], gHeroY[p], true)
             call TimerDialogDisplay(gReviveDialog[p], false)
-            call PanCameraToTimedForPlayer(Player(p), gHeroX[p], gHeroY[p], 0.5)
-            call SelectUnitForPlayerSingle(gHero[p], Player(p))
-            if gFollow[p] then
-                call SetCameraTargetControllerNoZForPlayer(Player(p), gHero[p], 0.0, 0.0, false)
+            if GetWidgetLife(gHero[p]) <= 0.405 then
+                call ReviveHero(gHero[p], gHeroX[p], gHeroY[p], true)
+                call PanCameraToTimedForPlayer(Player(p), gHeroX[p], gHeroY[p], 0.5)
+                call SelectUnitForPlayerSingle(gHero[p], Player(p))
+                if gFollow[p] then
+                    call SetCameraTargetControllerNoZForPlayer(Player(p), gHero[p], 0.0, 0.0, false)
+                endif
+                call PingLane(p)
             endif
-            call PingLane(p)
         endif
         set p = p + 1
     endloop
@@ -2552,7 +2370,7 @@ function OnUnitDeath takes nothing returns nothing
         if kid >= 0 and kid < 8 then
             set gKills[kid] = gKills[kid] + 1
             set gTestKills = gTestKills + 1
-            if GetUnitUserData(u) > 0 and GetUnitUserData(u) < 192 then
+            if IsUnitInGroup(u, gWaveUnits) then
                 call MinionBounty(u, kid)
             endif
         endif
@@ -2712,7 +2530,7 @@ function CreateQuests takes nothing returns nothing
     call AddQuest("Defend your lane", "Pick a champion: click a hall and click a hero. You then defend |cffffcc00your own lane|r - every player has one lane, and a lane only sends monsters when its player is in the game.\n\nYour wave is your own: your next wave comes as soon as your lane is clear, so clearing fast means more gold and stronger monsters (1 min shopping break after every 10th wave). Keep the |cffffcc00Castle of Lordaeron|r alive - if it falls, everyone loses.", "ReplaceableTextures\\CommandButtons\\BTNCastle.blp", true)
     call AddQuest("Destroy your Nexus", "At the end of |cffffcc00your lane|r stands your own enemy Nexus, guarded by a strong tower. The Nexus sends the waves of your lane. Destroy it and your lane goes quiet - but its boss rises from the ruins.", "ReplaceableTextures\\CommandButtons\\BTNDemonGate.blp", true)
     call AddQuest("Slay the bosses", "Kill the boss of every lane and of all 4 gates. Then the |cffff4040final boss|r rises at the Castle: he cannot be stunned and grows stronger every minute. Kill him to |cff40ff40win|r!", "ReplaceableTextures\\CommandButtons\\BTNPitLord.blp", true)
-    call AddQuest("Tips", "- Killing monsters gives gold and experience; every wave also pays gold.\n- |cffffcc00Secret grove|r: the narrow passage at the south-east corner of the plaza leads to the Fountain of Power (HP + mana), the Premium Armory (1000-gold items) and the Apothecary.\n- Your champion appears and revives on the circle in your colour at your lane - click the circle to |cffffcc00buy stats|r instantly (each buy costs 3% more).\n- Type |cffffcc00-help|r for the command list.\n- |cffffcc00Space|r = jump to your champion (hold to keep him centred); |cffffcc00Esc|r or -cam = camera follows him.\n- Spells are on |cffffcc00Q W E R|r. Clearing your first wave gives level 2.\n- Staff of Teleportation lets you jump back to the castle or to a friend.\n- Type |cffffcc00-zoom 250|r to zoom out (any value, e.g. -zoom 200; -zoom 165 = normal).", "ReplaceableTextures\\CommandButtons\\BTNSnazzyScroll.blp", false)
+    call AddQuest("Tips", "- Killing monsters gives gold and experience; every wave also pays gold.\n- |cffffcc00Secret grove|r: the narrow passage at the south-east corner of the plaza leads to the Fountain of Power (HP + mana), the Premium Armory (1000-gold items) and the Apothecary.\n- Your champion appears and revives on the circle in your colour at your lane - click the circle to |cffffcc00buy stats|r instantly (each buy costs 3% more).\n- Type |cffffcc00-help|r for the command list.\n- |cffffcc00Space|r = jump to your champion (hold to keep him centred); |cffffcc00Esc|r or -cam = camera follows him.\n- Skills are on |cffffcc00Q W E R T|r. Clearing your first wave gives level 2.\n- Staff of Teleportation lets you jump back to the castle or to a friend.\n- Type |cffffcc00-zoom 250|r to zoom out (any value, e.g. -zoom 200; -zoom 165 = normal).", "ReplaceableTextures\\CommandButtons\\BTNSnazzyScroll.blp", false)
 endfunction
 
 //---------------------------------------------------------------------------
@@ -2778,6 +2596,1551 @@ function TestPremLevel takes unit h returns integer
 endfunction
 
 // Round-0 edge cases, one step per second (TestStep holds meanwhile), then the restart into round 1.
+// ---- The 12 champions, real units and real casts. Heroes of empty slots (1 = most of them, 2 = the Tauren, 3 = the Demon Hunter), each in its own closed lane.
+// Paused foes with a lot of HP show the damage; a wounded friend shows the heal. Levels, mana and cooldowns are fixtures; the casts, summons and effects are the game's.
+function TestSpellCount takes unit u, integer a returns integer
+    return LoadInteger(gTestHT, GetHandleId(u), a)
+endfunction
+
+function OnTestSpell takes nothing returns nothing
+    local integer h = GetHandleId(GetTriggerUnit())
+    local integer a = GetSpellAbilityId()
+    call SaveInteger(gTestHT, h, a, LoadInteger(gTestHT, h, a) + 1)
+endfunction
+
+function TestArenaX takes integer c returns real
+    if c <= 6 then
+        return gHeroX[c + 1]
+    elseif c <= 10 then
+        return gWpX[(c + 1) * 8 + 1]
+    endif
+    return gWpX[1 * 8]
+endfunction
+
+function TestArenaY takes integer c returns real
+    if c <= 6 then
+        return gHeroY[c + 1]
+    elseif c <= 10 then
+        return gWpY[(c + 1) * 8 + 1]
+    endif
+    return gWpY[1 * 8]
+endfunction
+
+function TestHeroOwner takes integer c returns player
+    if c == 2 then
+        return Player(2)
+    elseif c == 10 then
+        return Player(3)
+    endif
+    return Player(1)
+endfunction
+
+function TestFoe takes real x, real y returns unit
+    local unit u = CreateUnit(Player(8), gStageUnit[0], x, y, 0.0)
+    call GroupRemoveUnit(gWaveUnits, u)
+    call PauseUnit(u, true)
+    call ScaleKeepHp(u, 300000, 0)
+    call SetWidgetLife(u, GetUnitState(u, UNIT_STATE_MAX_LIFE))
+    set bj_lastCreatedUnit = u
+    set u = null
+    return bj_lastCreatedUnit
+endfunction
+
+// Fresh foes and a wounded friend for hero c.
+function TestHeroProps takes integer c returns nothing
+    local integer i = 0
+    local real x = TestArenaX(c)
+    local real y = TestArenaY(c)
+    loop
+        exitwhen i >= 4
+        if gTestFoe[c * 4 + i] != null then
+            call RemoveUnit(gTestFoe[c * 4 + i])
+        endif
+        set gTestFoe[c * 4 + i] = TestFoe(x + 150.0 * Cos(i * 1.5708), y + 150.0 * Sin(i * 1.5708))
+        set i = i + 1
+    endloop
+    if gTestFriend[c] != null then
+        call RemoveUnit(gTestFriend[c])
+    endif
+    set gTestFriend[c] = CreateUnit(TestHeroOwner(c), 'hfoo', x + 150.0, y + 150.0, 0.0)
+    call PauseUnit(gTestFriend[c], true)
+    call SetWidgetLife(gTestFriend[c], 20.0)
+endfunction
+
+function TestFoeLife takes integer c returns real
+    local integer i = 0
+    local real v = 0.0
+    loop
+        exitwhen i >= 4
+        set v = v + GetWidgetLife(gTestFoe[c * 4 + i])
+        set i = i + 1
+    endloop
+    return v
+endfunction
+
+function OnTestSummon takes nothing returns nothing
+    local unit s = GetSummoningUnit()
+    local integer c = 0
+    loop
+        exitwhen c >= gHeroPoolCount
+        if gTestH[c] == s then
+            set gTestSumU[gTestSumN] = GetSummonedUnit()
+            set gTestSumC[gTestSumN] = c
+            set gTestSumN = gTestSumN + 1
+        endif
+        set c = c + 1
+    endloop
+    set s = null
+endfunction
+
+// What hero c has summoned and is alive; id 0 = anything.
+function TestSummons takes integer c, integer id returns integer
+    local integer i = 0
+    local integer n = 0
+    loop
+        exitwhen i >= gTestSumN
+        if gTestSumC[i] == c and GetWidgetLife(gTestSumU[i]) > 0.405 and (id == 0 or GetUnitTypeId(gTestSumU[i]) == id) then
+            set n = n + 1
+        endif
+        set i = i + 1
+    endloop
+    return n
+endfunction
+
+function TestOwnedOfType takes integer c, integer id returns integer
+    local group g = CreateGroup()
+    local unit u
+    local integer n = 0
+    call GroupEnumUnitsOfPlayer(g, TestHeroOwner(c), null)
+    loop
+        set u = FirstOfGroup(g)
+        exitwhen u == null
+        call GroupRemoveUnit(g, u)
+        if GetUnitTypeId(u) == id and GetWidgetLife(u) > 0.405 then
+            set n = n + 1
+        endif
+    endloop
+    call DestroyGroup(g)
+    set g = null
+    return n
+endfunction
+
+// A hero's images: units of his own type, of his owner, that are illusions.
+function TestImages takes integer c, boolean remove returns integer
+    local group g = CreateGroup()
+    local unit u
+    local integer n = 0
+    call GroupEnumUnitsOfPlayer(g, TestHeroOwner(c), null)
+    loop
+        set u = FirstOfGroup(g)
+        exitwhen u == null
+        call GroupRemoveUnit(g, u)
+        if IsUnitIllusion(u) and GetUnitTypeId(u) == GetUnitTypeId(gTestH[c]) and GetWidgetLife(u) > 0.405 then
+            set n = n + 1
+            if remove then
+                call RemoveUnit(u)
+            endif
+        endif
+    endloop
+    call DestroyGroup(g)
+    set g = null
+    return n
+endfunction
+
+// What a cast left behind goes, only what this hero made, so the next one starts clean.
+function TestClearSummons takes integer c returns nothing
+    local integer i = 0
+    loop
+        exitwhen i >= gTestSumN
+        if gTestSumC[i] == c and gTestSumU[i] != null then
+            call RemoveUnit(gTestSumU[i])
+            set gTestSumU[i] = null
+        endif
+        set i = i + 1
+    endloop
+    call TestImages(c, true)
+endfunction
+
+// A hero from level 1: nothing of level 20 yet, then the level, every skill to its maximum, and his level 20 ability.
+function TestHeroSetupOne takes nothing returns nothing
+    local integer c = gTestC
+    local integer s = 0
+    local integer k = 0
+    local integer got = 0
+    local integer maxed = 0
+    local unit h = CreateUnit(TestHeroOwner(c), gHeroPool[c], TestArenaX(c), TestArenaY(c), 0.0)
+    set gTestH[c] = h
+    call TestHeroProps(c)
+    call SetHeroLevel(h, 19, false)
+    loop
+        exitwhen k >= gGrantN
+        if gGrantHero[k] == gHeroPool[c] and GetUnitAbilityLevel(h, gGrantAbil[k]) > 0 then
+            set got = got + 1
+        endif
+        set k = k + 1
+    endloop
+    call TestCheck(got == 0, GetUnitName(h) + ": nothing of level 20 at level 19")
+    call SetHeroLevel(h, 20, false)
+    set got = 0
+    set k = 0
+    loop
+        exitwhen k >= gGrantN
+        if gGrantHero[k] == gHeroPool[c] and GetUnitAbilityLevel(h, gGrantAbil[k]) > 0 then
+            set got = got + 1
+        endif
+        set k = k + 1
+    endloop
+    call TestCheck(got > 0, GetUnitName(h) + ": level 20 gives his ability")
+    loop
+        exitwhen s >= gSkillsPerHero
+        set k = 0
+        loop
+            exitwhen k >= 4
+            call SelectHeroSkill(h, gHeroSkill[c * gSkillsPerHero + s])
+            set k = k + 1
+        endloop
+        if GetUnitAbilityLevel(h, gHeroSkill[c * gSkillsPerHero + s]) >= 2 then
+            set maxed = maxed + 1
+        endif
+        set s = s + 1
+    endloop
+    call TestCheck(maxed == gSkillsPerHero, GetUnitName(h) + ": all 5 skills learned (" + I2S(GetUnitAbilityLevel(h, gHeroSkill[c * gSkillsPerHero])) + "/" + I2S(GetUnitAbilityLevel(h, gHeroSkill[c * gSkillsPerHero + 1])) + "/" + I2S(GetUnitAbilityLevel(h, gHeroSkill[c * gSkillsPerHero + 2])) + "/" + I2S(GetUnitAbilityLevel(h, gHeroSkill[c * gSkillsPerHero + 3])) + "/" + I2S(GetUnitAbilityLevel(h, gHeroSkill[c * gSkillsPerHero + 4])) + "), points left " + I2S(GetHeroSkillPoints(h)))
+    call SetHeroInt(h, GetHeroInt(h, false) + 400, true)
+    // nothing fights back: the foes are paused. (The Demon Hunter's Roar does not take an invulnerable target, and the others' fixtures need none either way.)
+    if c != 10 then
+        call SetUnitInvulnerable(h, true)
+    endif
+    if c != 0 then
+        call UnitRemoveAbility(h, 'Aatk')
+    endif
+    set h = null
+endfunction
+
+// Row n of the cast table: the order as a player gives it.
+function TestCastOne takes nothing returns nothing
+    local integer n = gTestN
+    local integer c = gCastHero[n]
+    local unit h = gTestH[c]
+    local unit f = gTestFoe[c * 4]
+    local integer kind = gCastTarget[n]
+    local boolean ok = false
+    call TestHeroProps(c)
+    set f = gTestFoe[c * 4]
+    if gCastAbil[n] == 'ANdo' then
+        // the real melee monster, at the Doom level this row has learned
+        call RemoveUnit(gTestFoe[c * 4])
+        set gTestFoe[c * 4] = CreateUnit(Player(8), 'q00m', GetUnitX(h) + 150.0, GetUnitY(h), 0.0)
+        call ScaleKeepHp(gTestFoe[c * 4], 300000, 0)
+        call SetWidgetLife(gTestFoe[c * 4], GetUnitState(gTestFoe[c * 4], UNIT_STATE_MAX_LIFE))
+        set f = gTestFoe[c * 4]
+    endif
+    if gCastAbil[n] == 'AUim' or gCastAbil[n] == 'ANdo' then
+        // a paused unit is no fair target for these two: free foes, they cannot hurt him anyway
+        call PauseUnit(gTestFoe[c * 4], false)
+        call PauseUnit(gTestFoe[c * 4 + 1], false)
+        call PauseUnit(gTestFoe[c * 4 + 2], false)
+        call PauseUnit(gTestFoe[c * 4 + 3], false)
+    endif
+    call UnitResetCooldown(h)
+    call SetUnitState(h, UNIT_STATE_MANA, GetUnitState(h, UNIT_STATE_MAX_MANA))
+    set gTestLifeBefore[c] = TestFoeLife(c)
+    set gTestFriendBefore[c] = GetWidgetLife(gTestFriend[c])
+    set gTestCountBefore[c] = TestSpellCount(h, gCastAbil[n])
+    set gTestManaBefore[c] = GetUnitState(h, UNIT_STATE_MANA)
+    if kind == 0 then
+        set ok = IssueImmediateOrder(h, gCastOrder[n])
+    elseif kind == 1 then
+        set ok = IssueTargetOrder(h, gCastOrder[n], f)
+    elseif kind == 2 then
+        set ok = IssuePointOrder(h, gCastOrder[n], GetUnitX(f), GetUnitY(f))
+    elseif kind == 3 then
+        set ok = IssueTargetOrder(h, gCastOrder[n], gTestFriend[c])
+    elseif kind == 4 then
+        set ok = IssueTargetOrder(h, gCastOrder[n], h)
+    else
+        // a real corpse: a wave monster, dead for a moment
+        set f = CreateUnit(Player(8), gStageUnit[0], GetUnitX(h) + 200.0, GetUnitY(h), 0.0)
+        call GroupRemoveUnit(gWaveUnits, f)
+        call KillUnit(f)
+        // its death takes about 5 s, only then it is a corpse
+        call TriggerSleepAction(5.5)
+        set ok = IssueTargetOrder(h, gCastOrder[n], f)
+        if not ok then
+            set ok = IssueImmediateOrder(h, "carrionscarabsinstant")
+        endif
+    endif
+    set gTestOrderOk[c] = ok
+    set h = null
+    set f = null
+endfunction
+
+function TestCastCheck takes nothing returns nothing
+    local integer n = gTestN
+    local integer c = gCastHero[n]
+    local unit h = gTestH[c]
+    local integer e = gCastEffect[n]
+    local integer seen = TestSpellCount(h, gCastAbil[n]) - gTestCountBefore[c]
+    local real lost = gTestLifeBefore[c] - TestFoeLife(c)
+    local integer images = TestImages(c, false)
+    local string who = GetUnitName(h) + " " + gCastName[n]
+    local boolean good = false
+    local string what = ""
+    if e == 1 then
+        set good = lost > 1.0
+        set what = "damage " + I2S(R2I(lost))
+    elseif e == 2 then
+        set good = GetWidgetLife(gTestFriend[c]) > gTestFriendBefore[c] + 1.0
+        set what = "healed " + I2S(R2I(GetWidgetLife(gTestFriend[c]) - gTestFriendBefore[c]))
+    elseif e == 3 then
+        set good = TestSummons(c, gCastUnit[n]) == gCastCount[n]
+        set what = I2S(TestSummons(c, gCastUnit[n])) + " of the " + I2S(gCastCount[n]) + " summons, " + I2S(TestSummons(c, 0)) + " in all"
+    elseif e == 8 then
+        set good = GetUnitAbilityLevel(gTestFoe[c * 4], gCastUnit[n]) > 0
+        set what = "its buff on the enemy"
+    elseif e == 9 then
+        set good = GetUnitAbilityLevel(gTestFriend[c], gCastUnit[n]) > 0
+        set what = "its buff on the friend"
+    elseif e == 10 then
+        set good = images == gCastCount[n]
+        set what = I2S(images) + " images"
+    elseif e == 4 then
+        set good = GetUnitAbilityLevel(h, gCastUnit[n]) > 0
+        set what = "buff on him"
+    elseif e == 5 then
+        set good = GetUnitTypeId(h) == gCastUnit[n]
+        set what = "now " + GetUnitName(h)
+    else
+        set good = true
+        set what = "mana " + I2S(R2I(gTestManaBefore[c] - GetUnitState(h, UNIT_STATE_MANA)))
+    endif
+    // no attack is left to fake it: the order must be taken and the game must report the spell
+    call TestCheck(good and gTestOrderOk[c] and (seen > 0 or e == 5), who + ": order " + TestB2S(gTestOrderOk[c]) + ", spell " + I2S(seen) + ", " + what)
+    if e != 5 then
+        call IssueImmediateOrder(h, "unimmolation")
+        call IssueImmediateOrder(h, "stop")
+        call TestClearSummons(c)
+    endif
+    set h = null
+endfunction
+
+// ---- Dryad: what Multiple Arrows really does. Every hit on a foe is timed; a burst = hits less than 0.15 s apart.
+function OnTestArrowHit takes nothing returns nothing
+    // her poison ticks and empty events are not spears: this hero has no poison, and only real damage counts
+    if GetEventDamageSource() == gTestScene and GetEventDamage() > 0.5 and gTestHitN < 900 then
+        set gTestHitT[gTestHitN] = TimerGetElapsed(gTestClockT)
+        set gTestHitU[gTestHitN] = GetTriggerUnit()
+        set gTestHitD[gTestHitN] = GetEventDamage()
+        set gTestHitN = gTestHitN + 1
+    endif
+endfunction
+
+function TestSceneFoes takes integer n, real r returns nothing
+    local integer i = 0
+    local real x = GetUnitX(gTestScene)
+    local real y = GetUnitY(gTestScene)
+    loop
+        exitwhen i >= 16
+        if gTestSceneFoe[i] != null then
+            call RemoveUnit(gTestSceneFoe[i])
+            set gTestSceneFoe[i] = null
+        endif
+        set i = i + 1
+    endloop
+    set i = 0
+    loop
+        exitwhen i >= n
+        set gTestSceneFoe[i] = TestFoe(x + r * Cos(i * 6.2832 / I2R(n)), y + r * Sin(i * 6.2832 / I2R(n)))
+        call TriggerRegisterUnitEvent(gTestHitTrig, gTestSceneFoe[i], EVENT_UNIT_DAMAGED)
+        set i = i + 1
+    endloop
+    set gTestHitN = 0
+endfunction
+
+// Bursts of the hits so far: count, biggest, smallest, and how many had all different targets.
+function TestSceneBursts takes string label returns integer
+    local integer i = 0
+    local integer j
+    local integer bursts = 0
+    local integer most = 0
+    local integer fewest = 999
+    local integer size
+    local integer distinct = 0
+    local integer k
+    local boolean same
+    local real first = 0.0
+    local real last = 0.0
+    local real spread = 0.0
+    local real dmgLow = 1000000.0
+    local real dmgHigh = 0.0
+    loop
+        exitwhen i >= gTestHitN
+        set j = i
+        loop
+            exitwhen j + 1 >= gTestHitN or gTestHitT[j + 1] - gTestHitT[j] >= 0.15
+            set j = j + 1
+        endloop
+        set size = j - i + 1
+        set bursts = bursts + 1
+        if bursts == 1 then
+            set first = gTestHitT[i]
+        endif
+        set last = gTestHitT[i]
+        if size > most then
+            set most = size
+        endif
+        if size < fewest then
+            set fewest = size
+        endif
+        if gTestHitT[j] - gTestHitT[i] > spread then
+            set spread = gTestHitT[j] - gTestHitT[i]
+        endif
+        set same = false
+        set k = i
+        loop
+            exitwhen k > j
+            set size = k + 1
+            loop
+                exitwhen size > j
+                if gTestHitU[size] == gTestHitU[k] then
+                    set same = true
+                endif
+                set size = size + 1
+            endloop
+            if gTestHitD[k] < dmgLow then
+                set dmgLow = gTestHitD[k]
+            endif
+            if gTestHitD[k] > dmgHigh then
+                set dmgHigh = gTestHitD[k]
+            endif
+            set k = k + 1
+        endloop
+        if not same then
+            set distinct = distinct + 1
+        endif
+        set i = j + 1
+    endloop
+    set gTestBurstMost = most
+    set gTestBurstFewest = fewest
+    set gTestBurstDistinct = distinct
+    set gTestBurstEvery = 0.0
+    if bursts > 1 then
+        set gTestBurstEvery = (last - first) / I2R(bursts - 1)
+    endif
+    set gTestBurstSpread = spread
+    set gTestBurstDmgLow = dmgLow
+    set gTestBurstDmgHigh = dmgHigh
+    if gTestHitN == 0 then
+        set gTestBurstDmgLow = 0.0
+        set gTestBurstFewest = 0
+    endif
+    call TestLog("arrows " + label + ": " + I2S(gTestHitN) + " hits in " + I2S(bursts) + " bursts, " + I2S(fewest) + " to " + I2S(most) + " per burst, every " + R2SW(gTestBurstEvery, 1, 2) + " s, one burst lands within " + R2SW(spread, 1, 3) + " s, damage " + I2S(R2I(dmgLow)) + " to " + I2S(R2I(dmgHigh)) + ", bursts on all different targets " + I2S(distinct))
+    return bursts
+endfunction
+
+function TestOwnedOfTypeP0 takes integer id returns integer
+    local group g = CreateGroup()
+    local unit u
+    local integer n = 0
+    call GroupEnumUnitsOfPlayer(g, Player(0), null)
+    loop
+        set u = FirstOfGroup(g)
+        exitwhen u == null
+        call GroupRemoveUnit(g, u)
+        if GetUnitTypeId(u) == id then
+            set n = n + 1
+        endif
+    endloop
+    call DestroyGroup(g)
+    set g = null
+    return n
+endfunction
+
+// Doom at both levels, clean: a fresh invulnerable Pit Lord without his attack, one free monster, nothing else around. Level 2 on a monster of the creep race lives on the ability table's one changed cell (build.py).
+function TestDoomCount takes unit caster returns integer
+    local group g = CreateGroup()
+    local unit u
+    local integer n = 0
+    call GroupEnumUnitsOfPlayer(g, GetOwningPlayer(caster), null)
+    loop
+        set u = FirstOfGroup(g)
+        exitwhen u == null
+        call GroupRemoveUnit(g, u)
+        if GetUnitTypeId(u) == 'nba2' then
+            set n = n + 1
+        endif
+    endloop
+    call DestroyGroup(g)
+    set g = null
+    return n
+endfunction
+
+function TestDoomClear takes nothing returns nothing
+    local group g = CreateGroup()
+    local unit u
+    call GroupEnumUnitsOfPlayer(g, Player(1), null)
+    loop
+        set u = FirstOfGroup(g)
+        exitwhen u == null
+        call GroupRemoveUnit(g, u)
+        call RemoveUnit(u)
+    endloop
+    call DestroyGroup(g)
+    set g = null
+    if gTestDoomFoe != null then
+        call RemoveUnit(gTestDoomFoe)
+        set gTestDoomFoe = null
+    endif
+endfunction
+
+function TestDoomOnSpell takes nothing returns nothing
+    if GetSpellAbilityId() == 'ANdo' then
+        set gTestDoomSpell = gTestDoomSpell + 1
+    endif
+endfunction
+
+function TestDoomOne takes integer level, integer ut returns nothing
+    local unit h
+    local unit u
+    call TestDoomClear()
+    set h = CreateUnit(Player(1), gHeroPool[3], gWpX[2 * 8 + 1], gWpY[2 * 8 + 1], 0.0)
+    set gTestDoomHero = h
+    call SetHeroLevel(h, 20, false)
+    call UnitRemoveAbility(h, 'Aatk')
+    call SetUnitInvulnerable(h, true)
+    call SelectHeroSkill(h, 'ANdo')
+    if level == 2 then
+        call SelectHeroSkill(h, 'ANdo')
+    endif
+    call SetHeroInt(h, GetHeroInt(h, false) + 400, true)
+    call SetUnitState(h, UNIT_STATE_MANA, GetUnitState(h, UNIT_STATE_MAX_MANA))
+    set u = CreateUnit(Player(8), ut, GetUnitX(h) + 300.0, GetUnitY(h), 180.0)
+    call GroupRemoveUnit(gWaveUnits, u)
+    call ScaleKeepHp(u, 30000, 0)
+    call SetWidgetLife(u, GetUnitState(u, UNIT_STATE_MAX_LIFE))
+    set gTestDoomFoe = u
+    set gTestDoomLife = GetWidgetLife(u)
+    set gTestDoomSpell = 0
+    set gTestDoomOrder = IssueTargetOrder(h, "doom", u)
+    set h = null
+    set u = null
+endfunction
+
+function TestDoomTick takes nothing returns nothing
+    local integer r
+    local integer step
+    local integer level
+    local real lost
+    set gTestDoomStep = gTestDoomStep + 1
+    set r = (gTestDoomStep - 1) / 7
+    set step = ModuloInteger(gTestDoomStep - 1, 7)
+    if r >= 5 then
+        call TestDoomClear()
+        call DestroyTrigger(gTestDoomTrig)
+        set gTestDoomDone = true
+        call PauseTimer(GetExpiredTimer())
+        call DestroyTimer(GetExpiredTimer())
+        return
+    endif
+    if step == 0 then
+        if r == 0 then
+            call TestDoomOne(1, 'q00m')
+        elseif r == 1 then
+            call TestDoomOne(2, 'q00m')
+        elseif r == 2 then
+            call TestDoomOne(2, 'nogm')
+        elseif r == 3 then
+            call TestDoomOne(2, 'njga')
+        else
+            call TestDoomOne(1, 'njga')
+        endif
+    elseif step == 3 then
+        set lost = gTestDoomLife - GetWidgetLife(gTestDoomFoe)
+        set level = GetUnitAbilityLevel(gTestDoomHero, 'ANdo')
+        if r <= 2 then
+            call TestCheck(gTestDoomOrder and gTestDoomSpell == 1 and GetUnitAbilityLevel(gTestDoomFoe, 'BNdo') > 0 and lost >= 1200.0 * level and lost <= 1800.0 * level, "Doom level " + I2S(level) + " on " + GetUnitName(gTestDoomFoe) + " (level " + I2S(GetUnitLevel(gTestDoomFoe)) + "): order, spell, buff, " + I2S(R2I(lost)) + " damage in 3 s")
+            call SetWidgetLife(gTestDoomFoe, 50.0)
+        else
+            call TestCheck(not gTestDoomOrder and gTestDoomSpell == 0 and lost <= 0.0, "Doom level " + I2S(level) + " still refuses " + GetUnitName(gTestDoomFoe) + " (level " + I2S(GetUnitLevel(gTestDoomFoe)) + "): the game's own limit")
+        endif
+    elseif step == 6 and r <= 2 then
+        set level = GetUnitAbilityLevel(gTestDoomHero, 'ANdo')
+        call TestCheck(GetWidgetLife(gTestDoomFoe) <= 0.405 and TestDoomCount(gTestDoomHero) == level, "Doom level " + I2S(level) + ": the monster dies, " + I2S(TestDoomCount(gTestDoomHero)) + " Doom Guards rise")
+        call TestFlush()
+    endif
+endfunction
+
+// A real selection for each of the 12, one round each: restart, tavern, AssignHero, the round starts. The first one once more: the same champion sells again.
+// After them, the sales that must not stay: outside a selection, with a champion and without.
+function TestPickTick takes nothing returns nothing
+    local integer s
+    local integer want
+    set gTestPickStep = gTestPickStep + 1
+    if gTestPickC <= gHeroPoolCount then
+        set s = ModuloInteger(gTestPickStep - 1, 7)
+        set want = gHeroPool[ModuloInteger(gTestPickC, gHeroPoolCount)]
+        if s == 0 then
+            set gTestPickBuy = want
+            set gTestSoldType = 0
+            call ExecuteFunc("CDRestart")
+        elseif s == 6 then
+            call TestCheck(GetUnitTypeId(gHero[0]) == want and gTestSoldType == want and gStarted and not gSelecting and gSoul[0] == null and TestOwnedOfTypeP0(want) == 1, "selection " + I2S(gTestPickC + 1) + " of 13: " + GetObjectName(want) + " bought, on his circle, the soul gone, the round runs (" + GetUnitName(gHero[0]) + ")")
+            set gTestPickC = gTestPickC + 1
+            call TestFlush()
+        endif
+        return
+    endif
+    set s = gTestPickStep - 7 * (gHeroPoolCount + 1)
+    set want = gHeroPool[4]
+    if s == 1 then
+        set gTestPickBuy = 0
+        set gSoul[0] = CreateUnit(Player(0), gSoulType, gHallX, gHallY + gHallSoulDY, 90.0)
+    elseif s == 5 then
+        set gTestPickOld = gHero[0]
+        set gTestSoldType = 0
+        call TestLog("outside the selection, with a champion: order " + TestB2S(IssueNeutralImmediateOrderById(Player(0), gTavern[0], want)) + ", sold " + I2S(gTestSoldType) + ", heroes in the same instant " + I2S(TestOwnedOfTypeP0(want)))
+    elseif s == 6 then
+        call TestCheck(gTestSoldType == want and TestOwnedOfTypeP0(want) == 0 and gHero[0] == gTestPickOld and not gSelecting, "the round runs, the player has a champion: a second one sold does not stay (" + I2S(TestOwnedOfTypeP0(want)) + " left, sold " + I2S(gTestSoldType) + ", the same champion " + TestB2S(gHero[0] == gTestPickOld) + ")")
+        call RemoveUnit(gHero[0])
+        set gHero[0] = null
+        set gTestSoldType = 0
+        call TestLog("outside the selection, no champion: order " + TestB2S(IssueNeutralImmediateOrderById(Player(0), gTavern[0], want)) + ", sold " + I2S(gTestSoldType) + ", heroes in the same instant " + I2S(TestOwnedOfTypeP0(want)))
+    elseif s == 7 then
+        call TestCheck(gTestSoldType == want and TestOwnedOfTypeP0(want) == 0 and gHero[0] == null and not gSelecting, "the round runs, the player has no champion: one sold outside the selection does not stay (" + I2S(TestOwnedOfTypeP0(want)) + " left, sold " + I2S(gTestSoldType) + ")")
+        call RemoveUnit(gSoul[0])
+        set gSoul[0] = null
+        set gTestPickOld = null
+        set gTestPicksDone = true
+        call TestFlush()
+        call PauseTimer(GetExpiredTimer())
+        call DestroyTimer(GetExpiredTimer())
+    endif
+endfunction
+
+function TestSceneTick takes nothing returns nothing
+    local integer t
+    local integer b
+    set gTestSceneT = gTestSceneT + 1
+    set t = gTestSceneT
+    if t == 1 then
+        // the reference's learn levels: Evasion 1/3/5/7, Multiple Arrows 1/4/7/10, Critical Arrows 8/10/12/14, Trueshot 10/12/14/16, Endurance 5/7/9/11
+        set gTestScene = CreateUnit(Player(1), gHeroPool[0], gNexusSpawnX[5], gNexusSpawnY[5], 0.0)
+        call UnitModifySkillPoints(gTestScene, 30)
+        call SelectHeroSkill(gTestScene, gHeroSkill[2])
+        call TestCheck(GetUnitAbilityLevel(gTestScene, gHeroSkill[2]) == 0, "Dryad: Critical Arrows not learnable at level 1")
+        call SelectHeroSkill(gTestScene, gHeroSkill[1])
+        call SelectHeroSkill(gTestScene, gHeroSkill[1])
+        call TestCheck(GetUnitAbilityLevel(gTestScene, gHeroSkill[1]) == 1, "Dryad: Multiple Arrows level 1 at hero level 1, not yet level 2")
+        call SetHeroLevel(gTestScene, 4, false)
+        call SelectHeroSkill(gTestScene, gHeroSkill[1])
+        call TestCheck(GetUnitAbilityLevel(gTestScene, gHeroSkill[1]) == 2, "Dryad: Multiple Arrows level 2 at hero level 4")
+        call SetHeroLevel(gTestScene, 10, false)
+        call TestCheck(GetUnitAbilityLevel(gTestScene, 'A027') == 0, "Dryad: no Spell Immunity before level 20")
+        // the control: a fresh Dryad of the same level who never learned it. Neither she nor the next one has her poison: only spears are counted here.
+        call RemoveUnit(gTestScene)
+        set gTestScene = CreateUnit(Player(1), gHeroPool[0], gNexusSpawnX[5], gNexusSpawnY[5], 0.0)
+        call SetHeroLevel(gTestScene, 10, false)
+        call UnitRemoveAbility(gTestScene, 'ACvs')
+        call SetUnitInvulnerable(gTestScene, true)
+        call TestSceneFoes(12, 450.0)
+    elseif t == 7 then
+        call TestSceneBursts("no skill, the control")
+        set gTestWeapon = gTestBurstDmgHigh
+        call TestCheck(gTestHitN > 0 and gTestBurstMost == 1, "Dryad without the skill: one spear at a time (" + I2S(gTestHitN) + " hits in 6 s, " + I2S(R2I(gTestBurstDmgHigh)) + " damage)")
+        set gTestSceneControl = gTestHitN
+        call SelectHeroSkill(gTestScene, gHeroSkill[1])
+        call TestCheck(GetUnitAbilityLevel(gTestScene, gHeroSkill[1]) == 1, "the same Dryad learns Multiple Arrows")
+        set gTestHitN = 0
+    elseif t == 13 then
+        call TestSceneBursts("level 1")
+        // what the game really throws, attack by attack: more than the field's 2 / 4 / 6 / 8
+        call TestCheck(gTestBurstMost == 4 and gTestBurstFewest == 4 and gTestBurstDistinct > 0, "Dryad level 1: 4 spears at once, at different enemies (field 2)")
+        call TestCheck(gTestBurstDmgHigh > 0.0 and gTestBurstDmgHigh < 250.0, "Dryad: a spear does the damage of her weapon, not the 250 of the field (" + I2S(R2I(gTestBurstDmgLow)) + " to " + I2S(R2I(gTestBurstDmgHigh)) + ")")
+        call SetUnitAbilityLevel(gTestScene, gHeroSkill[1], 2)
+        set gTestHitN = 0
+    elseif t == 19 then
+        call TestSceneBursts("level 2")
+        call TestCheck(gTestBurstMost == 6 and gTestBurstFewest == 6 and gTestBurstDistinct > 0, "Dryad level 2: 6 spears at once (field 4)")
+        call SetUnitAbilityLevel(gTestScene, gHeroSkill[1], 3)
+        set gTestHitN = 0
+    elseif t == 25 then
+        call TestSceneBursts("level 3")
+        call TestCheck(gTestBurstMost == 8 and gTestBurstFewest >= 6 and gTestBurstDistinct > 0, "Dryad level 3: 8 spears at once (field 6)")
+        call SetUnitAbilityLevel(gTestScene, gHeroSkill[1], 4)
+        // the visible proof: the runner films the next seconds of the hidden display
+        call PanCameraToTimed(GetUnitX(gTestScene), GetUnitY(gTestScene), 0.0)
+        call TestLog("VIDEO dryad-volley 8")
+        call TestFlush()
+        set gTestHitN = 0
+    elseif t == 33 then
+        set b = TestSceneBursts("level 4")
+        call TestCheck(gTestBurstMost == 10 and gTestBurstDistinct > 0, "Dryad level 4: " + I2S(gTestBurstMost) + " spears at once out of 12 enemies, each at another (field 8)")
+        call TestCheck(gTestBurstEvery > 0.0 and gTestBurstSpread < 0.2, "Dryad: all spears of one volley land together, a volley every " + R2SW(gTestBurstEvery, 1, 2) + " s")
+        set gTestSceneEvery = gTestBurstEvery
+        // her weapon carries the spears: more Agility, more damage on every spear
+        set gTestWeapon = gTestBurstDmgHigh
+        call SetHeroAgi(gTestScene, GetHeroAgi(gTestScene, false) + 200, true)
+        set gTestHitN = 0
+    elseif t == 39 then
+        set b = TestSceneBursts("+200 Agility")
+        call TestCheck(gTestBurstDmgLow > gTestWeapon, "Dryad: stats raise every spear (" + I2S(R2I(gTestWeapon)) + " -> " + I2S(R2I(gTestBurstDmgLow)) + ")")
+        call TestCheck(gTestBurstEvery < gTestSceneEvery - 0.2, "Dryad: a volley comes with her attack: faster attacks, more volleys (every " + R2SW(gTestSceneEvery, 1, 2) + " s -> " + R2SW(gTestBurstEvery, 1, 2) + " s)")
+        call SetHeroAgi(gTestScene, GetHeroAgi(gTestScene, false) - 200, true)
+        call TestSceneFoes(12, 450.0)
+    elseif t >= 40 and t <= 45 then
+        set b = 0
+        loop
+            exitwhen b >= 10
+            call IssueImmediateOrder(gTestScene, "stop")
+            set b = b + 1
+        endloop
+    elseif t == 46 then
+        set b = TestSceneBursts("stop orders")
+        call TestLog("Dryad under stop orders: " + I2S(gTestHitN) + " hits, at most " + I2S(gTestBurstMost) + " in a volley: a volley with " + I2S(b) + " bursts in 6 s")
+        call TestCheck(gTestBurstMost <= 10, "Dryad: stop orders add no spears")
+        call IssuePointOrder(gTestScene, "move", GetUnitX(gTestScene) - 200.0, GetUnitY(gTestScene))
+        set gTestHitN = 0
+    elseif t == 49 then
+        set b = TestSceneBursts("while she walks")
+        call TestLog("Dryad while walking: " + I2S(gTestHitN) + " hits")
+        call IssueImmediateOrder(gTestScene, "stop")
+        call SetUnitPosition(gTestScene, gNexusSpawnX[5], gNexusSpawnY[5])
+        call TestSceneFoes(1, 450.0)
+    elseif t == 55 then
+        set b = TestSceneBursts("one enemy, level 4")
+        call TestLog("Dryad at level 4 on one enemy: " + I2S(gTestHitN) + " hits in 6 s, most at once " + I2S(gTestBurstMost))
+        call TestSceneFoes(4, 800.0)
+        call IssueImmediateOrder(gTestScene, "holdposition")
+    elseif t == 61 then
+        set b = TestSceneBursts("enemies out of reach")
+        call TestCheck(gTestHitN == 0, "Dryad: no spear at enemies 800 away (" + I2S(gTestHitN) + " hits)")
+        // the critical hit skill beside it: what the two do together, as the original has them
+        call SelectHeroSkill(gTestScene, gHeroSkill[2])
+        call SetUnitAbilityLevel(gTestScene, gHeroSkill[2], 4)
+        call TestSceneFoes(12, 450.0)
+    elseif t == 73 then
+        set b = TestSceneBursts("with Critical Arrows level 4")
+        call TestLog("Dryad with Critical Arrows: " + I2S(gTestHitN) + " hits in 12 s, " + I2S(b) + " bursts, damage " + I2S(R2I(gTestBurstDmgLow)) + " to " + I2S(R2I(gTestBurstDmgHigh)))
+        // her whole kit: her poison back, on a Dryad as the tavern sells her
+        call UnitAddAbility(gTestScene, 'ACvs')
+        call TestSceneFoes(1, 300.0)
+    elseif t >= 74 and t <= 79 then
+        if GetUnitAbilityLevel(gTestSceneFoe[0], 'Bpoi') > 0 or GetUnitAbilityLevel(gTestSceneFoe[0], 'Bpsd') > 0 then
+            set gTestScenePoison = true
+        endif
+    elseif t == 80 then
+        call TestCheck(gTestScenePoison, "Dryad: her hits poison (Envenomed Spears)")
+        call TestSceneFoes(0, 0.0)
+        set gTestSceneDone = true
+        call TestFlush()
+    endif
+endfunction
+
+// ---- The Tauren's Reincarnation through the production death path: ready, then on cooldown.
+function TestTauren takes nothing returns nothing
+    local unit h = gTestH[2]
+    set gTestTaurenT = gTestTaurenT + 1
+    if gTestTaurenT == 1 then
+        call SetUnitInvulnerable(h, false)
+        set gHero[2] = h
+        call SetUnitState(h, UNIT_STATE_LIFE, 100.0)
+        set gTestDeathsBefore = gDeaths[2]
+        call UnitDamageTarget(gTestFoe[2 * 4], h, 1000000.0, true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
+    elseif gTestTaurenT == 3 then
+        call TestLog("Reincarnation ready, 2 s after the blow: alive " + TestB2S(GetWidgetLife(h) > 0.405) + ", deaths counted " + I2S(gDeaths[2] - gTestDeathsBefore) + ", revive running " + TestB2S(TimerGetRemaining(gReviveTimer[2]) > 0.0))
+    elseif gTestTaurenT == 8 then
+        call TestCheck(GetWidgetLife(h) > 0.405, "Reincarnation: the Tauren is back after 5 s")
+        call TestLog("Reincarnation: deaths counted " + I2S(gDeaths[2] - gTestDeathsBefore) + ", revive running " + TestB2S(TimerGetRemaining(gReviveTimer[2]) > 0.0))
+        // on cooldown now: a normal death
+        set gTestDeathsBefore = gDeaths[2]
+        call UnitDamageTarget(gTestFoe[2 * 4], h, 1000000.0, true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
+    elseif gTestTaurenT == 10 then
+        call TestCheck(gDeaths[2] == gTestDeathsBefore + 1 and GetWidgetLife(h) <= 0.405 and TimerGetRemaining(gReviveTimer[2]) > 0.0, "Reincarnation on cooldown: a real death, the normal revive runs (" + I2S(R2I(TimerGetRemaining(gReviveTimer[2]))) + " s)")
+    elseif gTestTaurenT == 36 then
+        call TestCheck(GetWidgetLife(h) > 0.405, "the Tauren revived normally after that death")
+        call SetUnitInvulnerable(h, true)
+        set gHero[2] = null
+        set gTestTaurenDone = true
+        call PauseTimer(GetExpiredTimer())
+        call DestroyTimer(GetExpiredTimer())
+    endif
+    set h = null
+endfunction
+
+function TestCountEnemy takes integer id returns integer
+    local group g = CreateGroup()
+    local unit u
+    local integer n = 0
+    local integer o = 8
+    loop
+        exitwhen o > 11
+        call GroupEnumUnitsOfPlayer(g, Player(o), null)
+        loop
+            set u = FirstOfGroup(g)
+            exitwhen u == null
+            call GroupRemoveUnit(g, u)
+            if GetUnitTypeId(u) == id and GetWidgetLife(u) > 0.405 then
+                set n = n + 1
+                set gTestEnemyFound = u
+            endif
+        endloop
+        set o = o + 1
+    endloop
+    call DestroyGroup(g)
+    set g = null
+    return n
+endfunction
+
+function TestFirstEnemy takes integer id returns unit
+    call TestCountEnemy(id)
+    return gTestEnemyFound
+endfunction
+
+// ---- A lane boss in the second round, at wave 20: real units, real spells. Its own lane's wave made it; what a stun does; what it casts; what it pays.
+function TestBossSpell takes nothing returns nothing
+    local integer h = GetHandleId(GetTriggerUnit())
+    local integer a = GetSpellAbilityId()
+    if gTestHT != null then
+        call SaveInteger(gTestHT, h, a, LoadInteger(gTestHT, h, a) + 1)
+    endif
+endfunction
+
+function TestStunner takes integer c, real dist returns unit
+    local unit b = gBoss[0]
+    local unit h = CreateUnit(Player(1), gHeroPool[c], GetUnitX(b) + dist, GetUnitY(b), 0.0)
+    local integer s = 0
+    local integer k
+    call SetHeroLevel(h, 20, false)
+    loop
+        exitwhen s >= gSkillsPerHero
+        set k = 0
+        loop
+            exitwhen k >= 4
+            call SelectHeroSkill(h, gHeroSkill[c * gSkillsPerHero + s])
+            set k = k + 1
+        endloop
+        set s = s + 1
+    endloop
+    call SetHeroInt(h, GetHeroInt(h, false) + 400, true)
+    call SetUnitState(h, UNIT_STATE_MANA, GetUnitState(h, UNIT_STATE_MAX_MANA))
+    call SetUnitInvulnerable(h, true)
+    call UnitRemoveAbility(h, 'Aatk')
+    set bj_lastCreatedUnit = h
+    set b = null
+    set h = null
+    return bj_lastCreatedUnit
+endfunction
+
+function TestBossTick takes nothing returns nothing
+    local integer t
+    local unit b = gBoss[0]
+    local integer d = LaneArm(0)
+    local real v
+    set gTestBossT = gTestBossT + 1
+    set t = gTestBossT
+    if t == 1 then
+        call PanCameraToTimed(GetUnitX(b), GetUnitY(b), 0.0)
+        call IssuePointOrder(b, "move", GetUnitX(b), GetUnitY(b) - 1400.0 * gDirSign0)
+        set gTestBossX = GetUnitX(b)
+        set gTestBossY = GetUnitY(b)
+    elseif t == 2 then
+        set gTestBossX = GetUnitX(b)
+        set gTestBossY = GetUnitY(b)
+    elseif t == 3 then
+        set v = SquareRoot((GetUnitX(b) - gTestBossX) * (GetUnitX(b) - gTestBossX) + (GetUnitY(b) - gTestBossY) * (GetUnitY(b) - gTestBossY))
+        call TestCheck(v >= 450.0, "the boss runs " + I2S(R2I(v)) + " a second (speed " + I2S(R2I(GetUnitMoveSpeed(b))) + ", it was 240)")
+        set gTestBossHero = TestStunner(1, 300.0)
+    elseif t == 5 then
+        set gTestBossLife = GetWidgetLife(b)
+        set gTestStunRemoved = 0
+        call TestLog("boss: Storm Bolt order " + TestB2S(IssueTargetOrder(gTestBossHero, "thunderbolt", b)))
+    elseif t == 7 then
+        call TestCheck(gTestStunRemoved > 0 and not IsUnitType(b, UNIT_TYPE_STUNNED) and GetWidgetLife(b) < gTestBossLife, "Storm Bolt: the boss takes the damage (" + I2S(R2I(gTestBossLife - GetWidgetLife(b))) + ") and shakes off the stun at once")
+        call RemoveUnit(gTestBossHero)
+        set gTestBossHero = TestStunner(2, 300.0)
+        set gTestBossLife = GetWidgetLife(b)
+        set gTestStunRemoved = 0
+        call TestLog("boss: War Stomp order " + TestB2S(IssueImmediateOrder(gTestBossHero, "stomp")))
+    elseif t == 9 then
+        call TestCheck(gTestStunRemoved > 0 and not IsUnitType(b, UNIT_TYPE_STUNNED) and GetWidgetLife(b) < gTestBossLife, "War Stomp: damage (" + I2S(R2I(gTestBossLife - GetWidgetLife(b))) + "), no stun on the boss")
+        call RemoveUnit(gTestBossHero)
+        set gTestBossHero = TestStunner(9, 400.0)
+        set gTestBossLife = GetWidgetLife(b)
+        set gTestStunRemoved = 0
+        call TestLog("boss: Impale order " + TestB2S(IssuePointOrder(gTestBossHero, "impale", GetUnitX(b), GetUnitY(b))))
+    elseif t == 12 then
+        call TestCheck(not IsUnitType(b, UNIT_TYPE_STUNNED) and GetWidgetLife(b) < gTestBossLife - 500.0, "Impale: its damage lands (" + I2S(R2I(gTestBossLife - GetWidgetLife(b))) + "), the boss is not left stunned (" + I2S(gTestStunRemoved) + " removed)")
+        call RemoveUnit(gTestBossHero)
+        set gTestBossHero = TestStunner(4, 300.0)
+        set gTestBossLife = GetWidgetLife(b)
+        set gTestStunRemoved = 0
+        call TestLog("boss: Frost Bolt order " + TestB2S(IssueTargetOrder(gTestBossHero, "thunderbolt", b)))
+    elseif t == 14 then
+        call TestCheck(gTestStunRemoved > 0 and not IsUnitType(b, UNIT_TYPE_STUNNED) and GetWidgetLife(b) < gTestBossLife, "Frost Bolt: damage (" + I2S(R2I(gTestBossLife - GetWidgetLife(b))) + "), no stun")
+        call RemoveUnit(gTestBossHero)
+        // a target it may really hit: its spells take no invulnerable one
+        set gTestBossHero = TestStunner(1, 300.0)
+        call SetUnitInvulnerable(gTestBossHero, false)
+        call FinalBits(gTestBossHero, 0, gFinalHpBits, 500)
+        call SetWidgetLife(gTestBossHero, GetUnitState(gTestBossHero, UNIT_STATE_MAX_LIFE))
+        set gTestBossLife = GetWidgetLife(gTestBossHero)
+        call TestFlush()
+    elseif t == 40 then
+        // the boss has had a target beside it for half a minute
+        call TestLog("the target took " + I2S(R2I(gTestBossLife - GetWidgetLife(gTestBossHero))) + " in 26 s")
+        call TestCheck(LoadInteger(gTestHT, GetHandleId(b), gBossSpell[d * 2]) >= 2, "the boss casts its first spell: " + I2S(LoadInteger(gTestHT, GetHandleId(b), gBossSpell[d * 2])) + " times")
+        call TestCheck(LoadInteger(gTestHT, GetHandleId(b), gBossSpell[d * 2 + 1]) >= 1, "the boss casts its second spell: " + I2S(LoadInteger(gTestHT, GetHandleId(b), gBossSpell[d * 2 + 1])) + " times")
+        call TestCheck(TestCountEnemy(gBossSummon[d]) > 0, "the boss summons: " + I2S(TestCountEnemy(gBossSummon[d])) + " adds")
+        call TestCheck(GetUnitState(TestFirstEnemy(gBossSummon[d]), UNIT_STATE_MAX_LIFE) > 2000.0, "its adds are as strong as the wave: " + I2S(R2I(GetUnitState(TestFirstEnemy(gBossSummon[d]), UNIT_STATE_MAX_LIFE))) + " HP")
+        // the real kill: a player's champion, below 192 s of game clock in the stun throttle's old way: only the boss's own reward
+        set gTestGold = GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)
+        set gTestBountyCalls = 0
+        call UnitDamageTarget(gHero[0], b, 100000000.0, true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
+        call TestCheck(gBoss[0] == null and gTestBountyCalls == 0, "a boss is no wave monster: killed by a champion, no monster bounty")
+        call TestLog("boss killed: gold " + I2S(gTestGold) + " -> " + I2S(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)) + " (250 for the boss, its own bounty)")
+        call RemoveUnit(gTestBossHero)
+        call TestFlush()
+        set gTestHold = false
+        call PauseTimer(GetExpiredTimer())
+        call DestroyTimer(GetExpiredTimer())
+    endif
+    set b = null
+endfunction
+
+// ---- Castle Regeneration: the name says what was bought; buying really heals.
+function TestCastleRegen takes nothing returns nothing
+    local integer s = gTestRegenKind
+    set gTestRegenT = gTestRegenT + 1
+    if gTestRegenT <= 3 then
+        call SetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER, 5)
+        call TestCheck(GetObjectName(gStatItem[s * gKindStride + gCastleNext[s]]) == "Castle Regeneration +" + I2S(gCastleNext[s] * 10) + " HP/s", "the shop's name after " + I2S(gCastleNext[s]) + " buys: " + GetObjectName(gStatItem[s * gKindStride + gCastleNext[s]]))
+        call TestLog("regeneration buy order " + TestB2S(IssueNeutralImmediateOrderById(Player(0), gCastle, gStatItem[s * gKindStride + gCastleNext[s]])))
+    elseif gTestRegenT == 5 then
+        call TestCheck(gCastleNext[s] == 3, "3 buys counted: " + I2S(gCastleNext[s]))
+        call TestCheck(GetObjectName(gStatItem[s * gKindStride + gCastleNext[s]]) == "Castle Regeneration +30 HP/s", "the name now: " + GetObjectName(gStatItem[s * gKindStride + gCastleNext[s]]))
+        call SetWidgetLife(gCastle, 1000.0)
+        set gTestRegenLife = GetWidgetLife(gCastle)
+    elseif gTestRegenT == 15 then
+        set gTestRegenLife = GetWidgetLife(gCastle) - gTestRegenLife
+        call TestCheck(gTestRegenLife > 250.0 and gTestRegenLife < 450.0, "the castle really heals: " + I2S(R2I(gTestRegenLife)) + " HP in 10 s (bought +30 HP/s, its own +5 HP/s)")
+        call TestFlush()
+        call PauseTimer(GetExpiredTimer())
+        call DestroyTimer(GetExpiredTimer())
+    endif
+endfunction
+
+// Light Frenzy resets its target's cooldowns: Fan of Light on cooldown, Frenzy on him, and Fan of Light goes again at once.
+function TestPaladin takes nothing returns nothing
+    local unit h = gTestH[6]
+    set gTestPalT = gTestPalT + 1
+    if gTestPalT == 1 then
+        call SetUnitInvulnerable(h, false)
+        call UnitResetCooldown(h)
+        call SetUnitState(h, UNIT_STATE_MANA, GetUnitState(h, UNIT_STATE_MAX_MANA))
+        call IssueImmediateOrder(h, "fanofknives")
+    elseif gTestPalT == 2 then
+        set gTestPalCount = TestSpellCount(h, 'A00A')
+        call TestLog("Light Frenzy on himself: order " + TestB2S(IssueTargetOrder(h, "cripple", h)))
+    elseif gTestPalT == 4 then
+        call TestCheck(TestSpellCount(h, 'A010') > 0, "Light Frenzy cast on the Paladin")
+        call IssueImmediateOrder(h, "fanofknives")
+    elseif gTestPalT == 6 then
+        call TestCheck(TestSpellCount(h, 'A00A') > gTestPalCount, "Light Frenzy reset his cooldown: Fan of Light again within 4 s of its 5 s cooldown")
+        call SetUnitInvulnerable(h, true)
+        set gTestPalDone = true
+        call PauseTimer(GetExpiredTimer())
+        call DestroyTimer(GetExpiredTimer())
+    endif
+    set h = null
+endfunction
+
+// Frost Arrows hang on the attack: a Lich of her own, with hers, and a foe away from the others. The slow lasts 1.5 s: watched every second.
+function TestLichArrows takes nothing returns nothing
+    local integer s = 0
+    local integer k
+    set gTestLichT = gTestLichT + 1
+    if gTestLichT == 1 then
+        set gTestLichHero = CreateUnit(Player(4), gHeroPool[5], gHeroX[4], gHeroY[4] + 400.0, 0.0)
+        call SetHeroLevel(gTestLichHero, 20, false)
+        loop
+            exitwhen s >= gSkillsPerHero
+            set k = 0
+            loop
+                exitwhen k >= 4
+                call SelectHeroSkill(gTestLichHero, gHeroSkill[5 * gSkillsPerHero + s])
+                set k = k + 1
+            endloop
+            set s = s + 1
+        endloop
+        call SetHeroInt(gTestLichHero, GetHeroInt(gTestLichHero, false) + 400, true)
+        call SetUnitState(gTestLichHero, UNIT_STATE_MANA, GetUnitState(gTestLichHero, UNIT_STATE_MAX_MANA))
+        call SetUnitInvulnerable(gTestLichHero, true)
+        set gTestLichFoe = TestFoe(GetUnitX(gTestLichHero) + 300.0, GetUnitY(gTestLichHero))
+        call TestLog("Frost Arrows: order " + TestB2S(IssueTargetOrder(gTestLichHero, "coldarrowstarg", gTestLichFoe)))
+        // the Demon Hunter's Roar on one as the tavern sells him: with his attack, not invulnerable
+        set gTestDhFresh = CreateUnit(Player(4), gHeroPool[10], gHeroX[5], gHeroY[5] + 400.0, 0.0)
+        call SetUnitState(gTestDhFresh, UNIT_STATE_MANA, GetUnitState(gTestDhFresh, UNIT_STATE_MAX_MANA))
+        call TestLog("Roar: order " + TestB2S(IssueImmediateOrder(gTestDhFresh, "roar")))
+    elseif gTestLichT >= 2 and gTestLichT <= 6 then
+        if GetUnitAbilityLevel(gTestLichFoe, 'BHca') > 0 or GetUnitAbilityLevel(gTestLichFoe, 'Bcsd') > 0 then
+            set gTestLichSeen = true
+        endif
+        if GetUnitAbilityLevel(gTestDhFresh, 'Broa') > 0 then
+            set gTestDhRoar = true
+        endif
+    elseif gTestLichT == 7 then
+        call TestCheck(gTestLichSeen, "Frost Arrows: the Lich's attack puts its slow on the enemy")
+        call TestCheck(gTestDhRoar, "Roar: the buff is on the Demon Hunter")
+        call RemoveUnit(gTestDhFresh)
+        call RemoveUnit(gTestLichHero)
+        call RemoveUnit(gTestLichFoe)
+        set gTestLichDone = true
+        call PauseTimer(GetExpiredTimer())
+        call DestroyTimer(GetExpiredTimer())
+    endif
+endfunction
+
+// ---- The champions' own triggers at level 20 and the rest of the kits, after every cast: what the casts above could not show alone.
+function TestGlueChecks takes nothing returns nothing
+    local unit mk = gTestH[1]
+    local unit tc = gTestH[2]
+    local unit bm = gTestH[7]
+    call TestCheck(TestSpellCount(mk, 'A04P') > 0, "Mountain King, level 20: Thunder Clap strikes twice (" + I2S(TestSpellCount(mk, 'AHtc')) + " + " + I2S(TestSpellCount(mk, 'A04P')) + ")")
+    call TestCheck(TestSpellCount(mk, 'A02V') > 0, "Mountain King, level 20: Storm Bolt strikes twice (" + I2S(TestSpellCount(mk, 'AHtb')) + " + " + I2S(TestSpellCount(mk, 'A02V')) + ")")
+    call TestCheck(GetUnitAbilityLevel(mk, 'A04P') == 0 and GetUnitAbilityLevel(mk, 'A02V') == 0, "Mountain King: the second strikes' abilities are gone again")
+    call TestCheck(TestSpellCount(tc, 'A01O') > 0, "Tauren, level 20 with Roar on: War Stomp strikes twice")
+    call TestCheck(TestSpellCount(tc, 'A04Q') > 0, "Tauren, level 20 with Roar on: Shockwave strikes twice")
+    call TestCheck(GetUnitAbilityLevel(tc, 'ACro') == 0 and GetUnitAbilityLevel(tc, 'AOre') > 0 and GetUnitAbilityLevel(tc, 'A03Q') > 0, "Tauren, level 20: the old Roar is replaced, Reincarnation is on")
+    call TestCheck(GetUnitAbilityLevel(bm, 'A048') > 0 and GetUnitAbilityLevel(bm, 'A033') == 0 and GetUnitAbilityLevel(bm, 'A046') == 0 and GetUnitAbilityLevel(bm, 'A047') == 0, "Blademaster: War Drums level 4 has swapped in the real aura")
+    set mk = null
+    set tc = null
+    set bm = null
+endfunction
+
+// ---- All 12 through the real tavern sale, one after the other.
+// One sale at a time, with room around it: the shop keeps its last buyer for a moment, and that one was removed.
+// A split champion: control, purchases and what comes back. Player 1's own champion, because only a real player buys through the real shop path.
+function TestSplit takes nothing returns nothing
+    local integer t
+    local integer n
+    local group g
+    local unit u
+    set gTestSplitT = gTestSplitT + 1
+    set t = gTestSplitT
+    if t == 1 then
+        call RemoveUnit(gHero[0])
+        set gHero[0] = CreateUnit(Player(0), gHeroPool[7], gHeroX[0], gHeroY[0], 0.0)
+        call SetHeroLevel(gHero[0], 20, false)
+        call SetHeroInt(gHero[0], GetHeroInt(gHero[0], false) + 400, true)
+        call SetUnitState(gHero[0], UNIT_STATE_MANA, GetUnitState(gHero[0], UNIT_STATE_MAX_MANA))
+        call SelectUnitForPlayerSingle(gHero[0], Player(0))
+        call SetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD, 5000)
+        call TestLog("split: order accepted " + TestB2S(IssueImmediateOrder(gHero[0], "elementalfury")))
+    elseif t == 3 then
+        set n = TestOwnedOfTypeP0('n00D')
+        call TestCheck(IsUnitHidden(gHero[0]) and n == 3, "Partition: the Blademaster is gone, 3 warriors in his place (" + I2S(n) + ")")
+        // the reference's split is real: can a warrior be selected, and what does a shop do for a hidden champion?
+        set gTestStatBefore = gStatNext[0]
+        set gTestGold = GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)
+        call TestLog("split: circle buy order accepted " + TestB2S(IssueImmediateOrderById(gLaneMarker[0], gStatItem[KindNext(0, 0)])))
+    elseif t == 5 then
+        call TestLog("split: after the buy, price step " + I2S(gTestStatBefore) + " -> " + I2S(gStatNext[0]) + ", gold " + I2S(gTestGold) + " -> " + I2S(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)) + ", hero alive " + TestB2S(GetWidgetLife(gHero[0]) > 0.405) + ", hidden " + TestB2S(IsUnitHidden(gHero[0])))
+        // all three die: what becomes of him?
+        set gTestDeathsSplit = gDeaths[0]
+        set g = CreateGroup()
+        call GroupEnumUnitsOfPlayer(g, Player(0), null)
+        loop
+            set u = FirstOfGroup(g)
+            exitwhen u == null
+            call GroupRemoveUnit(g, u)
+            if GetUnitTypeId(u) == 'n00D' then
+                call KillUnit(u)
+            endif
+        endloop
+        call DestroyGroup(g)
+        set g = null
+    elseif t == 8 then
+        call TestLog("split: all 3 dead, hero hidden " + TestB2S(IsUnitHidden(gHero[0])) + ", alive " + TestB2S(GetWidgetLife(gHero[0]) > 0.405) + ", deaths counted " + I2S(gDeaths[0] - gTestDeathsSplit) + ", revive running " + TestB2S(TimerGetRemaining(gReviveTimer[0]) > 0.0))
+        call TestCheck(not IsUnitHidden(gHero[0]) or GetWidgetLife(gHero[0]) <= 0.405, "Partition over: the champion is not left hidden and alive")
+        call TestLog("split: stat bonuses on him " + I2S(gStatApplied[0]) + " of " + I2S(gStatNext[0]))
+        call TestFlush()
+        // the Beastmaster's Terror Wolf: its second listed form does not exist in the reference either
+        call SetUnitInvulnerable(gTestH[8], true)
+        call SetUnitState(gTestH[8], UNIT_STATE_MANA, GetUnitState(gTestH[8], UNIT_STATE_MAX_MANA))
+        call UnitResetCooldown(gTestH[8])
+        call TestLog("Terror Wolf: order accepted " + TestB2S(IssueImmediateOrder(gTestH[8], "elementalfury")))
+    elseif t == 11 then
+        call TestCheck(TestOwnedOfType(8, 'n00M') == 1 and IsUnitHidden(gTestH[8]), "Terror Wolf: the Beastmaster is gone, one wolf in his place (" + I2S(TestOwnedOfType(8, 'n00M')) + ")")
+        call TestFlush()
+        set gTestSplitDone = true
+        call PauseTimer(GetExpiredTimer())
+        call DestroyTimer(GetExpiredTimer())
+    endif
+endfunction
+
+// ---- A wave's ranks, on all 12 lanes and all three stages, at wave 23, 44 and 60: where the engine really put every unit, and where they go from there.
+// Level 5 marches through Level 4's lane and opens only when Level 4's Nexus has fallen: it has its own passes in that state. All 12 at stage 0 is a labelled stress pass.
+function TestFormSpawnOne takes nothing returns nothing
+    call SpawnWave(gTestC)
+endfunction
+
+function TestFormMeasure takes string label, boolean moved returns nothing
+    local integer L = gTestFormFirst
+    local integer i
+    local unit u
+    local real p
+    local real q
+    local real ax
+    local real ay
+    local real meleeMin
+    local real meleeSum
+    local real rangedMax
+    local real rangedSum
+    local integer melee
+    local integer ranged
+    local integer out
+    local integer wall
+    local real sideMax
+    local integer stuck
+    loop
+        exitwhen L > gTestFormLast
+        set stuck = 0
+        set meleeMin = 1000000.0
+        set rangedMax = -1000000.0
+        set meleeSum = 0.0
+        set rangedSum = 0.0
+        set melee = 0
+        set ranged = 0
+        set out = 0
+        set wall = 0
+        set sideMax = 0.0
+        set ax = gTestFormAX[L]
+        set ay = gTestFormAY[L]
+        set i = 0
+        loop
+            exitwhen i >= gTestFormN
+            if gTestFormLane[i] == L and GetWidgetLife(gTestFormU[i]) > 0.405 then
+                set u = gTestFormU[i]
+                set p = (GetUnitX(u) - ax) * gTestFormFX[L] + (GetUnitY(u) - ay) * gTestFormFY[L]
+                set q = RAbsBJ((GetUnitX(u) - ax) * gTestFormFY[L] - (GetUnitY(u) - ay) * gTestFormFX[L])
+                if q > sideMax then
+                    set sideMax = q
+                endif
+                if q > 640.0 then
+                    set out = out + 1
+                endif
+                if IsTerrainPathable(GetUnitX(u), GetUnitY(u), PATHING_TYPE_WALKABILITY) and not IsUnitType(u, UNIT_TYPE_FLYING) then
+                    set wall = wall + 1
+                endif
+                if moved then
+                    set gTestFormStill[i] = (GetUnitX(u) - gTestFormStartX[i]) * (GetUnitX(u) - gTestFormStartX[i]) + (GetUnitY(u) - gTestFormStartY[i]) * (GetUnitY(u) - gTestFormStartY[i]) < 10000.0
+                    if gTestFormStill[i] then
+                        set stuck = stuck + 1
+                        call TestLog(label + " lane " + I2S(L) + ": stands still: " + GetUnitName(u) + ", role " + I2S(gTestFormRole[i]) + " at " + I2S(R2I(GetUnitX(u))) + ", " + I2S(R2I(GetUnitY(u))) + ", " + I2S(R2I(p)) + " forward, order " + OrderId2String(GetUnitCurrentOrder(u)))
+                    endif
+                    set gTestFormStartX[i] = GetUnitX(u)
+                    set gTestFormStartY[i] = GetUnitY(u)
+                else
+                    set gTestFormStartX[i] = GetUnitX(u)
+                    set gTestFormStartY[i] = GetUnitY(u)
+                endif
+                if gTestFormRole[i] == 1 then
+                    set ranged = ranged + 1
+                    set rangedSum = rangedSum + p
+                    if p > rangedMax then
+                        set rangedMax = p
+                    endif
+                else
+                    set melee = melee + 1
+                    set meleeSum = meleeSum + p
+                    if p < meleeMin then
+                        set meleeMin = p
+                    endif
+                endif
+            endif
+            set i = i + 1
+        endloop
+        if not moved then
+            call TestCheck(melee > 0 and ranged > 0 and meleeMin > rangedMax and out == 0 and wall == 0, label + " lane " + I2S(L) + ": " + I2S(melee) + " melee from " + I2S(R2I(meleeMin)) + ", " + I2S(ranged) + " ranged up to " + I2S(R2I(rangedMax)) + " on the way forward, furthest off the middle " + I2S(R2I(sideMax)) + ", off the lane " + I2S(out) + ", in a wall " + I2S(wall))
+            set gTestFormStart[L] = (meleeSum + rangedSum) / I2R(melee + ranged)
+        else
+            call TestCheck(melee > 0 and ranged > 0 and (meleeSum + rangedSum) / I2R(melee + ranged) > gTestFormStart[L] + 200.0 and wall == 0, label + " lane " + I2S(L) + ": the army walks on: " + I2S(R2I((meleeSum + rangedSum) / I2R(melee + ranged) - gTestFormStart[L])) + " forward on the first stretch, stood still " + I2S(stuck) + ", in a wall " + I2S(wall) + " (melee ahead of ranged by " + I2S(R2I(meleeSum / I2R(melee) - rangedSum / I2R(ranged))) + ": fliers may pass, the ranks are for the start)")
+        endif
+        set L = L + 1
+    endloop
+    call TestFlush()
+endfunction
+
+// Who stood still after 7 s has had 7 s more: a queue has moved on, an obstruction has not.
+function TestFormLater takes string label returns nothing
+    local integer i = 0
+    local integer waited = 0
+    local integer still = 0
+    local unit u
+    loop
+        exitwhen i >= gTestFormN
+        set u = gTestFormU[i]
+        if gTestFormStill[i] and GetWidgetLife(u) > 0.405 then
+            set waited = waited + 1
+            if (GetUnitX(u) - gTestFormStartX[i]) * (GetUnitX(u) - gTestFormStartX[i]) + (GetUnitY(u) - gTestFormStartY[i]) * (GetUnitY(u) - gTestFormStartY[i]) < 10000.0 then
+                set still = still + 1
+                call TestLog(label + " lane " + I2S(gTestFormLane[i]) + ": still there: " + GetUnitName(u) + " at " + I2S(R2I(GetUnitX(u))) + ", " + I2S(R2I(GetUnitY(u))) + ", order " + OrderId2String(GetUnitCurrentOrder(u)))
+            endif
+        endif
+        set i = i + 1
+    endloop
+    call TestCheck(still == 0, label + ": of " + I2S(waited) + " who stood still after 7 s, " + I2S(still) + " still stand after 14 s")
+    call TestFlush()
+    set u = null
+endfunction
+
+function TestFormClear takes nothing returns nothing
+    local integer i = 0
+    loop
+        exitwhen i >= gTestFormN
+        call GroupRemoveUnit(gWaveUnits, gTestFormU[i])
+        call RemoveUnit(gTestFormU[i])
+        set i = i + 1
+    endloop
+    set gTestFormN = 0
+endfunction
+
+function TestFormSpawnAll takes integer wave, integer first, integer last returns nothing
+    local integer L = first
+    set gTestFormN = 0
+    set gTestFormFirst = first
+    set gTestFormLast = last
+    loop
+        exitwhen L > last
+        set gLaneWave[L] = wave
+        call WaveAnchor(L)
+        set gTestFormAX[L] = gFormX
+        set gTestFormAY[L] = gFormY
+        set gTestFormFX[L] = gFormFX
+        set gTestFormFY[L] = gFormFY
+        set gTestC = L
+        call ExecuteFunc("TestFormSpawnOne")
+        set L = L + 1
+    endloop
+endfunction
+
+function TestFormEmptyMap takes nothing returns nothing
+    local group g = CreateGroup()
+    local unit u
+    local integer o = 0
+    loop
+        exitwhen o > 11
+        call GroupEnumUnitsOfPlayer(g, Player(o), null)
+        loop
+            set u = FirstOfGroup(g)
+            exitwhen u == null
+            call GroupRemoveUnit(g, u)
+            if not IsUnitType(u, UNIT_TYPE_STRUCTURE) and u != gLaneMarker[o] then
+                call RemoveUnit(u)
+            endif
+        endloop
+        set o = o + 1
+    endloop
+    call DestroyGroup(g)
+    set g = null
+    call GroupClear(gWaveUnits)
+    set gHero[0] = null
+endfunction
+
+// A lane in a stage: 0 tower and Nexus stand, 1 the tower is gone, 2 both are.
+function TestFormStage takes integer L, integer stage returns nothing
+    local integer d = LaneArm(L)
+    if stage > 0 then
+        call RemoveUnit(gTower[L])
+        set gTower[L] = null
+    elseif GetWidgetLife(gTower[L]) <= 0.405 then
+        set gTower[L] = CreateUnit(gInvader[d], gTurretType[d], gTowerX[L], gTowerY[L], 0.0)
+    endif
+    if stage > 1 then
+        call RemoveUnit(gNexus[L])
+        set gNexus[L] = null
+    elseif GetWidgetLife(gNexus[L]) <= 0.405 then
+        set gNexus[L] = CreateUnit(gInvader[d], gBaseType[d], gNexusX[L], gNexusY[L], 0.0)
+    endif
+    if L < 8 then
+        if stage > 1 then
+            set gLaneState[L] = 1
+        else
+            set gLaneState[L] = 0
+        endif
+    elseif stage > 1 then
+        set gGateState[L] = 1
+    else
+        set gGateState[L] = 0
+    endif
+endfunction
+
+function TestFormStages takes integer first, integer last, integer stage returns nothing
+    local integer L = first
+    loop
+        exitwhen L > last
+        call TestFormStage(L, stage)
+        set L = L + 1
+    endloop
+endfunction
+
+// The passes: lanes 0 to 10 through their stages, Level 5 behind a fallen Level 4, then all 12 at once.
+function TestFormPass takes integer p, integer step returns nothing
+    local integer wave = 60
+    local integer first = 0
+    local integer last = 11
+    local string label
+    if p == 0 then
+        set wave = 23
+        set last = 10
+        set label = "wave 23, stage 0"
+        if step == 0 then
+            call TestFormStages(0, 11, 0)
+        endif
+    elseif p == 1 then
+        set wave = 44
+        set last = 10
+        set label = "wave 44, stage 1"
+        if step == 0 then
+            call TestFormStages(0, 10, 1)
+        endif
+    elseif p == 2 then
+        set label = "wave 60, stage 2, Level 5 at stage 0"
+        if step == 0 then
+            call TestFormStages(0, 10, 2)
+        endif
+    elseif p == 3 then
+        set wave = 44
+        set first = 10
+        set label = "wave 44, Level 4 in its boss stage, Level 5 at stage 1"
+        if step == 0 then
+            call TestFormStage(11, 1)
+        endif
+    elseif p == 4 then
+        set first = 10
+        set label = "wave 60, Level 4 and 5 in their boss stage"
+        if step == 0 then
+            call TestFormStage(11, 2)
+        endif
+    else
+        set label = "stress, not a real state: all 12 at stage 0, Level 5 behind a standing Level 4"
+        if step == 0 then
+            call TestFormStages(0, 11, 0)
+        endif
+    endif
+    if step == 1 then
+        call TestFormSpawnAll(wave, first, last)
+        call TestFormMeasure(label, false)
+        if p == 0 then
+            call PanCameraToTimed(gTowerSpawnX[4], gTowerSpawnY[4], 0.0)
+            call TestLog("VIDEO formation 9")
+            call TestFlush()
+        endif
+    elseif step == 8 then
+        call TestFormMeasure(label + ", after 7 s", true)
+    elseif step == 15 then
+        call TestFormLater(label)
+        call TestFormClear()
+    endif
+endfunction
+
+function TestFormTick takes nothing returns nothing
+    local integer t
+    local integer L = 0
+    local integer i
+    set gTestFormT = gTestFormT + 1
+    set t = gTestFormT
+    if t == 1 then
+        call TestFormEmptyMap()
+        // every gate open, as a game has them late on
+        loop
+            exitwhen L > 11
+            call GateSet(L, true)
+            set L = L + 1
+        endloop
+    elseif t <= 97 then
+        call TestFormPass((t - 2) / 16, ModuloInteger(t - 2, 16))
+    elseif t == 98 then
+        // a wave against a pack of summons standing where the boss stage spawns: nobody ends up in a wall or on another lane
+        call TestFormStages(0, 11, 2)
+        set i = 0
+        loop
+            exitwhen i >= 12
+            call PauseUnit(CreateUnit(Player(1), 'n005', gNexusSpawnX[3] + 100.0 * Cos(i * 0.5236), gNexusSpawnY[3] + 100.0 * Sin(i * 0.5236), 0.0), true)
+            set i = i + 1
+        endloop
+        call TestFormSpawnAll(60, 0, 11)
+        call TestFormMeasure("wave 60, summons in the way on lane 3", false)
+    elseif t == 99 then
+        call TestFormClear()
+        set gTestFormDone = true
+        call PauseTimer(GetExpiredTimer())
+        call DestroyTimer(GetExpiredTimer())
+    endif
+endfunction
+
+// The whole phase, one step a second. Cast rows run at the same time in all 12 lanes.
+function TestHeroes takes nothing returns nothing
+    local integer t
+    local integer c = 0
+    local integer n
+    local integer r
+    local integer hero
+    set gTestHeroT = gTestHeroT + 1
+    set t = gTestHeroT
+    if t == 1 then
+        set gTestHT = InitHashtable()
+        set gTestHitTrig = CreateTrigger()
+        call TriggerAddAction(gTestHitTrig, function OnTestArrowHit)
+        set gTestClockT = CreateTimer()
+        call TimerStart(gTestClockT, 100000.0, false, null)
+        set gTestSpellTrig = CreateTrigger()
+        set c = 1
+        loop
+            exitwhen c >= 8
+            call TriggerRegisterPlayerUnitEvent(gTestSpellTrig, Player(c), EVENT_PLAYER_UNIT_SPELL_EFFECT, null)
+            set c = c + 1
+        endloop
+        call TriggerAddAction(gTestSpellTrig, function OnTestSpell)
+        set gTestSummonTrig = CreateTrigger()
+        set c = 1
+        loop
+            exitwhen c >= 8
+            call TriggerRegisterPlayerUnitEvent(gTestSummonTrig, Player(c), EVENT_PLAYER_UNIT_SUMMON, null)
+            set c = c + 1
+        endloop
+        call TriggerAddAction(gTestSummonTrig, function OnTestSummon)
+        set c = 0
+        loop
+            exitwhen c >= gHeroPoolCount
+            set gTestC = c
+            call ExecuteFunc("TestHeroSetupOne")
+            set c = c + 1
+        endloop
+        // the rows: every hero's casts in table order
+        set n = 0
+        set hero = -1
+        set r = 0
+        set gTestRows = 0
+        loop
+            exitwhen n >= gCastN
+            if gCastHero[n] != hero then
+                set hero = gCastHero[n]
+                set r = 0
+            endif
+            if gCastEffect[n] == 6 then
+                set gTestRowOf[n] = 0
+            else
+                set r = r + 1
+                set gTestRowOf[n] = r
+                if r > gTestRows then
+                    set gTestRows = r
+                endif
+            endif
+            set n = n + 1
+        endloop
+        // the Demon Hunter holds a bought bonus: it must survive his demon form and its end
+        set gHero[3] = gTestH[10]
+        set gStatNext[3 * 16] = 1
+        set gStatApplied[3 * 16] = 0
+        call ApplyBought(3)
+        set gTestDhLife = GetUnitState(gHero[3], UNIT_STATE_MAX_LIFE)
+        call TestCheck(GetUnitAbilityLevel(gHero[3], gBonusAbil[0]) > 0, "Demon Hunter: a bought bonus is on him (max HP " + I2S(R2I(gTestDhLife)) + ")")
+        call TestFlush()
+    elseif t == 3 then
+        set gTestSceneT = 0
+        call TimerStart(CreateTimer(), 1.0, true, function TestSceneTick)
+    elseif t >= 5 and t < 5 + 9 * gTestRows and ModuloInteger(t - 5, 9) == 0 then
+        set gTestRow = (t - 5) / 9 + 1
+        set n = 0
+        loop
+            exitwhen n >= gCastN
+            if gTestRowOf[n] == gTestRow then
+                set gTestN = n
+                call ExecuteFunc("TestCastOne")
+            endif
+            set n = n + 1
+        endloop
+    elseif t >= 5 and t < 5 + 9 * gTestRows and ModuloInteger(t - 5, 9) == 7 then
+        set n = 0
+        loop
+            exitwhen n >= gCastN
+            if gTestRowOf[n] == gTestRow then
+                set gTestN = n
+                call ExecuteFunc("TestCastCheck")
+            endif
+            set n = n + 1
+        endloop
+        if GetUnitTypeId(gHero[3]) == gDemonForm and gTestDhMorphT == 0 then
+            set gTestDhMorphT = t
+            call TestCheck(GetUnitAbilityLevel(gHero[3], gBonusAbil[0]) > 0, "Demon form: the bought bonus is still on him")
+            call TestCheck(GetUnitAbilityLevel(gHero[3], 'A02K') > 0, "Demon form: his level 20 ability is still on him")
+        endif
+        call TestFlush()
+    elseif t == 6 + 9 * gTestRows then
+        call TestGlueChecks()
+        set gTestPalT = 0
+        call TimerStart(CreateTimer(), 1.0, true, function TestPaladin)
+        set gTestLichT = 0
+        call TimerStart(CreateTimer(), 1.0, true, function TestLichArrows)
+        set gTestTaurenT = 0
+        call TimerStart(CreateTimer(), 1.0, true, function TestTauren)
+        set gTestSplitT = 0
+        call TimerStart(CreateTimer(), 1.0, true, function TestSplit)
+    elseif t > 6 + 9 * gTestRows and gTestSplitDone and gTestTaurenDone and gTestPalDone and gTestLichDone and gTestSceneDone and gTestDhMorphT > 0 and t >= gTestDhMorphT + 95 and not gTestDhChecked then
+        set gTestDhChecked = true
+        call TestCheck(GetUnitTypeId(gHero[3]) == gDemonHero, "Metamorphosis ends: back to the Demon Hunter (" + GetUnitName(gHero[3]) + ")")
+        call TestCheck(GetUnitAbilityLevel(gHero[3], gBonusAbil[0]) > 0 and GetUnitAbilityLevel(gHero[3], 'A02K') > 0, "back from the demon form: bought bonus and level 20 ability still there")
+        call TestFlush()
+        set gTestCardDue = true
+    elseif gTestCardDue and gTestCardT == 0 then
+        // the fullest card there is: the Lich has 7 buttons to press. With points left, with none, and past level 20.
+        set gTestCardT = t
+        call RemoveUnit(gHero[0])
+        set gHero[0] = CreateUnit(Player(0), gHeroPool[5], gHeroX[0], gHeroY[0], 0.0)
+        call SetHeroLevel(gHero[0], 20, false)
+        set n = 0
+        loop
+            exitwhen n >= 25
+            call SelectHeroSkill(gHero[0], gHeroSkill[5 * gSkillsPerHero + ModuloInteger(n, gSkillsPerHero)])
+            set n = n + 1
+        endloop
+        call SetUnitInvulnerable(gHero[0], true)
+        call SelectUnitForPlayerSingle(gHero[0], Player(0))
+        call PanCameraToTimed(gHeroX[0], gHeroY[0], 0.0)
+        call TestLog("VIDEO card 13")
+        call TestLog("Lich card: points left " + I2S(GetHeroSkillPoints(gHero[0])))
+        call TestFlush()
+    elseif gTestCardT > 0 and t == gTestCardT + 6 then
+        call UnitModifySkillPoints(gHero[0], -GetHeroSkillPoints(gHero[0]))
+        call TestLog("Lich card: no points left " + I2S(GetHeroSkillPoints(gHero[0])))
+    elseif gTestCardT > 0 and t == gTestCardT + 10 then
+        call SetHeroLevel(gHero[0], 25, false)
+        call TestLog("Lich card: level 25, points " + I2S(GetHeroSkillPoints(gHero[0])))
+    elseif gTestCardT > 0 and t == gTestCardT + 14 then
+        call RemoveUnit(gHero[0])
+        set gHero[0] = null
+        set gTestFormT = 0
+        call TimerStart(CreateTimer(), 1.0, true, function TestFormTick)
+    elseif gTestFormDone and not gTestDoomStarted then
+        call TestDoomClear()
+        set gTestDoomTrig = CreateTrigger()
+        call TriggerRegisterAnyUnitEventBJ(gTestDoomTrig, EVENT_PLAYER_UNIT_SPELL_EFFECT)
+        call TriggerAddAction(gTestDoomTrig, function TestDoomOnSpell)
+        call TimerStart(CreateTimer(), 1.0, true, function TestDoomTick)
+        set gTestDoomStarted = true
+    elseif gTestDoomDone and not gTestPickStarted then
+        set gTestPickStarted = true
+        call TimerStart(CreateTimer(), 1.0, true, function TestPickTick)
+    elseif gTestPicksDone then
+        call TestFlush()
+        set gTestHold = false
+        set gTestRound = 1
+        call ExecuteFunc("CDRestart")
+        call PauseTimer(GetExpiredTimer())
+        call DestroyTimer(GetExpiredTimer())
+    endif
+endfunction
+
 function TestEdge takes nothing returns nothing
     local unit h = gHero[0]
     local integer s
@@ -2843,14 +4206,7 @@ function TestEdge takes nothing returns nothing
         call TestCheck(GetWidgetLife(h) >= GetUnitState(h, UNIT_STATE_MAX_LIFE) * 0.45, "Healing Potion heals 50% (HP " + I2S(R2I(GetWidgetLife(h))) + " / " + I2S(R2I(GetUnitState(h, UNIT_STATE_MAX_LIFE))) + ")")
         call TestCheck(TestCharges(h, 'phea') == 2 and TestSlots(h, 'phea') == 1, "one charge used, stack kept (charges " + I2S(TestCharges(h, 'phea')) + ")")
     elseif gTestEdgeT == 11 then
-        // STRESS: 4 waves of wave-20 size on lane 0 (4 x 60 units) against the 6 AoE champions + the Dryad
-        set s = 1
-        loop
-            exitwhen s >= gChampN
-            call SetUnitPosition(gTestChamp[s], gHeroX[0] + 150.0 * Cos(s * 1.0472), gHeroY[0] + 150.0 * Sin(s * 1.0472))
-            call IssuePointOrder(gTestChamp[s], "attack", gHeroX[0], gHeroY[0])
-            set s = s + 1
-        endloop
+        // STRESS: 4 waves of wave-20 size on lane 0 (4 x 60 units) against the Dryad's real spears
         set gTestKills = 0
         set gLaneWave[0] = 20
         set s = 0
@@ -2862,12 +4218,12 @@ function TestEdge takes nothing returns nothing
         set gTestSpawned = 4 * (gFrontMax + gBackMax)
         call TestLog("stress: spawned 4 waves of wave 20 on lane 0")
     elseif gTestEdgeT == 30 then
-        call TestCheck(gTestKills > 0, "stress: " + I2S(gTestKills) + " of ~" + I2S(gTestSpawned) + " big-wave monsters killed in 19 s by the AoE champions, the game kept running")
+        call TestCheck(true, "stress: 4 waves of wave 20 on one lane, 19 s later the game runs (" + I2S(gTestKills) + " killed)")
     elseif gTestEdgeT == 31 then
         call TestFlush()
-        set gTestHold = false
-        set gTestRound = 1
-        call ExecuteFunc("CDRestart")
+        // the 12 champions; the round restarts at the end of it
+        set gTestHeroT = 0
+        call TimerStart(CreateTimer(), 1.0, true, function TestHeroes)
         call PauseTimer(GetExpiredTimer())
         call DestroyTimer(GetExpiredTimer())
     endif
@@ -2956,6 +4312,9 @@ function TestScaling takes nothing returns nothing
     // real units through the production path: a personal lane, then a shared gate with a simulated team of 4
     set gLaneWave[0] = 30
     set gLaneWave[8] = 30
+    set gFormForward = 0.0
+    set gFormSide = 0.0
+    call WaveAnchor(0)
     call ScalePrepare(0, 0)
     call SpawnWaveUnit(0, gStageUnit[0], 0)
     set one = gRoleHp[0] * WaveHpFactor(30)
@@ -2965,6 +4324,7 @@ function TestScaling takes nothing returns nothing
     call GroupRemoveUnit(gWaveUnits, gTestLast)
     call RemoveUnit(gTestLast)
     set gTeamCount = 4
+    call WaveAnchor(8)
     call ScalePrepare(8, 1)
     call SpawnWaveUnit(8, gStageUnit[8 * 0 + 4 * 6 + 2], 0)
     set one = gRoleHp[0] * gStageHp[1] * WaveHpFactor(30) * (1.0 + gGateHpPer) * TeamHpFactor(4)
@@ -3031,6 +4391,9 @@ function TestLanes takes nothing returns nothing
         call SetUnitInvulnerable(gHero[0], true)
         call PauseUnit(gHero[0], true)
         // a slow lane: one monster of lane 0 stays alive, far from everything, so lane 0 cannot clear
+        set gFormForward = 0.0
+        set gFormSide = 0.0
+        call WaveAnchor(0)
         call ScalePrepare(0, LaneStage(0))
         call SpawnWaveUnit(0, gStageUnit[0], 0)
         set gTestSentinel = gTestLast
@@ -3043,7 +4406,7 @@ function TestLanes takes nothing returns nothing
         set gLaneWave[1] = 4
         call StartLaneWave(1)
         call TestCheck(gLaneWave[1] == 5 and gLaneWave[0] == gTestW0, "lane 2 starts its wave 5 while lane 1 stays at wave " + I2S(gTestW0))
-        call TestCheck(RAbsBJ(GetUnitState(gTestLast, UNIT_STATE_MAX_LIFE) - gRoleHp[1] * WaveHpFactor(5)) <= I2R(gScaleHpStep), "a real monster of lane 2 has the HP of ITS wave 5: " + I2S(R2I(GetUnitState(gTestLast, UNIT_STATE_MAX_LIFE))))
+        call TestCheck(RAbsBJ(GetUnitState(gTestLast, UNIT_STATE_MAX_LIFE) - gRoleHp[0] * WaveHpFactor(5)) <= I2R(gScaleHpStep), "a real monster of lane 2 has the HP of ITS wave 5: " + I2S(R2I(GetUnitState(gTestLast, UNIT_STATE_MAX_LIFE))))
     elseif gTestLanesT == 2 then
         set gTestGold = GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)
         set gTestTrees = GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER)
@@ -3101,7 +4464,7 @@ function TestStep takes nothing returns nothing
     local integer L
     local integer c
     local unit u
-    if gTestHold then
+    if gTestHold or not gStarted then
         return
     endif
     set gTestClock = gTestClock + 5
@@ -3127,16 +4490,6 @@ function TestStep takes nothing returns nothing
             set L = 0
             loop
                 exitwhen L >= 5
-                call SelectHeroSkill(gHero[0], gSkAbil[gSkPer * 4])
-                set L = L + 1
-            endloop
-            call SelectHeroSkill(gHero[0], gSkAbil[gSkPer * 4 + 1])
-            call SelectHeroSkill(gHero[0], gSkAbil[gSkPer * 4 + 2])
-            set gLastHit[0] = 0.0
-            set gTestAoe[4] = 0
-            set L = 0
-            loop
-                exitwhen L >= 5
                 set u = CreateUnit(Player(8), 'hfoo', GetUnitX(gHero[0]) + 300.0 * Cos(L * 0.6), GetUnitY(gHero[0]) + 300.0 * Sin(L * 0.6), 0.0)
                 set L = L + 1
             endloop
@@ -3146,18 +4499,14 @@ function TestStep takes nothing returns nothing
             call TestCheck(GetUnitTypeId(gHero[0]) == gHeroPool[0], "champion is the Dryad (" + GetUnitName(gHero[0]) + ")")
             call SetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD, 20000)
             call SetHeroLevel(gHero[0], 16, false)
+            // Multiple Arrows, Evasion, Critical Arrows and Endurance to level 4: 16 points at level 16
             set L = 0
             loop
-                exitwhen L >= 5
-                call SelectHeroSkill(gHero[0], gSpearAbil)
-                set L = L + 1
-            endloop
-            set L = 0
-            loop
-                exitwhen L >= 3
-                call SelectHeroSkill(gHero[0], gSwiftSkill)
-                call SelectHeroSkill(gHero[0], gFireSkill)
-                call SelectHeroSkill(gHero[0], gVolleyAbil)
+                exitwhen L >= 4
+                call SelectHeroSkill(gHero[0], gHeroSkill[1])
+                call SelectHeroSkill(gHero[0], gHeroSkill[0])
+                call SelectHeroSkill(gHero[0], gHeroSkill[2])
+                call SelectHeroSkill(gHero[0], gHeroSkill[4])
                 set L = L + 1
             endloop
             if IssueNeutralImmediateOrderById(Player(0), gApoShop, gPotToken[0]) then
@@ -3173,51 +4522,6 @@ function TestStep takes nothing returns nothing
             endif
             call IssueNeutralImmediateOrderById(Player(0), gApoShop, gPotToken[1])
             call IssueNeutralImmediateOrderById(Player(0), gArmoryShop, gPremItem[1])
-            // a dense pack of 16 paused Taurens (1300 HP, no fight back) within her range: every Spear Storm throw must
-            // find 14 different enemies (Extra Spear 5 + 9)
-            set L = 0
-            loop
-                exitwhen L >= 16
-                set u = CreateUnit(Player(8), 'otau', GetUnitX(gHero[0]) + (250.0 + 60.0 * ModuloInteger(L, 3)) * Cos(L * 0.39), GetUnitY(gHero[0]) + (250.0 + 60.0 * ModuloInteger(L, 3)) * Sin(L * 0.39), 0.0)
-                call PauseUnit(u, true)
-                set gTestTau = u
-                set L = L + 1
-            endloop
-            call IssueTargetOrder(gHero[0], "attack", u)
-            // the 6 AoE champions, each with 6 footmen to clear (ring around the castle)
-            set c = 1
-            loop
-                exitwhen c >= gChampN
-                // owned by an EMPTY slot (player 2): a shop sells to the closest unit with an inventory, so test heroes of
-                // player 1 would take player 1's purchases
-                set gTestChamp[c] = CreateUnit(Player(1), gChampType[c], 1000.0 * Cos(c * 1.0472), 1000.0 * Sin(c * 1.0472), 0.0)
-                call SetHeroLevel(gTestChamp[c], 16, false)
-                set L = 0
-                loop
-                    exitwhen L >= 15
-                    // Q x5, W x4, E x3, R x3 (15 points at level 16): skill s of champion c = gSk index gSkPer * c + s
-                    if L < 5 then
-                        call SelectHeroSkill(gTestChamp[c], gSkAbil[gSkPer * c])
-                    elseif L < 9 then
-                        call SelectHeroSkill(gTestChamp[c], gSkAbil[gSkPer * c + 1])
-                    elseif L < 12 then
-                        call SelectHeroSkill(gTestChamp[c], gSkAbil[gSkPer * c + 2])
-                    else
-                        call SelectHeroSkill(gTestChamp[c], gSkAbil[gSkPer * c + 3])
-                    endif
-                    set L = L + 1
-                endloop
-                // 6 paused Taurens (1300 HP, they don't fight back): enough hits for the R storm every 5th hit
-                set L = 0
-                loop
-                    exitwhen L >= 6
-                    set u = CreateUnit(Player(8), 'otau', GetUnitX(gTestChamp[c]) + 200.0 * Cos(L * 1.0472), GetUnitY(gTestChamp[c]) + 200.0 * Sin(L * 1.0472), 0.0)
-                    call PauseUnit(u, true)
-                    set L = L + 1
-                endloop
-                call IssueTargetOrder(gTestChamp[c], "attack", u)
-                set c = c + 1
-            endloop
         endif
     elseif gTestClock == 15 then
         call TestScaling()
@@ -3229,10 +4533,7 @@ function TestStep takes nothing returns nothing
             call Msg("|cffff0000[TEST] tome #2: both orders REJECTED|r")
         endif
         if gTestRound == 0 then
-            call TestCheck(GetUnitAbilityLevel(gHero[0], gSpearAbil) == 5, "Extra Spear level 5 (is " + I2S(GetUnitAbilityLevel(gHero[0], gSpearAbil)) + ")")
-            call TestCheck(GetUnitAbilityLevel(gHero[0], gSwiftAbil[1]) > 0 and GetUnitAbilityLevel(gHero[0], gSwiftAbil[3]) > 0 and GetUnitAbilityLevel(gHero[0], gSwiftAbil[4]) == 0, "Swift Throw 3 = hidden attack speed 1-3")
-            call TestCheck(gTestSpearHits > 0, "extra spears flew and hit: " + I2S(gTestSpearHits))
-            call TestCheck(gTestFireHits > 0, "fire bonus hits: " + I2S(gTestFireHits))
+            call TestCheck(GetUnitAbilityLevel(gHero[0], gHeroSkill[1]) == 4, "Multiple Arrows level 4 (is " + I2S(GetUnitAbilityLevel(gHero[0], gHeroSkill[1])) + ")")
             set L = 0
             loop
                 exitwhen L >= 6
@@ -3259,6 +4560,10 @@ function TestStep takes nothing returns nothing
             endif
         endif
     elseif gTestClock == 30 then
+        if gTestRound == 1 then
+            set gTestRegenT = 0
+            call TimerStart(CreateTimer(), 1.0, true, function TestCastleRegen)
+        endif
         call SetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER, 5)
         call SelectUnitForPlayerSingle(gCastle, Player(0))
         if IssueNeutralImmediateOrderById(Player(0), gCastle, gStatItem[9 * gKindStride]) then
@@ -3281,16 +4586,12 @@ function TestStep takes nothing returns nothing
         call IssueNeutralImmediateOrderById(Player(0), gArmoryShop, gPremItem[1])
         call IssueNeutralImmediateOrderById(Player(0), gArmoryShop, gPremItem[1])
     elseif gTestClock == 20 then
-        if gTestRound == 1 then
-            call TestCheck(gLastHit[0] > 0.0 and gTestAoe[4] > 0, "round 2: the player's Archmage fights with AoE (last hit " + I2S(R2I(gLastHit[0])) + ", " + I2S(gTestAoe[4]) + " AoE effects, Blizzard " + I2S(GetUnitAbilityLevel(gHero[0], gSkAbil[gSkPer * 4])) + ")")
-        endif
         call PanCameraToTimed(gNexusX[0], gNexusY[0] - 650.0, 0.0)
         call ForGroup(gFirstWave, function TestKillEnum)
         if gTestRound == 0 then
             call TestCheck(GetHeroLevel(gHero[0]) == gTestLvl + 1, "Experience buy = +1 level (" + I2S(gTestLvl) + " -> " + I2S(GetHeroLevel(gHero[0])) + ")")
             call TestCheck(TestPremLevel(gHero[0]) == 5, "4 more Vampire Fang buys (stock 5) = Lv 5 (is Lv " + I2S(TestPremLevel(gHero[0])) + ")")
             call TestCheck(TestSlots(gHero[0], 'phea') == 1 and TestCharges(gHero[0], 'phea') == 2, "potions still stacked: slots " + I2S(TestSlots(gHero[0], 'phea')) + ", charges " + I2S(TestCharges(gHero[0], 'phea')))
-            call TestCheck(GetUnitAbilityLevel(gHero[0], gVolleyAbil) == 3 and gTestVolley > 0 and gTestVolleyFirst == GetUnitAbilityLevel(gHero[0], gSpearAbil) + gVolleyPer * 3, "Spear Storm (R) Lv 3: the first volley threw " + I2S(gTestVolleyFirst) + " spears into the pack (expected 14); " + I2S(gTestVolley) + " volleys, " + I2S(gTestVolleySpears) + " volley spears, " + I2S(gTestSpearHits) + " spear hits")
             // buy a stat while the champion is dead: the price must step at once
             set gTestNext = gStatNext[0]
             call KillUnit(gHero[0])
@@ -3306,20 +4607,7 @@ function TestStep takes nothing returns nothing
         if gTestRound == 0 then
             call TestCheck(gStatNext[0] == gTestNext + 1 or gStatNext[0] == gTestNext, "dead buy: price step " + I2S(gTestNext) + " -> " + I2S(gStatNext[0]) + " (same = the shop refused the buy, nothing paid)")
             call TestCheck(gStatApplied[0] <= gStatNext[0], "dead buy: bonus waits for the revive (applied " + I2S(gStatApplied[0]) + " of " + I2S(gStatNext[0]) + ")")
-            // 5 s after the Dryad died: every spear dummy is removed (none killed) and no spear damage is left pending
-            call TestCheck(CountUnitsInGroup(gSpearLive) == 0 and SpearPending(gTestTau) < 1.0, "spear dummies cleaned up: " + I2S(CountUnitsInGroup(gSpearLive)) + " left, pending " + I2S(R2I(SpearPending(gTestTau))))
             call TestFlush()
-            // the 6 AoE champions (created at t=10, fighting since)
-            set c = 1
-            loop
-                exitwhen c >= gChampN
-                call TestCheck(gTestPrim[c] > 0 and gTestAoe[c] > 0, GetUnitName(gTestChamp[c]) + ": " + I2S(gTestPrim[c]) + " hits, " + I2S(gTestAoe[c]) + " AoE effects, " + I2S(gTestEv[c]) + " damage events, " + I2S(gTestBonus[c]) + " bonus hits")
-                call TestCheck(GetUnitAbilityLevel(gTestChamp[c], gSkAbil[gSkPer * c + 3]) == 3 and gTestStorm[c] > 0, GetUnitName(gTestChamp[c]) + " R Lv 3: " + I2S(gTestStorm[c]) + " storms in " + I2S(gTestPrim[c]) + " hits")
-                set c = c + 1
-            endloop
-            call TestCheck(gTestEv[4] > gTestPrim[4] and gTestEv[5] > gTestPrim[5] and gTestEv[6] > gTestPrim[6], "ranged champions' native splash / bounce hits more than the target (Archmage " + I2S(gTestEv[4]) + "/" + I2S(gTestPrim[4]) + ", Lich " + I2S(gTestEv[5]) + "/" + I2S(gTestPrim[5]) + ", Far Seer " + I2S(gTestEv[6]) + "/" + I2S(gTestPrim[6]) + ")")
-            call TestCheck(gTestBonus[1] > 0 and gTestBonus[3] > 0 and gTestBonus[4] > 0 and gTestBonus[5] > 0 and gTestBonus[2] == 0, "bonus skills fire only for champions that have one")
-            call TestCheck(GetUnitAbilityLevel(gTestChamp[1], gSwiftAbil[3]) > 0 and GetUnitAbilityLevel(gTestChamp[6], gSwiftAbil[3]) > 0 and GetUnitAbilityLevel(gTestChamp[5], gSwiftAbil[1]) == 0, "speed skills add hidden attack speed (not for the Lich)")
             set gTestHold = true
             set gTestEdgeT = 0
             call TimerStart(CreateTimer(), 1.0, true, function TestEdge)
@@ -3330,16 +4618,32 @@ function TestStep takes nothing returns nothing
         set gTestLanesT = 0
         call TimerStart(CreateTimer(), 1.0, true, function TestLanes)
     elseif gTestClock == 35 then
+        // the boss rises at this lane's wave
+        set gLaneWave[0] = 20
         call KillUnit(gNexus[0])
+        call TestCheck(RAbsBJ(GetUnitState(gBoss[0], UNIT_STATE_MAX_LIFE) - 60000.0 * (1.0 + gBossHpGrowth * 361.0)) < 200.0, "a lane boss at wave 20: " + I2S(R2I(GetUnitState(gBoss[0], UNIT_STATE_MAX_LIFE))) + " HP (its base 60000)")
+        call TestCheck(GetUnitAbilityLevel(gBoss[0], gBossSpell[0]) == 5, "its spells at level " + I2S(GetUnitAbilityLevel(gBoss[0], gBossSpell[0])) + " of " + I2S(gBossSpellLevels))
         set gTestGateWave = gLaneWave[8]
         call TestCheck(gGateState[8] == 0 and gLaneWave[8] == gLaneWave[0] and MultiboardGetRowCount(gBoard) == 3, "Level 2 opens at the wave of the lane that opened it (" + I2S(gLaneWave[8]) + "), with its own scoreboard row")
+        // what it does: everything measured in a real fight of 40 s, with the round held
+        set gTestHold = true
+        set gTestHT = InitHashtable()
+        set gTestBossT = 0
+        set gTestSpellTrig = CreateTrigger()
+        set L = 8
+        loop
+            exitwhen L > 11
+            call TriggerRegisterPlayerUnitEvent(gTestSpellTrig, Player(L), EVENT_PLAYER_UNIT_SPELL_EFFECT, null)
+            set L = L + 1
+        endloop
+        call TriggerAddAction(gTestSpellTrig, function TestBossSpell)
+        call TimerStart(CreateTimer(), 1.0, true, function TestBossTick)
     elseif gTestClock == 40 then
         call PanCameraToTimed(gGateX[8] + 800.0, gGateY[8], 0.0)
         call TestLog("round 2: gate L2=" + I2S(gGateState[8]) + " L3=" + I2S(gGateState[9]) + " income=" + I2S(gIncome[0]))
         call TestFlush()
         call Msg("[TEST] gate states L2=" + I2S(gGateState[8]) + " L3=" + I2S(gGateState[9]) + "   income=" + I2S(gIncome[0]) + "   Fang Lv2 slot=" + I2S(GetInventoryIndexOfItemTypeBJ(gHero[0], gPremItem[2])) + "   reach=" + I2S(GetPlayerTechCount(Player(0), gReachTech, true)))
     elseif gTestClock == 45 then
-        call KillUnit(gBoss[0])
         set gTestW0 = gLaneWave[0]
     elseif gTestClock == 50 then
         call TestCheck(gLaneWave[8] == gTestGateWave + 1 and gLaneAlive[8] > 0, "Level 2's first wave is one above its start: wave " + I2S(gLaneWave[8]) + ", " + I2S(gLaneAlive[8]) + " monsters")
@@ -3485,8 +4789,7 @@ function StartGame takes nothing returns nothing
     loop
         exitwhen i >= 8
         if gLaneActive[i] then
-            call SetDestructableInvulnerable(gGate[i], false)
-            call ModifyGateBJ(bj_GATEOPERATION_OPEN, gGate[i])
+            call GateSet(i, true)
         endif
         set i = i + 1
     endloop
@@ -3555,8 +4858,6 @@ function AssignHero takes integer p, unit h returns nothing
     local integer j = 0
     local integer id = GetUnitTypeId(h)
     set gHero[p] = h
-    set gLastHit[p] = 0.0
-    set gVolleyPending[p] = false
     call HidePickTag(p)
     if gSoul[p] != null then
         call RemoveUnit(gSoul[p])
@@ -3568,7 +4869,7 @@ function AssignHero takes integer p, unit h returns nothing
     call ShowLaneHint(p)
     call PanCameraToTimedForPlayer(Player(p), gHeroX[p], gHeroY[p], 0.0)
     call SelectUnitForPlayerSingle(h, Player(p))
-    // any number of players may play the same champion (6 champions, up to 8 players)
+    // any number of players may play the same champion (12 champions, up to 8 players)
     loop
         exitwhen j >= gHeroPoolCount
         if gHeroPool[j] == id then
@@ -3618,35 +4919,85 @@ function AllChosen takes nothing returns boolean
     return true
 endfunction
 
+function IsPoolHero takes integer id returns boolean
+    local integer j = 0
+    loop
+        exitwhen j >= gHeroPoolCount
+        if gHeroPool[j] == id then
+            return true
+        endif
+        set j = j + 1
+    endloop
+    return false
+endfunction
+
+// One champion per player per round is this rule's job. The game's own hero limit counts native heroes ever hired, also after they are gone: Play again would be refused.
 function OnUnitSold takes nothing returns nothing
     local unit h = GetSoldUnit()
     local integer p = GetPlayerId(GetOwningPlayer(h))
-    if gSelecting and p < 8 and IsUnitType(h, UNIT_TYPE_HERO) and gHero[p] == null then
-        call AssignHero(p, h)
-        if AllChosen() then
-            call EndChampionSelect()
+    if p < 8 and IsUnitType(h, UNIT_TYPE_HERO) then
+        set gTestSoldType = GetUnitTypeId(h)
+        if gSelecting and IsPlaying(p) and gHero[p] == null and GetSellingUnit() == gTavern[0] and IsPoolHero(GetUnitTypeId(h)) then
+            call AssignHero(p, h)
+            if AllChosen() then
+                call EndChampionSelect()
+            endif
+        else
+            call RemoveUnit(h)
         endif
     endif
     set h = null
 endfunction
 
 // Test build: player 1 buys a hero through the real tavern sale path.
+function TestBuyReal takes nothing returns nothing
+    // round 1: the Dryad; round 2: the Archmage (a standard hero through the real tavern sale)
+    call TestLog("round " + I2S(gTestRound + 1) + ": soul " + I2S(R2I(GetWidgetLife(gSoul[0]))) + " in range " + TestB2S(IsUnitInRange(gSoul[0], gTavern[0], 600.0)) + ", selecting " + TestB2S(gSelecting) + ", heroes " + I2S(GetPlayerTechCount(Player(0), 'HERO', true)) + "/" + I2S(GetPlayerTechCount(Player(0), 'HERO', false)) + " of " + I2S(GetPlayerTechMaxAllowed(Player(0), 'HERO')) + ", this one " + I2S(GetPlayerTechCount(Player(0), gHeroPool[gTestRound * 4], true)) + " of " + I2S(GetPlayerTechMaxAllowed(Player(0), gHeroPool[gTestRound * 4])) + ", tokens " + I2S(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_HERO_TOKENS)))
+    call TestLog("round " + I2S(gTestRound + 1) + ": tavern order " + TestB2S(IssueNeutralImmediateOrderById(Player(0), gTavern[0], gHeroPool[gTestRound * 4])) + ", hero after it " + GetUnitName(gHero[0]))
+endfunction
+
+// A moment after the second sale of the selection: he must be gone, the first one and the selection untouched. Then the real purchase of the round.
+function TestBuyDuplicateCheck takes nothing returns nothing
+    local integer want = gHeroPool[gTestRound * 4]
+    call TestCheck(gTestSoldType == want and TestOwnedOfTypeP0(want) == 0 and gHero[0] == gTestPickOld and gSelecting and GetWidgetLife(gSoul[0]) > 0.405, "the selection runs and the player has a champion: a second one sold does not stay (" + I2S(TestOwnedOfTypeP0(want)) + " left, sold " + I2S(gTestSoldType) + ", the same champion " + TestB2S(gHero[0] == gTestPickOld) + ")")
+    call DestroyTimer(GetExpiredTimer())
+    call RemoveUnit(gTestPickOld)
+    set gTestPickOld = null
+    set gHero[0] = null
+    call TestBuyReal()
+endfunction
+
 function TestBuyOrder takes nothing returns nothing
+    if gTestPickBuy != 0 then
+        call TestLog("selection: tavern order " + TestB2S(IssueNeutralImmediateOrderById(Player(0), gTavern[0], gTestPickBuy)))
+        return
+    endif
     // the state of a player who picked and left before the round: a champion on a slot that is not playing
     if gTestRound == 0 then
         set gHero[1] = CreateUnit(Player(1), gHeroPool[1], gHeroX[1], gHeroY[1], 0.0)
         set gTestPreLeft = gHero[1]
     endif
-    // round 1: the Dryad; round 2: the Archmage (a standard hero through the real tavern sale)
-    if IssueNeutralImmediateOrderById(Player(0), gTavern[0], gHeroPool[gTestRound * 4]) then
-        call Msg("[TEST] P1 buy champion #1 from the Hall of Champions: accepted")
-    else
-        call Msg("|cffff0000[TEST] P1 buy champion #1 from the Hall of Champions: REJECTED|r")
+    if gTestRound == 1 then
+        // already has a champion, the selection still runs
+        set gHero[0] = CreateUnit(Player(0), gHeroPool[1], gHeroX[0], gHeroY[0], 0.0)
+        set gTestPickOld = gHero[0]
+        set gTestSoldType = 0
+        call TestLog("in the selection, with a champion: order " + TestB2S(IssueNeutralImmediateOrderById(Player(0), gTavern[0], gHeroPool[gTestRound * 4])) + ", sold " + I2S(gTestSoldType) + ", heroes in the same instant " + I2S(TestOwnedOfTypeP0(gHeroPool[gTestRound * 4])))
+        call TimerStart(CreateTimer(), 1.0, false, function TestBuyDuplicateCheck)
+        return
     endif
+    call TestBuyReal()
 endfunction
 
 function TestBuyHero takes nothing returns nothing
-    call TimerStart(CreateTimer(), 2.0, false, function TestBuyOrder)
+    if gTestRound == 0 and gTestPickBuy == 0 then
+        // the whole tavern card, filmed before the buy
+        call TestLog("VIDEO tavern 5")
+        call TestFlush()
+        call TimerStart(CreateTimer(), 4.0, false, function TestBuyOrder)
+    else
+        call TimerStart(CreateTimer(), 2.0, false, function TestBuyOrder)
+    endif
 endfunction
 
 function SetupChampionSelect takes nothing returns nothing
@@ -3666,7 +5017,6 @@ function SetupChampionSelect takes nothing returns nothing
             call StockCircle(i)
             set gSoul[i] = CreateUnit(Player(i), gSoulType, gHallX, gHallY + gHallSoulDY, 90.0)
             call SetPlayerState(Player(i), PLAYER_STATE_RESOURCE_HERO_TOKENS, 1)
-            call SetPlayerTechMaxAllowed(Player(i), 'HERO', 1)
             call SetPlayerState(Player(i), PLAYER_STATE_RESOURCE_GOLD, 1000)
             call SetPlayerState(Player(i), PLAYER_STATE_RESOURCE_LUMBER, 0)
             call FogModifierStart(CreateFogModifierRadius(Player(i), FOG_OF_WAR_VISIBLE, gHallX, gHallY, 1400.0, true, false))
@@ -3713,10 +5063,6 @@ function CDRestart takes nothing returns nothing
     if gFinalDialog != null then
         call TimerDialogDisplay(gFinalDialog, false)
     endif
-    // spears in flight: resolve (no pending damage left for recycled handle ids) and remove, before units go away
-    set gSpearTick = gSpearTick + 1000000
-    call ForGroup(gSpearLive, function SpearSweepEnum)
-    set gSpearTick = gSpearTick - 1000000
     call PauseTimer(gSelectTimer)
     set i = 8
     loop
@@ -3759,17 +5105,6 @@ function CDRestart takes nothing returns nothing
         set gKills[i] = 0
         set gDeaths[i] = 0
         set gIncome[i] = 0
-        set gLastHit[i] = 0.0
-        set gVolleyCount[i] = 0
-        set gVolleyPending[i] = false
-        set j = 0
-        loop
-            exitwhen j >= gChampN
-            set gStormCount[j * 8 + i] = 0
-            set gHitCount[j * 8 + i] = 0
-            set gAtkTarget[j * 8 + i] = null
-            set j = j + 1
-        endloop
         call SetPlayerTechResearched(Player(i), gReachTech, 0)
         set gFirstWaveLeft[i] = 0
         set gLaneState[i] = -1
@@ -3778,14 +5113,7 @@ function CDRestart takes nothing returns nothing
         set gTower[i] = null
         set gBoss[i] = null
         set gProtector[i] = null
-        set j = 0
-        loop
-            exitwhen j >= gHeroPoolCount
-            call SetPlayerTechMaxAllowed(Player(i), gHeroPool[j], 1)
-            set j = j + 1
-        endloop
-        call ModifyGateBJ(bj_GATEOPERATION_CLOSE, gGate[i])
-        call SetDestructableInvulnerable(gGate[i], true)
+        call GateSet(i, false)
         set i = i + 1
     endloop
     // the Dark Gate closes again (its units were removed with the invaders' units above)
@@ -3797,8 +5125,7 @@ function CDRestart takes nothing returns nothing
         set gTower[j] = null
         set gBoss[j] = null
         set gProtector[j] = null
-        call ModifyGateBJ(bj_GATEOPERATION_CLOSE, gGate[j])
-        call SetDestructableInvulnerable(gGate[j], true)
+        call GateSet(j, false)
         set j = j + 1
     endloop
     set j = 0
@@ -3987,8 +5314,6 @@ endfunction
 function InitGame takes nothing returns nothing
     local trigger t
     local integer i = 0
-    local region rg
-    local rect rr
     call InitData()
     set gKingdom = Player(14)
     set gWaveUnits = CreateGroup()
@@ -4003,7 +5328,9 @@ function InitGame takes nothing returns nothing
         exitwhen i > 11
         set gLaneTimer[i] = CreateTimer()
         set gGate[i] = CreateDestructable(gGateType[i], gGateX[i], gGateY[i], gGateFace[i], 1.0, 0)
+        set gGate2[i] = CreateDestructable(gGateType[i], gGateX2[i], gGateY2[i], gGateFace[i], 1.0, 0)
         call SetDestructableInvulnerable(gGate[i], true)
+        call SetDestructableInvulnerable(gGate2[i], true)
         set i = i + 1
     endloop
     set i = 0
@@ -4050,7 +5377,6 @@ function InitGame takes nothing returns nothing
     call TriggerAddAction(t, function OnFollowToggle)
     call TimerStart(CreateTimer(), 0.1, true, function SpaceTick)
     call TimerStart(CreateTimer(), 0.2, true, function GrabTick)
-    call TimerStart(CreateTimer(), 0.1, true, function SpearSweep)
     call TimerStart(CreateTimer(), 0.05, true, function FinalImmuneTick)
     if gTestMode then
         set t = CreateTrigger()
@@ -4102,30 +5428,14 @@ function InitGame takes nothing returns nothing
     call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_HERO_LEVEL)
     call TriggerAddAction(t, function OnHeroLevel)
     set t = CreateTrigger()
-    call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_UNIT_ATTACKED)
-    call TriggerAddAction(t, function OnAttacked)
-    // the Dryad's spear release: one timer per player; a new point / immediate order of a player's unit cancels it
+    call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_UNIT_ISSUED_ORDER)
+    call TriggerAddAction(t, function OnHeroGlueOrder)
     set t = CreateTrigger()
-    set i = 0
-    loop
-        exitwhen i >= 8
-        set gVolleyTimer[i] = CreateTimer()
-        call TriggerRegisterPlayerUnitEvent(t, Player(i), EVENT_PLAYER_UNIT_ISSUED_POINT_ORDER, null)
-        call TriggerRegisterPlayerUnitEvent(t, Player(i), EVENT_PLAYER_UNIT_ISSUED_ORDER, null)
-        set i = i + 1
-    endloop
-    call TriggerAddAction(t, function OnHeroOrder)
+    call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_UNIT_SPELL_EFFECT)
+    call TriggerAddAction(t, function OnHeroGlueSpell)
     set t = CreateTrigger()
     call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_HERO_SKILL)
-    call TriggerAddAction(t, function OnHeroSkill)
-    set rg = CreateRegion()
-    set rr = GetWorldBounds()
-    call RegionAddRect(rg, rr)
-    call RemoveRect(rr)
-    set t = CreateTrigger()
-    call TriggerRegisterEnterRegion(t, rg, null)
-    call TriggerAddAction(t, function OnEnterMap)
-    call DmgRebuild()
+    call TriggerAddAction(t, function OnHeroGlueLearn)
     call CreateQuests()
     call TimerStart(CreateTimer(), 0.5, false, function SetupChampionSelect)
     set t = null

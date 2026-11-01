@@ -11,7 +11,7 @@ ruins, then fight through the four shared **gate levels** (2–5). When every bo
 
 ## How a round goes
 
-1. **Champion select (45 s):** click a champion in the Hall of Champions — 7 champions, free, several players may
+1. **Champion select (45 s):** click a champion in the Hall of Champions — 12 champions, free, several players may
    pick the same one. No walking needed.
 2. **Your lane:** your champion spawns and revives on your Champion's Circle at your lane entrance.
 3. **Waves: every lane has its own.** Your next wave comes **as soon as your lane is clear**, so clearing fast means stronger monsters and more gold, and nobody waits for anybody. After your every 10th wave you get a **1-minute
@@ -20,11 +20,11 @@ ruins, then fight through the four shared **gate levels** (2–5). When every bo
    stands, basic units come out of it. Tower down → a **Protector** guards the Nexus,
    the next wave comes at once and stronger units come out of the Nexus. Nexus down → its boss rises and the
    strongest units come out of the ruins until the boss dies. ⚠️ Towers hit for ~25 000 and Nexuses for ~27 500 per shot (20 000 / 15 000 HP) — every next building and gate
-   level hits harder. Lane bosses: 60 000 HP, ~2400 per hit.
-5. **Monsters are strong from the start and grow with every wave:** melee 700 HP / 60 damage, ranged 420 HP / 120 damage at wave 1; at wave 10 about 2400 / 145 and 1400 / 295, at wave 20 about 8200 / 450 and 4900 / 900. ×1.5 HP and ×1.25 damage after your tower falls, ×2 and ×1.5 in the boss stage. **Spend your 1000 gold at your Circle before the first wave.** **Kill gold:** a minion pays as much gold as its lane's wave number (wave 5 → 5 gold), double on Level 2, triple on
+   level hits harder. Lane bosses: 60 000 HP and ~2400 per hit at wave 1, far more at later waves (493 200 HP and ~9300 at wave 20). **Bosses run at top speed and no stun holds them.**
+5. **Fewer monsters, each far stronger, growing with every wave:** melee 700 HP / 60 damage, ranged 420 HP / 120 damage at wave 1; at wave 10 about 5900 / 275 and 3500 / 555, at wave 20 about 23 900 / 1030 and 14 300 / 2065. They start in ranks, melee in front, ranged behind. ×1.5 HP and ×1.25 damage after your tower falls, ×2 and ×1.5 in the boss stage. **Spend your 1000 gold at your Circle before the first wave.** **Kill gold:** a minion pays its lane's wave number in gold, more at higher waves (wave 5 → 7 gold, wave 20 → 50), double on Level 2, triple on
    Level 3.
-6. **Wave size:** front line (melee) = 4 + 2 per wave, back line (ranged) = +1 per wave (max 40 + 20 per lane). Every 10th wave adds
-   weakened champions (1 at wave 10, 2 at wave 20, ...).
+6. **Wave size:** front line (melee) = 5 + wave, back line (ranged) = half the wave (max 16 + 8 per lane). Every 10th wave adds
+   wave champions (1 at wave 10, 2 at wave 20, ... at most 6).
 7. **Level 2 — the Dark Gate (NE):** opens when the first player destroys a Nexus. A shared lane with a stronger
    tower and Nexus; its monsters pay extra gold per kill. It goes on from the wave of the player who opened it and then counts by itself. Clearing a gate's wave pays **everyone** its gold and 1 tree.
 8. **Level 3 — the Frozen Gate (NW)**, **Level 4 — the Shadow Gate (SW)** and **Level 5 — the Inferno Gate (far
@@ -42,7 +42,7 @@ ruins, then fight through the four shared **gate levels** (2–5). When every bo
 - **Champion's Circle** (your own shop, instant, +3 % price per buy): Health +600, Mana +75, Damage +20,
   Armor +8, Strength +20, Agility +20, Intelligence +20, All stats +10 — bonuses show as green stats — and
   **Experience +1 level** (250 gold).
-- **The Castle** (select it; 1 tree each): Castle Health +1000, Castle Armor +3, Castle Regeneration +10 HP/s,
+- **The Castle** (select it; 1 tree each): Castle Health +1000, Castle Armor +3, Castle Regeneration +10 HP/s (its button shows what was bought so far),
   Repair +2000 HP, Shockwave (a quarter of their HP off every wave monster near the castle).
 - **Secret grove** (narrow passage at the SE corner of the plaza; its shops sell to your champion anywhere on the
   map — just select the shop): Fountain of Power (fast HP + mana),
@@ -56,22 +56,22 @@ bosses.
 
 ## Champions
 
-- Spells on **Q W E R**; every level-up refills HP and mana; clearing your first wave gives level 2.
-- Hero level is practically unlimited, 1 skill point per level. Q W E have 5 levels, the R ultimate 3 (hero level
-  6 / 11 / 16): all spells are maxed at hero level 18 at the earliest. From hero level 11 a point can also go into
-  **Attributes** (learn key T): +30 Strength, Agility and Intelligence per level.
-- All heroes, melee too, can attack flying units.
-- **7 champions**, 4 passive skills each — Q W E (5 levels) and the **R ultimate** (3 levels, at hero level 6 / 11 / 16):
-  - **Dryad** — spears: Extra Spear (+1 spear per level, thrown together with hers at other enemies in her range),
-    Swift Throw (attack speed), Fire Spears (+damage, fire burst on every spear), R **Spear Storm** (every 4th throw
-    +3 / 6 / 9 spears).
-  - **Mountain King**, **Tauren Chieftain**, **Pit Lord** — melee with **cleave** on every hit; R Avatar / Stampede /
-    Inferno.
-  - **Archmage**, **Lich** — ranged **splash**; R Flame Strike / Frost Wyrm. **Far Seer** — lightning **bounces** to 4
-    enemies; R Thunderstorm.
-  - Their skills: **blast** (every hit damages enemies around the target), **nova** (every 3rd hit, a big area),
-    **bonus** (+damage), **speed** (+attack speed); the R ultimates are a **storm**: every 5th hit strikes every enemy
-    in a huge area around the target (100 / 200 / 300 % of the hit) — built to clear the big waves.
+- Every level-up refills HP and mana; clearing your first wave gives level 2.
+- Hero level is practically unlimited. All five skills are learned by hero level 20; from level 21 every level-up adds +30 to all stats.
+- Skills on **Q W E R T**, innate ability on **D**, the level 20 ability on **F**.
+- **12 champions from X Hero Siege 3.28, with their real abilities:**
+  - **Dryad** — **Multiple Arrows**: every attack also throws spears at other enemies, up to 4 / 6 / 8 / 10 hit, each with the damage of her weapon. Evasion, Critical Arrows, two auras, poison.
+  - **Mountain King** — Storm Bolt, Thunder Clap, Bash, Avatar. From level 20 Bolt and Clap strike twice.
+  - **Tauren Chieftain** — Shockwave, War Stomp, Pulverize; level 20: Reincarnation.
+  - **Pit Lord** — Rain of Fire, War Stomp, cleave, Doom, Finger of Death.
+  - **Archmage** — Blizzard, Water Elemental, Frost Bolt, Starfall.
+  - **Lich** — Frost Nova, Breath of Frost, Frost Arrows, Frost Beast.
+  - **Paladin** — Healing Wave, Fan of Light, Pure Light; level 20: Light Frenzy resets cooldowns.
+  - **Blademaster** — Wind Walk, Critical Strike, Mirror Image, Bladestorm; level 20: splits into 3.
+  - **Beastmaster** — bears, wolves, hawks, Stampede; level 20: Terror Wolf.
+  - **Crypt Lord** — Impale, Spiked Carapace, Carrion Beetles, Locust Swarm.
+  - **Demon Hunter** — Immolation, Negative Energy, Metamorphosis.
+  - **Priestess of the Moon** — Chain Lightning, Forked Lightning, Monsoon.
 
 ## Commands
 
