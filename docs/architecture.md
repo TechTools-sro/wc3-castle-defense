@@ -43,7 +43,7 @@
 | Area | Functions |
 |---|---|
 | Helpers | `Msg`, `IsPlaying`, `GiveAllGold`, `SideName`, `GrantLevelTwo`, `LaneName`, `PingLane`, `LaneArm` (lane → arm: 0-7 → 0-3, 8 → 4, 9 → 5; use it instead of `L / 2`) |
-| Shops | `KindNext` (per-player vs global step), `StockCircle` (player circle), `StockCastle` (castle), `CastleShockwave`, `AdvanceStatPrice` (apply any circle/castle buy), `BuyIncome` + `IncomeTick` (bank, paid by `OnTick` on every full game-clock minute), `PremiumLevel` + `PremiumFamily` + `MergePremium`/`MergePremiumAll` (merge premium items, `gPremItem[i*8+L]`; also run every 0.2 s by `GrabTick`), `OnItemPickup`, `TryReach` (Long Reach), `OnItemSold` (neutral shops: counts Bank buys, hands remote purchases to the buyer — premium items always to the champion — stacks potions, merges premium items), `PotionIndex` + `StackPotion` + `DrinkPotion` (Apothecary potions: stack on buy/pickup, heal % on use), `GrabTomeEnum`/`GrabTick` (bought items on the ground → champion; premium merge sweep), `OnHeroLevel` (refill + stats past the Attributes cap) |
+| Shops | `KindNext` (per-player vs global step), `StockCircle` (player circle), `StockCastle` (castle), `CastleShockwave`, `AdvanceStatPrice` (apply any circle/castle buy; kind type 2 = Experience → `AddHeroXP`), `BuyIncome` + `IncomeTick` (bank, paid by `OnTick` on every full game-clock minute), `PremiumLevel` + `PremiumFamily` + `MergePremium`/`MergePremiumAll` (merge premium items, `gPremItem[i*8+L]`; also run every 0.2 s by `GrabTick`), `OnItemPickup`, `TryReach` (Long Reach), `OnItemSold` (neutral shops: counts Bank buys, hands remote purchases to the buyer — premium items always to the champion — stacks potions, merges premium items), `PotionIndex` + `StackPotion` + `DrinkPotion` (Apothecary potions: stack on buy/pickup, heal % on use), `GrabTomeEnum`/`GrabTick` (bought items on the ground → champion; premium merge sweep), `OnHeroLevel` (refill + stats past the Attributes cap) |
 | Lane hint | `ShowLaneHint` (creates the circle unit, its rect, label) |
 | Scoreboard | `BoardSet`, `TimeText` (m:ss), `UpdateBoard` (1 s; game time `gGameTime` counted in `OnTick`), `BoardWidth`, `CreateBoard` |
 | Setup | `SetupAlliances`, `SetupDarkness`, `MakeWallInvulnerable`, `CreateKingdom`, `CreateLaneBase` |
@@ -91,7 +91,7 @@
 | `Ixr1` | item (base `tst2`) | Long Reach (+150 attack range per buy) |
 | `Rcrg` | upgrade (base `Rhri`, `war3map.w3q`) | Long Reach range upgrade, 5 levels × 150 (`ratr`); every hero lists it in `upgr` |
 | `Ib01` | item (base `tst2`) | Bank: Income +10 per minute for 1 tree |
-| `Ih Im Id Ir Is Ia Ii Il` + `00`–`39` | item (base `tst2`) | Circle shop kinds × price steps |
+| `Ih Im Id Ir Is Ia Ii Il Ix` + `00`–`39` | item (base `tst2`) | Circle shop kinds × price steps (`Ix` = Experience) |
 | `Iy Ik Ie` + `00`–`39`, `Ic00`, `Iw00` | item (base `tst2`) | Castle shop: health/armor/regen steps, repair, shockwave (1 tree each) |
 | `Ip01`–`Ip08` | item | Premium items Lv 1 (sold) |
 | `Iu<i><L>` (i 1–8, L 2–5) | item | Premium items Lv 2–5 (made by the merge, never sold) |

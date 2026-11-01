@@ -237,6 +237,10 @@ KINDS_DEF = [
 ]
 for _kd in KINDS_DEF:
     _kd["type"] = "abil"
+# Experience (row 3, key Z): each buy = exactly one level's worth of XP for the champion (100 x (level + 1), the game's
+# NeedHeroXP formula), so it stays worth one level at any level; price +10 % per buy like the stats.
+KINDS_DEF.append({"item": "Ix", "name": "Experience", "type": "xp", "unam": "Experience +1 level", "value": 1,
+                  "key": "Z", "icon": CB + "BTNTome.blp", "effect": "+1 level", "price": 250})
 # Castle upgrades, sold by the CASTLE itself (allied shop, row 1 of its command card). One global price step
 # per kind: the castle is shared and each castle bonus ability can only be added once.
 #   castleheal: heals the castle by value; castleabil: adds the next copy of a hidden bonus ability to the castle
@@ -254,7 +258,7 @@ KINDS_DEF += [
 ]
 CASTLE_TREE_COST = 1          # every castle upgrade costs 1 tree (lumber), no gold
 KINDS = len(KINDS_DEF)
-KIND_TYPE = {"abil": 1, "castleheal": 3, "castleabil": 4, "castleshock": 5}
+KIND_TYPE = {"abil": 1, "xp": 2, "castleheal": 3, "castleabil": 4, "castleshock": 5}
 STAT_TIERS = 40
 STAT_BASE_PRICE, STAT_PRICE_GROWTH = 100, 1.10
 
@@ -289,7 +293,7 @@ def kind_tiers(s):
 
 
 def kind_slot(s):
-    """Fixed button (x, y). Circle: rows 1-2 = the 8 hero kinds. Castle shop: its own "slot"."""
+    """Fixed button (x, y). Circle: rows 1-2 = the 8 stat kinds, row 3 = Experience. Castle shop: its own "slot"."""
     if is_castle_kind(s):
         return KINDS_DEF[s]["slot"]
     return (s % 4, s // 4)
@@ -550,7 +554,7 @@ def custom_items():
     for si, kd in enumerate(KINDS_DEF):
         castle = is_castle_kind(si)
         for k in range(kind_tiers(si)):
-            mods = [("unam", S, f"{kd['name']} +{kd['value']}"), ("iico", S, kd["icon"]), ("uhot", S, kd["key"]),
+            mods = [("unam", S, kd.get("unam", f"{kd['name']} +{kd['value']}")), ("iico", S, kd["icon"]), ("uhot", S, kd["key"]),
                     ("utip", S, f"{kd['name']}  |cff4fc3ffLv {k}|r  (|cffffcc00{kd['key']}|r)"),   # Lv = times already bought
                     ("utub", S, f"{kind_effect(si)}|n|n" + (f"|cff80ff80Costs {CASTLE_TREE_COST} tree|r" if castle
                                                               else "|cffff8c00Next buy: +10% gold|r")),

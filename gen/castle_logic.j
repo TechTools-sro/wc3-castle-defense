@@ -188,6 +188,14 @@ function AdvanceStatPrice takes integer p, item it returns nothing
                 return
             endif
             set gStatNext[p * 16 + s] = k + 1
+            if gKindType[s] == 2 and gHero[p] != null then
+                // Experience: exactly one level's worth of XP (NeedHeroXP step = 100 x (level + 1))
+                call RemoveItem(it)
+                call AddHeroXP(gHero[p], 100 * (GetHeroLevel(gHero[p]) + 1), true)
+                call DisplayTimedTextToPlayer(Player(p), 0.0, 0.0, 4.0, "|cffffcc00+1 level|r")
+                call StockCircle(p)
+                return
+            endif
             if gHero[p] != null then
                 // item-bonus ability -> shows as a green +N bonus, base stats stay untouched
                 call UnitAddAbility(gHero[p], gBonusAbil[s * 64 + k])
@@ -1553,9 +1561,9 @@ function TestStep takes nothing returns nothing
     elseif gTestClock == 30 then
         call SetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER, 5)
         call SelectUnitForPlayerSingle(gCastle, Player(0))
-        if IssueNeutralImmediateOrderById(Player(0), gCastle, gStatItem[8 * 64]) then
+        if IssueNeutralImmediateOrderById(Player(0), gCastle, gStatItem[9 * 64]) then
             call Msg("[TEST] castle buy via neutral order: accepted")
-        elseif IssueImmediateOrderById(gCastle, gStatItem[8 * 64]) then
+        elseif IssueImmediateOrderById(gCastle, gStatItem[9 * 64]) then
             call Msg("[TEST] castle buy via shop order: accepted")
         else
             call Msg("|cffff0000[TEST] castle buy: both orders REJECTED|r")

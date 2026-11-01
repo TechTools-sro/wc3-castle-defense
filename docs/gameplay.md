@@ -115,7 +115,7 @@ Every Nexus boss drops one EPIC crown at its ruins (purple ping + "EPIC DROP" me
 - **Level 2** when the player's first wave is cleared (or at wave 2 for everyone). Every level-up refills HP + mana.
 - Death → revive on the Champion's Circle after `4 + 2*level` s, max 24 s (`StartRevive`). Deaths counted.
 
-## Champion's Circle shop (per player, `KINDS_DEF` rows 1–2 in `gen/objects.py`)
+## Champion's Circle shop (per player, `KINDS_DEF` rows 1–3 in `gen/objects.py`)
 
 | Slot | Key | Item | Gives | Base price |
 |---|---|---|---|---|
@@ -127,6 +127,7 @@ Every Nexus boss drops one EPIC crown at its ruins (purple ping + "EPIC DROP" me
 | 2,2 | S | Agility | +10 Agi | 100 |
 | 3,2 | D | Intelligence | +10 Int | 100 |
 | 4,2 | F | All stats | +3 Str/Agi/Int | 100 |
+| 1,3 | Z | Experience | +1 level: XP = 100 × (level + 1), the game's NeedHeroXP step (kind type 2, `AdvanceStatPrice`) | 250 |
 
 - Instant: each buy adds a hidden item-bonus ability copy → shows as a **green +N**, base stats untouched.
 - Every buy +10 % for that player and kind (`STAT_PRICE_GROWTH`), 40 steps (`STAT_TIERS`).

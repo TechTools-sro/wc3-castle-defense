@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.9 — 2026-11-01: buy experience at the Champion's Circle
+
+- **Uploaded as catalogue map #24** (HTTP 201, download SHA-256 `f234d422…` matches).
+
+- Jiří: "add to the champions circle option to buy xp for gold". New circle kind **Experience +1 level** (row 3, key Z,
+  250 gold, +10 % per buy, 40 steps; `KINDS_DEF` kind type `xp` = 2 in `gen/objects.py`, item `Ix00`–`Ix39`). Each buy
+  adds exactly one level's worth of XP, `100 × (level + 1)` = the game's NeedHeroXP step, so it stays one level at any
+  level (`AdvanceStatPrice`). The castle kinds moved one index up (first castle kind = 9; the test step follows).
+  Verified: pjass + build; not tried in-game.
+
 ## v1.8 — 2026-11-01: premium item upgrades no longer depend on shop events
 
 - **Uploaded as catalogue map #23** (HTTP 201, download SHA-256 `1c121554…` matches).
