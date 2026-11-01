@@ -56,7 +56,7 @@ Invader of arm `d` = Player(8 + d): 0 North **The Scourge**, 1 East **The Burnin
    Nexus, stronger. **Nexus destroyed → that lane's boss rises** (+150 gold to all). Boss slain → +250 gold to all.
 5. **Levels.** Level 1 = the player lanes; Levels 2–5 are shared gate lanes, each harder, opening one after the
    other (see below).
-6. **Win** when every active lane's boss is dead **and all four gate levels are cleared** (their bosses dead). **Lose** when the castle dies. End dialog: *Play again*
+6. **Final boss** when every active lane's boss is dead **and all four gate levels are cleared** (see below). **Win** when he dies. **Lose** when the castle dies (shielded during his fight). End dialog: *Play again*
    (full reset → champion select, fresh castle, prices reset, taverns restocked) or *Finish game*.
 
 Only active lanes (player present) have monsters, a base and an open gate; empty lanes stay gated.
@@ -116,6 +116,25 @@ Higher level = harder.
 - The **Bank** (secret grove, gold-mine look) sells **Income +100** for **1 tree**: +100 gold every minute,
   stacks without limit (`BANK_ITEM`, `INCOME_STEP`). Paid on every full minute of the game clock (1:00, 2:00, …;
   `IncomeTick` from `OnTick`). Restart resets income and trees.
+
+## The final boss (v4.0, `FINAL_*` in `gen/objects.py`, `StartFinalBoss` … in `gen/castle_logic.j`)
+
+**Kharazul the World Ender** (`nbf0`, Archimonde's model at scale 2.4, ranged 700, 320 speed).
+
+- **When:** every active lane boss and all 4 gate levels are done (`CheckVictory` → `StartFinalBoss`). Waves stop for
+  good, the castle is shielded (invulnerable), a 30 s warning runs (`FINAL_DELAY`), then he rises south of the castle
+  (`FINAL_BOSS_POS`). **His death wins the game** (`OnFinalBossDead`). He is leashed to the plaza and the lane entrances
+  (`FINAL_LEASH` 1700 from the castle), so revived champions are back quickly.
+- **Stats follow the game clock**, minute m, at spawn and on every new minute of the fight (`FinalApplyStats`; the HP %
+  stays, so growing does not heal him):
+  - max HP = (5 000 000 + 250 000 × m) × 1 / 2 / 3 for 1–2 / 3–5 / 6–8 players, rounded down to 100 000; regen 500 HP/s
+  - damage = 20 000 + 1000 × m chaos, every 1.2 s; armor = 30 + m / 2
+  - spell tier +1 every 5 minutes (10 tiers); he goes up via "bit" abilities (`FinalBits`, steps 100 000 HP / 100 damage / 1 armor)
+- **Stuns don't hold him:** `FinalImmuneTick` (0.05 s) removes the stun buffs at once and shows "Stun immune!".
+- **His own skills** (`FinalBossTick`, damage × tier 1–10): Storm Bolt every 6 s (4000, 2.5 s stun), War Stomp every 8 s
+  (3000, 450 area, 2 s stun), Shockwave every 11 s (4000, 1200 long), Inferno every 20 s (5000, 300 area, 2 s stun + an
+  Infernal for 30 s), passive Bash (25 %, 1 s). Targets: nearest champion within 900 first, never an invulnerable unit.
+- The scoreboard title shows his HP during the fight.
 
 ## EPIC boss loot (`EPIC_ITEMS`, `DropEpic`)
 
@@ -228,8 +247,8 @@ anywhere on the map (`Aneu` radius 20 000). Bought items go straight into his in
   then its stronger waves, then the Nexus.
 - **Nexus: 15 000 HP, armor 10, huge attack** ~27 500 (27400 + 4d50) chaos missile every 2.5 s, range 700, hits air too
   (`BASE_HP`, `NEXUS_*`, `nexus_attack`).
-- Boss strength by player count: 1–2 / 3–5 / 6–8 players → 35 000 / 60 000 / 90 000 HP, armor 3 / 4 / 5,
-  ~1800 / ~2400 / ~3000 chaos per hit (`BOSS_HP`, `BOSS_DMG`).
+- Lane boss: **always the middle tier**, 60 000 HP, armor 4, ~2400 chaos per hit, for any player count
+  (`BOSS_HP[1]`, `BOSS_DMG[1]`; the script spawns `gBossType[d * 3 + 1]`, tiers 0 and 2 exist in the data but are unused).
   Bosses cast spells, summon, and are leashed to their ruins (`BossTick`).
 
 ## UI and commands

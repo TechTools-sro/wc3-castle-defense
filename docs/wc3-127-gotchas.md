@@ -25,6 +25,10 @@
   spills onto any floor nearby, even a separate walled room: monsters showed up in the Hall of Champions, 512 from the
   Frozen Gate tower spawn (most likely this; v3.8 moved the hall 2300+ away from every spawn). Keep separate rooms
   well away from spawn points.
+- **All stuns players can apply use one buff:** Storm Bolt, War Stomp, Bash (also the item) = `BPSE` in AbilityData
+  (Inferno `BNin`). Removing it with `UnitRemoveAbility` on a fast timer = stun immunity.
+- **Max HP / damage / armor can't be set in 1.27:** item-bonus abilities with distinct ids stack, so binary "bit" abilities
+  add any amount (`FinalBits`); keep the HP % yourself, removing a bit clamps the life.
 - **Never kill an attack dummy — remove it.** A transparent dying Archer still plays its death scream and blood: those
   are model events, `usnd` "" doesn't stop them. `SpearSweep` removes spent dummies with `RemoveUnit`.
 - **A dummy whose target dies before its damage point re-acquires** anything within its acquisition range (the
@@ -106,6 +110,10 @@
   change across a tile edge shows as a seam.
 
 ## Game install / Wine
+
+- **A single-player game pauses when its window loses focus** (most likely cause: the clock froze at 0:11 for a whole
+  self-test run while the owner used the PC, with no crash and no results). `tools/run_test.sh` therefore runs the game
+  in a Wine virtual desktop (`explorer /desktop=cdtest,1280x720`).
 
 - **Never overwrite a map file in place while WC3 runs**: the game keeps the MPQ open and reads it lazily, and
   a rewritten file crashes it with "Not enough memory — SFile.cpp line 898". `build.py` installs by copying to

@@ -155,6 +155,11 @@ def nexus_spawn(L):
     return from_arm(d, s * LANE_U, 5120)
 
 
+# The FINAL BOSS (v4.0) rises in the plaza, south of the castle - every Champion's Circle is close, so a revived champion
+# is back in the fight quickly. Leash: he never leaves the plaza and the lane entrances (castle = centre).
+FINAL_BOSS_POS = (0, -1000)
+FINAL_LEASH = 1700.0
+
 # Hall of Champions: ONE tavern (v2.0) just north of the souls (selectors, at HALL_SOUL_DY below the centre)
 HALL_TAVERNS = [(0, 160)]              # 256 x 256 footprint -> y +32..+288 inside the 384 half-size
 HALL_SOUL_DY = -128

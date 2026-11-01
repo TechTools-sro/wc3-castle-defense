@@ -1,5 +1,34 @@
 # Changelog
 
+## v4.0 — 2026-11-01: the final boss
+
+- **Uploaded as catalogue map #77** (HTTP 201, download SHA-256 `04c52fdc…` matches; 28 versions in the family).
+
+- Jiří: "the final boss will be ultra strong: stats based on the minute, immune to stuns, his own stun skills".
+- **Kharazul the World Ender** (`nbf0`) rises when every lane boss and all 4 gate levels are done (`CheckVictory` →
+  `StartFinalBoss`): waves stop, the castle is shielded, a 30 s warning, then he stands south of the castle, leashed to
+  the plaza. **Victory is now his death** (`OnFinalBossDead`), no longer the last gate boss.
+- **Stats by the game minute m**, also during the fight (`FinalApplyStats`): max HP (5 000 000 + 250 000 m) × 1 / 2 / 3 by
+  player count, damage 20 000 + 1000 m, armor 30 + m / 2, spell tier +1 every 5 minutes; his HP % stays when he grows.
+  1.27 can't set these directly: binary "bit" abilities with distinct ids stack (`FinalBits`).
+- **Stuns don't hold him:** `FinalImmuneTick` (0.05 s) removes `BPSE` / `BSTN` and shows "Stun immune!".
+- **His skills** (`FinalBossTick`): Storm Bolt, War Stomp, Shockwave, Inferno on a fixed schedule, passive Bash; he picks
+  the nearest champion first and ignores invulnerable units (`FinalFindTarget`). The scoreboard title shows his HP.
+- **Doc correction:** lane bosses always spawn the middle tier (60 000 HP, ~2400 per hit) at any player count; the
+  "by player count" numbers in the docs and in the v3.9 entry below were wrong.
+- `tools/run_test.sh`: the game runs in a small Wine virtual desktop (a click or focus loss on the normal window seems to
+  pause the game: a whole run froze at 0:11) and closes itself on the new `SELFTEST DONE` line (Jiří's rule: close your own
+  test game).
+- **Verified in-game (Wine, full self-test): 60 PASS, 0 FAIL, no crash, 162 s.** This is also the first in-game run of
+  v3.5–v3.9: 7 champions with R Lv 3 (2–3 storms in 10–16 hits each), first Spear Storm throws exactly 14 spears, spear
+  dummies and pending damage cleaned up, stress 215 of 240 wave-20 monsters in 19 s. Final boss: rises after the warning;
+  max HP 5 200 000 at minute 1 (formula 5 250 000, rounded down to the 100 000 step); castle takes no damage; a real Storm
+  Bolt's stun removed at once; +5 minutes: HP 6 500 000, damage +6000, armor +3, tier 0 → 1, still 50 % HP; Storm Bolt 2,
+  War Stomp 2, Shockwave 2, Inferno 1 casts; no more waves; his death = victory; Play again clears the final phase.
+- **Not verified:** seeing the spears fly (the test camera wasn't on her); his spells against real champions (test
+  targets were paused Taurens); the 2× / 3× HP with more players (the test has one player); the balance of all v3.9 / v4.0
+  numbers in a real fight.
+
 ## v3.9 — 2026-11-01: much stronger towers, Nexuses and bosses
 
 - **Uploaded as catalogue map #76** (HTTP 201, download SHA-256 `19edd60e…` matches; 27 versions in the family).

@@ -158,7 +158,8 @@ FX = {"fire": "Abilities\\Weapons\\FireBallMissile\\FireBallMissile.mdl",
       "infernal": "Units\\Demon\\Infernal\\InfernalBirth.mdl",
       "flamestrike": "Abilities\\Spells\\Human\\FlameStrike\\FlameStrike1.mdl",
       "wyrm": "Abilities\\Weapons\\FrostWyrmMissile\\FrostWyrmMissile.mdl",
-      "purge": "Abilities\\Spells\\Orc\\Purge\\PurgeBuffTarget.mdl", "": ""}
+      "purge": "Abilities\\Spells\\Orc\\Purge\\PurgeBuffTarget.mdl",
+      "final": "Abilities\\Spells\\Demon\\DarkPortal\\DarkPortalTarget.mdl", "": ""}
 BLAST_RAD, NOVA_RAD, CLEAVE_RAD = 300, 450, 250
 STORM_RAD, STORM_EVERY, VOLLEY_EVERY = 650, 5, 4
 R_LEVELS, R_REQ_LEVEL, R_LEVEL_SKIP = 3, 6, 5        # the ultimate: hero level 6, 11, 16
@@ -476,7 +477,7 @@ def wave_champion_id(d):     # weakened faction champion for waves (d 4-7: gate 
     return f"nc{d}0"
 
 
-def boss_id(d, k):           # k = player-count tier: 0 (1-2 players), 1 (3-5), 2 (6-8)
+def boss_id(d, k):           # k = strength tier; the script always spawns tier 1 (OnNexusDestroyed), 0 and 2 are unused
     return f"nb{d}{k}"
 
 
@@ -513,9 +514,71 @@ assert all(GATE_LEVELS[i]["tower"][0] < GATE_LEVELS[i + 1]["tower"][0] and GATE_
     "every next level's tower and Nexus must have more HP"
 
 
+# ---- The FINAL BOSS (v4.0, Jiri: "ultra strong, stats based on the minute, immune to stuns, his own stun skills").
+# He rises when every lane boss and all 4 gate levels are done; his death wins the game (StartFinalBoss, castle_logic.j).
+# Stats follow the game clock, minute m - at spawn and on every new minute of the fight (FinalApplyStats):
+#   max HP = (FINAL_HP_BASE + FINAL_HP_PER_MIN * m) * player factor (1-2 / 3-5 / 6-8 players: 1 / 2 / 3)
+#   damage = FINAL_DMG_BASE + FINAL_DMG_PER_MIN * m;  armor = FINAL_ARMOR_BASE + m / FINAL_ARMOR_EVERY
+# 1.27 can't set max HP / damage / armor directly: "bit" abilities (distinct ids stack, FinalBits) add any amount.
+# Spells: FINAL_TIERS copies of each with stronger damage, one tier up every FINAL_TIER_EVERY minutes.
+FINAL_BOSS_ID = "nbf0"
+FINAL_BOSS_NAME = "Kharazul the World Ender"
+FINAL_HP_UNIT, FINAL_HP_BASE, FINAL_HP_PER_MIN = 1000000, 5000000, 250000
+FINAL_DMG_BASE, FINAL_DMG_PER_MIN = 20000, 1000
+FINAL_ARMOR_BASE, FINAL_ARMOR_EVERY = 30, 2
+FINAL_REGEN = 500.0
+FINAL_HP_BITS, FINAL_HP_STEP = 10, 100000       # +100 000 .. +51 200 000
+FINAL_DMG_BITS, FINAL_DMG_STEP = 10, 100        # +100 .. +51 200
+FINAL_ARMOR_BITS = 7                            # +1 .. +64
+FINAL_TIERS, FINAL_TIER_EVERY = 10, 5
+FINAL_SPELL_PREFIX = ["Xfb", "Xfs", "Xfw", "Xfi"]      # Storm Bolt, War Stomp, Shockwave, Inferno (order: FinalBossTick)
+FINAL_BASH = "Xfbh"
+
+
+def final_bit_ids():
+    """gFinalBit: HP bits, then damage bits, then armor bits."""
+    return [f"Xfh{i}" for i in range(FINAL_HP_BITS)] + [f"Xfd{i}" for i in range(FINAL_DMG_BITS)] + [f"Xfa{i}" for i in range(FINAL_ARMOR_BITS)]
+
+
+def final_boss_abilities():
+    out = []
+    for i in range(FINAL_HP_BITS):
+        out.append(("AIlf", f"Xfh{i}", [("Ilif", I, 1, 1, FINAL_HP_STEP << i)]))
+    for i in range(FINAL_DMG_BITS):
+        out.append(("AIat", f"Xfd{i}", [("Iatt", I, 1, 1, FINAL_DMG_STEP << i)]))
+    for i in range(FINAL_ARMOR_BITS):
+        out.append(("AId1", f"Xfa{i}", [("Idef", I, 1, 1, 1 << i)]))
+    free = [("amcs", I, 1, 0, 0)]
+    for t in range(FINAL_TIERS):
+        k = float(t + 1)
+        out.append(("ACtb", f"Xfb{t}", free + [("Ctb1", U, 1, 1, 4000.0 * k), ("aran", U, 1, 0, 1000.0), ("acdn", U, 1, 0, 4.0),
+                                               ("adur", U, 1, 0, 2.5), ("ahdu", U, 1, 0, 2.5)]))
+        out.append(("Awrs", f"Xfs{t}", free + [("Wrs1", U, 1, 1, 3000.0 * k), ("aare", U, 1, 0, 450.0), ("acdn", U, 1, 0, 5.0),
+                                               ("adur", U, 1, 0, 2.0), ("ahdu", U, 1, 0, 2.0)]))
+        out.append(("ACsh", f"Xfw{t}", free + [("Osh1", U, 1, 1, 4000.0 * k), ("Osh2", U, 1, 2, 9999999.0), ("Osh3", U, 1, 3, 1200.0),
+                                               ("aran", U, 1, 0, 1000.0), ("acdn", U, 1, 0, 8.0)]))
+        out.append(("ANin", f"Xfi{t}", free + [("aher", I, 0, 0, 0), ("Uin1", U, 1, 1, 5000.0 * k), ("Uin2", U, 1, 2, 30.0), ("aare", U, 1, 0, 300.0),
+                                               ("aran", U, 1, 0, 1000.0), ("acdn", U, 1, 0, 15.0), ("adur", U, 1, 0, 2.0), ("ahdu", U, 1, 0, 2.0)]))
+    out.append(("ACbh", FINAL_BASH, [("Hbh1", U, 1, 1, 25.0), ("Hbh3", U, 1, 3, 0.0), ("adur", U, 1, 0, 1.0), ("ahdu", U, 1, 0, 1.0)]))
+    return out
+
+
+def final_boss_unit():
+    return ("nbal", FINAL_BOSS_ID, [
+        ("unam", S, FINAL_BOSS_NAME), ("uhpm", I, FINAL_HP_UNIT), ("udef", I, FINAL_ARMOR_BASE), ("udty", S, "hero"),
+        ("uhpr", U, FINAL_REGEN), ("uhrt", S, "always"), ("umpm", I, 1000), ("umpi", I, 1000), ("umpr", U, 10.0),
+        ("ua1b", I, FINAL_DMG_BASE - 1), ("ua1d", I, 1), ("ua1s", I, 1), ("ua1c", U, 1.2), ("ua1r", I, 700), ("uacq", U, 900.0),
+        ("ua1t", S, "chaos"), ("ua1w", S, "missile"), ("ua1m", S, "Abilities\\Weapons\\DemonHunterMissile\\DemonHunterMissile.mdl"),
+        ("ua1z", I, 1200), ("ua1g", S, "ground,air,structure,debris,item,ward"), ("uabi", S, FINAL_BASH),
+        ("umdl", S, "units\\demon\\Warlock\\Warlock.mdl"), ("uico", S, CB + "BTNArchimonde.blp"), ("usnd", S, "Warlock"),
+        ("usca", R, 2.4), ("ussc", R, 4.0), ("ucol", U, 64.0), ("umvs", I, 320), ("ulev", I, 20), ("usid", I, 1200), ("usin", I, 1200),
+        ("ubba", I, 5000), ("ubdi", I, 1), ("ubsi", I, 1)])
+
+
 def custom_units():
     units = []
     no_bounty = [("ubba", I, 0), ("ubdi", I, 0), ("ubsi", I, 0)]
+    units.append(final_boss_unit())
     units.append(("hcas", CASTLE_ID, [
         ("unam", S, "Castle of Lordaeron"), ("uhpm", I, 8000), ("udef", I, 10),
         # allied shop: players buy the castle upgrades here (CASTLE_SHOP_ABIL = Aall with a plaza-wide radius)
@@ -862,6 +925,7 @@ def custom_abilities():
     out.append(("Aall", CASTLE_SHARE_ABIL, [("aran", U, 1, 0, 3000.0), ("Neu1", U, 1, 1, 3000.0)]))
     out.append(attribute_ability())
     out += dryad_abilities()
+    out += final_boss_abilities()
     for (_lvl, _iid, aid, _name, bonus, _icon) in EPIC_ITEMS:      # epic crown: +all stats (green)
         out.append(("AIx1", aid, [("Iagi", I, 1, 1, bonus), ("Iint", I, 1, 2, bonus), ("Istr", I, 1, 3, bonus)]))
     for g in GATE_LEVELS:        # per gate level: bonus HP (and damage) for its wave units and Protector

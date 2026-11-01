@@ -30,7 +30,7 @@ GAME_DIR = os.environ.get("WC3_DIR", "/home/novakj/games/warcraft3")
 TEST = "--test" in sys.argv
 # VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
 # map name (game list, lobby, loading screen), the file name and the catalogue title.
-MAP_VERSION = "3.9"
+MAP_VERSION = "4.0"
 MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
@@ -47,6 +47,7 @@ FIRST_WAVE_DELAY = 10.0 if TEST else 30.0
 WAVE_INTERVAL = 0.0                      # v3.5 (Jiri): the next wave comes right away once a wave is dead
 WAVE_BREAK = 25.0 if TEST else 60.0      # shopping break after every BREAK_EVERY-th wave
 BREAK_EVERY = 10
+FINAL_DELAY = 3.0 if TEST else 30.0      # warning before the final boss rises
 
 W = LY.MAP_TILES                  # tiles per side
 NPTS = W + 1                      # tilepoints per side
@@ -361,6 +362,43 @@ globals
     integer array gVolleyCount
     integer array gTestStorm
     integer gTestVolley = 0
+    unit gFinalBoss = null
+    boolean gFinalPhase = false
+    timer gFinalTimer = CreateTimer()
+    timerdialog gFinalDialog = null
+    integer gFinalType = 0
+    string gFinalName = ""
+    string gFinalFx = ""
+    integer array gFinalBit
+    integer array gFinalSpell
+    integer gFinalTier = -1
+    integer gFinalMinute = -1
+    integer gFinalTick = 0
+    integer gFinalShown = 0
+    integer gFinalHpUnit = 0
+    integer gFinalHpBase = 0
+    integer gFinalHpPerMin = 0
+    integer gFinalHpBits = 10
+    integer gFinalHpStep = 100000
+    integer gFinalDmgBase = 0
+    integer gFinalDmgPerMin = 0
+    integer gFinalDmgBits = 10
+    integer gFinalDmgStep = 100
+    integer gFinalArmorBits = 7
+    integer gFinalArmorEvery = 2
+    integer gFinalTiers = 10
+    integer gFinalTierEvery = 5
+    real gFinalX = 0.0
+    real gFinalY = 0.0
+    real gFinalLeash = 1700.0
+    real gFinalDelay = 30.0
+    integer gTestStunRemoved = 0
+    integer gTestFinalCasts = 0
+    integer gTestFinalTier = 0
+    integer gTestFinalWave = 0
+    real gTestFinalCastle = 0.0
+    integer array gTestFinalCast
+    real gTestFinalHp = 0.0
     integer gTestVolleySpears = 0
     integer gTestVolleyFirst = 0
     unit gTestTau = null
@@ -647,6 +685,31 @@ def build_script():
     a(f"    set gVolleyAbil = '{OB.DRYAD_SKILLS[3][0]}'")
     a(f"    set gVolleyPer = {OB.DRYAD_SKILLS[3][5]}")
     a(f"    set gVolleyEvery = {OB.VOLLEY_EVERY}")
+    a(f"    set gFinalType = '{OB.FINAL_BOSS_ID}'")
+    a(f"    set gFinalName = {jstr(OB.FINAL_BOSS_NAME)}")
+    a(f"    set gFinalFx = {jstr(OB.FX['final'])}")
+    for i, aid in enumerate(OB.final_bit_ids()):
+        a(f"    set gFinalBit[{i}] = '{aid}'")
+    for t in range(OB.FINAL_TIERS):
+        for s, prefix in enumerate(OB.FINAL_SPELL_PREFIX):
+            a(f"    set gFinalSpell[{t * 4 + s}] = '{prefix}{t}'")
+    a(f"    set gFinalHpUnit = {OB.FINAL_HP_UNIT}")
+    a(f"    set gFinalHpBase = {OB.FINAL_HP_BASE}")
+    a(f"    set gFinalHpPerMin = {OB.FINAL_HP_PER_MIN}")
+    a(f"    set gFinalHpBits = {OB.FINAL_HP_BITS}")
+    a(f"    set gFinalHpStep = {OB.FINAL_HP_STEP}")
+    a(f"    set gFinalDmgBase = {OB.FINAL_DMG_BASE}")
+    a(f"    set gFinalDmgPerMin = {OB.FINAL_DMG_PER_MIN}")
+    a(f"    set gFinalDmgBits = {OB.FINAL_DMG_BITS}")
+    a(f"    set gFinalDmgStep = {OB.FINAL_DMG_STEP}")
+    a(f"    set gFinalArmorBits = {OB.FINAL_ARMOR_BITS}")
+    a(f"    set gFinalArmorEvery = {OB.FINAL_ARMOR_EVERY}")
+    a(f"    set gFinalTiers = {OB.FINAL_TIERS}")
+    a(f"    set gFinalTierEvery = {OB.FINAL_TIER_EVERY}")
+    a(f"    set gFinalX = {jr(LY.FINAL_BOSS_POS[0])}")
+    a(f"    set gFinalY = {jr(LY.FINAL_BOSS_POS[1])}")
+    a(f"    set gFinalLeash = {jr(LY.FINAL_LEASH)}")
+    a(f"    set gFinalDelay = {jr(FINAL_DELAY)}")
     a(f"    set gDryadDmgPt = {jr(OB.DRYAD_DAMAGE_POINT)}")
     a(f"    set gSwiftStep = {jr(OB.SWIFT_STEP)}")
     a(f"    set gAgiAs = {jr(OB.AGI_ATTACK_SPEED)}")
@@ -932,7 +995,7 @@ def misc_constants(game):
     return ("\r\n".join(out) + "\r\n").encode("latin1")
 
 
-REQUIRED_SCRIPT_DATA = ["set gGloveFam = ", "set gDryadDmgPt = ", "set gVolleyAbil = ", "set gSkPer = ", "set gSkFx2[0] = ", "set gBankItem = ", "set gIncomeStep = ", "set gPremItem[1] = ", "set gPremCount = ",
+REQUIRED_SCRIPT_DATA = ["set gFinalType = ", "set gFinalBit[0] = ", "set gFinalSpell[0] = ", "set gFinalHpBase = ", "set gGloveFam = ", "set gDryadDmgPt = ", "set gVolleyAbil = ", "set gSkPer = ", "set gSkFx2[0] = ", "set gBankItem = ", "set gIncomeStep = ", "set gPremItem[1] = ", "set gPremCount = ",
                         "set gShopFxCount = ", "set gDevCount = ", "set gAttrPerLevel = ", "set gReachItem = ",
                         "set gGateState[11] = ", "set gStageUnit[0] = ", "set gEpicItem[5] = ", "set gStatItem[0] = ", "set gHeroPool[0] = ",
                         "set gPotCount = ", "set gSpearAbil = ", "set gSwiftAbil[5] = ", "set gSpearDummy = ",

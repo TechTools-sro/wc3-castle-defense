@@ -745,7 +745,13 @@ function UpdateBoard takes nothing returns nothing
     else
         set castle = "|cffff0000Fallen|r"
     endif
-    call MultiboardSetTitleText(gBoard, "|cff4fc3ff" + TimeText(gGameTime) + "|r    Wave |cffffcc00" + I2S(gWave) + "|r    Castle |cffffcc00" + castle + "|r")
+    if gFinalBoss != null then
+        call MultiboardSetTitleText(gBoard, "|cff4fc3ff" + TimeText(gGameTime) + "|r    |cffff4040FINAL BOSS|r  |cffffcc00" + I2S(R2I(GetWidgetLife(gFinalBoss) / 1000.0)) + "k / " + I2S(R2I(GetUnitState(gFinalBoss, UNIT_STATE_MAX_LIFE) / 1000.0)) + "k|r")
+    elseif gFinalPhase then
+        call MultiboardSetTitleText(gBoard, "|cff4fc3ff" + TimeText(gGameTime) + "|r    |cffff4040FINAL BOSS awakens...|r")
+    else
+        call MultiboardSetTitleText(gBoard, "|cff4fc3ff" + TimeText(gGameTime) + "|r    Wave |cffffcc00" + I2S(gWave) + "|r    Castle |cffffcc00" + castle + "|r")
+    endif
     set i = 0
     loop
         exitwhen i >= 8
@@ -974,7 +980,7 @@ endfunction
 
 function OnWaveTimer takes nothing returns nothing
     local integer L = 0
-    if gGameOver then
+    if gGameOver or gFinalPhase then
         return
     endif
     set gWave = gWave + 1
@@ -1179,6 +1185,253 @@ function BossTick takes integer L returns nothing
         endif
     elseif GetUnitCurrentOrder(b) == 0 and dx * dx + dy * dy > 90000.0 then
         call IssuePointOrder(b, "attack", gNexusX[L], gNexusY[L])
+    endif
+    set b = null
+    set t = null
+endfunction
+
+//---------------------------------------------------------------------------
+// The FINAL BOSS (v4.0). When every lane boss and all 4 gate levels are done (CheckVictory): waves stop, the castle
+// is shielded, and after a warning he rises in the plaza. His death wins the game (OnFinalBossDead).
+// Stats follow the game clock (FinalApplyStats, every new minute); stuns are removed at once (FinalImmuneTick);
+// he casts Storm Bolt, War Stomp, Shockwave and Inferno on his own schedule (FinalBossTick) and bashes (passive).
+//---------------------------------------------------------------------------
+// 1.27 has no "set max HP / damage / armor": n "bit" abilities gFinalBit[first..] (+1, +2, +4, ... steps; distinct
+// ids stack) add any value. Added before removed high to low would clamp HP: FinalApplyStats restores the HP %.
+function FinalBits takes unit u, integer first, integer n, integer value returns nothing
+    local integer i = n - 1
+    local integer p = 1
+    local integer k = 1
+    loop
+        exitwhen k >= n
+        set p = p * 2
+        set k = k + 1
+    endloop
+    if value > p * 2 - 1 then
+        set value = p * 2 - 1
+    elseif value < 0 then
+        set value = 0
+    endif
+    loop
+        exitwhen i < 0
+        if value >= p then
+            set value = value - p
+            call UnitAddAbility(u, gFinalBit[first + i])
+        else
+            call UnitRemoveAbility(u, gFinalBit[first + i])
+        endif
+        set i = i - 1
+        set p = p / 2
+    endloop
+endfunction
+
+// HP factor by players in the game: 1-2 / 3-5 / 6-8 -> 1 / 2 / 3
+function FinalPlayerFactor takes nothing returns integer
+    local integer i = 0
+    local integer n = 0
+    loop
+        exitwhen i >= 8
+        if IsPlaying(i) then
+            set n = n + 1
+        endif
+        set i = i + 1
+    endloop
+    if n >= 6 then
+        return 3
+    elseif n >= 3 then
+        return 2
+    endif
+    return 1
+endfunction
+
+function FinalMaxHp takes integer m returns integer
+    return (gFinalHpBase + gFinalHpPerMin * m) * FinalPlayerFactor()
+endfunction
+
+function FinalDamage takes integer m returns integer
+    return gFinalDmgBase + gFinalDmgPerMin * m
+endfunction
+
+// His stats for the current minute of the game clock; the HP percentage stays. Spell tier +1 every gFinalTierEvery minutes.
+function FinalApplyStats takes nothing returns nothing
+    local unit b = gFinalBoss
+    local integer m = gGameTime / 60
+    local integer t = m / gFinalTierEvery
+    local integer s = 0
+    local real pct = GetWidgetLife(b) / GetUnitState(b, UNIT_STATE_MAX_LIFE)
+    call FinalBits(b, 0, gFinalHpBits, (FinalMaxHp(m) - gFinalHpUnit) / gFinalHpStep)
+    call FinalBits(b, gFinalHpBits, gFinalDmgBits, gFinalDmgPerMin * m / gFinalDmgStep)
+    call FinalBits(b, gFinalHpBits + gFinalDmgBits, gFinalArmorBits, m / gFinalArmorEvery)
+    call SetWidgetLife(b, pct * GetUnitState(b, UNIT_STATE_MAX_LIFE))
+    if t > gFinalTiers - 1 then
+        set t = gFinalTiers - 1
+    endif
+    if t != gFinalTier then
+        loop
+            exitwhen s >= 4
+            if gFinalTier >= 0 then
+                call UnitRemoveAbility(b, gFinalSpell[gFinalTier * 4 + s])
+            endif
+            call UnitAddAbility(b, gFinalSpell[t * 4 + s])
+            set s = s + 1
+        endloop
+        set gFinalTier = t
+    endif
+    set gFinalMinute = m
+    set b = null
+endfunction
+
+// 0.05 s: no stun holds him (Storm Bolt, War Stomp, Bash - also the item's - all use the Pause buff BPSE).
+function FinalImmuneTick takes nothing returns nothing
+    local texttag tt
+    if gFinalBoss == null then
+        return
+    endif
+    if GetUnitAbilityLevel(gFinalBoss, 'BPSE') > 0 or GetUnitAbilityLevel(gFinalBoss, 'BSTN') > 0 then
+        call UnitRemoveAbility(gFinalBoss, 'BPSE')
+        call UnitRemoveAbility(gFinalBoss, 'BSTN')
+        set gTestStunRemoved = gTestStunRemoved + 1
+        if gFinalShown != gElapsed then
+            set gFinalShown = gElapsed
+            set tt = CreateTextTag()
+            call SetTextTagText(tt, "Stun immune!", 0.024)
+            call SetTextTagPosUnit(tt, gFinalBoss, 150.0)
+            call SetTextTagColor(tt, 255, 80, 80, 255)
+            call SetTextTagVelocity(tt, 0.0, 0.04)
+            call SetTextTagPermanent(tt, false)
+            call SetTextTagLifespan(tt, 2.0)
+            call SetTextTagFadepoint(tt, 1.0)
+            set tt = null
+        endif
+    endif
+endfunction
+
+function SpawnFinalBoss takes nothing returns nothing
+    if gGameOver or not gFinalPhase then
+        return
+    endif
+    if gFinalDialog != null then
+        call TimerDialogDisplay(gFinalDialog, false)
+    endif
+    set gFinalBoss = CreateUnit(gInvader[0], gFinalType, gFinalX, gFinalY, 90.0)
+    set gFinalTier = -1
+    set gFinalTick = 0
+    call FinalApplyStats()
+    call DestroyEffect(AddSpecialEffect(gFinalFx, gFinalX, gFinalY))
+    call StartSound(bj_questWarningSound)
+    call PingMinimapEx(gFinalX, gFinalY, 8.0, 255, 0, 0, true)
+    call Msg("|cffff2020" + gFinalName + " has risen!|r   " + I2S(FinalMaxHp(gFinalMinute)) + " HP, " + I2S(FinalDamage(gFinalMinute)) + " damage - stronger every minute. |cffffcc00Stuns don't hold him.|r Kill him to |cff40ff40win|r!")
+endfunction
+
+function StartFinalBoss takes nothing returns nothing
+    set gFinalPhase = true
+    set gWaitingClear = false
+    call PauseTimer(gWaveTimer)
+    if gWaveDialog != null then
+        call TimerDialogDisplay(gWaveDialog, false)
+    endif
+    call SetUnitInvulnerable(gCastle, true)
+    call StartSound(bj_questWarningSound)
+    call PingMinimapEx(gFinalX, gFinalY, 8.0, 255, 0, 0, true)
+    call Msg("|cffff2020THE FINAL BOSS AWAKENS!|r   Every Nexus has fallen, but |cffffcc00" + gFinalName + "|r rises at the Castle in " + I2S(R2I(gFinalDelay)) + " s. No more waves - get ready!")
+    if gFinalDialog == null then
+        set gFinalDialog = CreateTimerDialog(gFinalTimer)
+        call TimerDialogSetTitle(gFinalDialog, "Final Boss")
+    endif
+    call TimerStart(gFinalTimer, gFinalDelay, false, function SpawnFinalBoss)
+    call TimerDialogDisplay(gFinalDialog, true)
+endfunction
+
+// Nearest enemy within range, champions first; never a structure or an invulnerable unit (Invulnerability potion, he
+// would stand idle in front of it).
+function FinalFindTarget takes unit b, real range returns unit
+    local group g = CreateGroup()
+    local unit t
+    local unit best = null
+    local real bestD = 0.0
+    local boolean bestHero = false
+    local boolean hero
+    local real d
+    local player p = GetOwningPlayer(b)
+    call GroupEnumUnitsInRange(g, GetUnitX(b), GetUnitY(b), range, null)
+    loop
+        set t = FirstOfGroup(g)
+        exitwhen t == null
+        call GroupRemoveUnit(g, t)
+        if IsUnitEnemy(t, p) and GetWidgetLife(t) > 0.405 and not IsUnitType(t, UNIT_TYPE_STRUCTURE) and GetUnitAbilityLevel(t, 'Avul') == 0 and GetUnitAbilityLevel(t, 'Bvul') == 0 then
+            set hero = IsUnitType(t, UNIT_TYPE_HERO)
+            set d = (GetUnitX(t) - GetUnitX(b)) * (GetUnitX(t) - GetUnitX(b)) + (GetUnitY(t) - GetUnitY(b)) * (GetUnitY(t) - GetUnitY(b))
+            if best == null or (hero and not bestHero) or (hero == bestHero and d < bestD) then
+                set best = t
+                set bestD = d
+                set bestHero = hero
+            endif
+        endif
+    endloop
+    call DestroyGroup(g)
+    set g = null
+    set p = null
+    return best
+endfunction
+
+// Self-test only: which of his spells really went off (gTestFinalCast: Storm Bolt, War Stomp, Shockwave, Inferno).
+function OnFinalCastTest takes nothing returns nothing
+    local integer k = 0
+    if GetTriggerUnit() == gFinalBoss then
+        loop
+            exitwhen k >= gFinalTiers * 4
+            if gFinalSpell[k] == GetSpellAbilityId() then
+                set gTestFinalCast[ModuloInteger(k, 4)] = gTestFinalCast[ModuloInteger(k, 4)] + 1
+                return
+            endif
+            set k = k + 1
+        endloop
+    endif
+endfunction
+
+// 1 s (OnTick): grows with the clock, stays around the plaza, and casts on his own schedule.
+function FinalBossTick takes nothing returns nothing
+    local unit b = gFinalBoss
+    local unit t
+    local real dx
+    local real dy
+    local real d2
+    if GetWidgetLife(b) <= 0.405 then
+        set b = null
+        return
+    endif
+    if gGameTime / 60 != gFinalMinute then
+        call FinalApplyStats()
+        call Msg("|cffff4040" + gFinalName + " grows stronger:|r   " + I2S(FinalMaxHp(gFinalMinute)) + " HP, " + I2S(FinalDamage(gFinalMinute)) + " damage")
+    endif
+    set gFinalTick = gFinalTick + 1
+    set dx = GetUnitX(b) - gFinalX
+    set dy = GetUnitY(b) - gFinalY
+    set d2 = dx * dx + dy * dy
+    if d2 > gFinalLeash * gFinalLeash then
+        call IssuePointOrder(b, "move", gFinalX, gFinalY)
+        set b = null
+        return
+    endif
+    if GetUnitCurrentOrder(b) == OrderId("move") and d2 > 250000.0 then
+        set b = null
+        return
+    endif
+    set t = FinalFindTarget(b, 900.0)
+    if t != null then
+        if ModuloInteger(gFinalTick, 6) == 0 then
+            call IssueTargetOrder(b, "creepthunderbolt", t)
+        elseif ModuloInteger(gFinalTick, 8) == 3 then
+            call IssueImmediateOrder(b, "stomp")
+        elseif ModuloInteger(gFinalTick, 11) == 5 then
+            call IssuePointOrder(b, "shockwave", GetUnitX(t), GetUnitY(t))
+        elseif ModuloInteger(gFinalTick, 20) == 10 then
+            call IssuePointOrder(b, "inferno", GetUnitX(t), GetUnitY(t))
+        elseif GetUnitCurrentOrder(b) == 0 then
+            call IssueTargetOrder(b, "attack", t)
+        endif
+    elseif GetUnitCurrentOrder(b) == 0 and d2 > 250000.0 then
+        call IssuePointOrder(b, "attack", gFinalX, gFinalY)
     endif
     set b = null
     set t = null
@@ -1700,6 +1953,9 @@ function OnTick takes nothing returns nothing
         endif
         set L = L + 1
     endloop
+    if gFinalBoss != null then
+        call FinalBossTick()
+    endif
     if GetWidgetLife(gCastle) > 0.405 and ModuloInteger(gElapsed, 2) == 0 then
         call SetWidgetLife(gCastle, GetWidgetLife(gCastle) + 10.0)
     endif
@@ -1754,7 +2010,16 @@ function CheckVictory takes nothing returns nothing
         endif
         set L = L + 1
     endloop
-    call Msg("|cff40ff40VICTORY!|r  Every Nexus is rubble, every boss is dead and the castle still stands!")
+    // everything is down: not the end yet - the final boss rises
+    if not gFinalPhase then
+        call StartFinalBoss()
+    endif
+endfunction
+
+function OnFinalBossDead takes nothing returns nothing
+    set gFinalBoss = null
+    call SetUnitInvulnerable(gCastle, false)
+    call Msg("|cff40ff40VICTORY!|r  |cffffcc00" + gFinalName + "|r is dead, every Nexus is rubble and the castle still stands!")
     call ShowEndDialog(true)
 endfunction
 
@@ -2019,6 +2284,9 @@ function OnUnitDeath takes nothing returns nothing
     if killer != null then
         set kid = GetPlayerId(GetOwningPlayer(killer))
     endif
+    if u == gFinalBoss and u != null then
+        call OnFinalBossDead()
+    endif
     if u == gCastle then
         call OnCastleDestroyed()
     elseif oid >= 8 and oid <= 11 then
@@ -2185,7 +2453,7 @@ endfunction
 function CreateQuests takes nothing returns nothing
     call AddQuest("Defend your lane", "Pick a champion: click a hall and click a hero. You then defend |cffffcc00your own lane|r - every player has one lane, and a lane only sends monsters when its player is in the game.\n\nThe next wave comes as soon as all monsters of the last one are dead (1 min shopping break after every 10th wave). Keep the |cffffcc00Castle of Lordaeron|r alive - if it falls, everyone loses.", "ReplaceableTextures\\CommandButtons\\BTNCastle.blp", true)
     call AddQuest("Destroy your Nexus", "At the end of |cffffcc00your lane|r stands your own enemy Nexus, guarded by a strong tower. The Nexus sends the waves of your lane. Destroy it and your lane goes quiet - but its boss rises from the ruins.", "ReplaceableTextures\\CommandButtons\\BTNDemonGate.blp", true)
-    call AddQuest("Slay the bosses", "Kill the boss of every lane to |cff40ff40win|r. Help your friends with theirs!", "ReplaceableTextures\\CommandButtons\\BTNPitLord.blp", true)
+    call AddQuest("Slay the bosses", "Kill the boss of every lane and of all 4 gates. Then the |cffff4040final boss|r rises at the Castle: he cannot be stunned and grows stronger every minute. Kill him to |cff40ff40win|r!", "ReplaceableTextures\\CommandButtons\\BTNPitLord.blp", true)
     call AddQuest("Tips", "- Killing monsters gives gold and experience; every wave also pays gold.\n- |cffffcc00Secret grove|r: the narrow passage at the south-east corner of the plaza leads to the Fountain of Power (HP + mana), the Premium Armory (1000-gold items) and the Apothecary.\n- Your champion appears and revives on the circle in your colour at your lane - click the circle to |cffffcc00buy stats|r instantly (each buy costs 3% more).\n- Type |cffffcc00-help|r for the command list.\n- |cffffcc00Space|r = jump to your champion (hold to keep him centred); |cffffcc00Esc|r or -cam = camera follows him.\n- Spells are on |cffffcc00Q W E R|r. Clearing your first wave gives level 2.\n- Staff of Teleportation lets you jump back to the castle or to a friend.\n- Type |cffffcc00-zoom 250|r to zoom out (any value, e.g. -zoom 200; -zoom 165 = normal).", "ReplaceableTextures\\CommandButtons\\BTNSnazzyScroll.blp", false)
 endfunction
 
@@ -2346,6 +2614,22 @@ function TestEdge takes nothing returns nothing
         call DestroyTimer(GetExpiredTimer())
     endif
     set h = null
+endfunction
+
+// How many "bits" of a final-boss stat he holds (see FinalBits): the stat's value in steps.
+function TestFinalBitSum takes integer first, integer n returns integer
+    local integer i = 0
+    local integer p = 1
+    local integer v = 0
+    loop
+        exitwhen i >= n
+        if GetUnitAbilityLevel(gFinalBoss, gFinalBit[first + i]) > 0 then
+            set v = v + p
+        endif
+        set p = p * 2
+        set i = i + 1
+    endloop
+    return v
 endfunction
 
 function TestStep takes nothing returns nothing
@@ -2622,9 +2906,65 @@ function TestStep takes nothing returns nothing
             call KillUnit(gTower[L + 1])
             call KillUnit(gNexus[L + 1])
         else
-            call TestCheck(gGameOver, "every lane boss + all 4 gate levels cleared -> victory (game over " + TestB2S(gGameOver) + ")")
+            call TestCheck(gFinalPhase and not gGameOver, "every lane boss + all 4 gate levels cleared -> the final boss awakens, no victory yet")
             call TestFlush()
         endif
+    elseif gTestClock == 80 then
+        call TestCheck(gFinalBoss != null and GetWidgetLife(gFinalBoss) > 0.405 and not gGameOver, "the final boss rose after the warning: " + GetUnitName(gFinalBoss))
+        set gTestFinalHp = GetUnitState(gFinalBoss, UNIT_STATE_MAX_LIFE)
+        call TestCheck(RAbsBJ(gTestFinalHp - I2R(FinalMaxHp(gFinalMinute))) <= I2R(gFinalHpStep), "his max HP follows the minute: " + I2S(R2I(gTestFinalHp)) + " at minute " + I2S(gFinalMinute) + " (formula " + I2S(FinalMaxHp(gFinalMinute)) + ")")
+        set gTestFinalCastle = GetWidgetLife(gCastle)
+        call UnitDamageTarget(gFinalBoss, gCastle, 5000.0, true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
+        call TestCheck(GetWidgetLife(gCastle) >= gTestFinalCastle, "the castle is shielded while he lives")
+        set gTestFinalWave = gWave
+        // targets for his spells: paused Taurens outside his stomp; our hero (invulnerable, he must ignore it) gets a Storm Bolt
+        set L = 0
+        loop
+            exitwhen L >= 16
+            set u = CreateUnit(Player(1), 'otau', gFinalX + 800.0 * Cos(L * 0.39), gFinalY + 800.0 * Sin(L * 0.39), 0.0)
+            call PauseUnit(u, true)
+            set L = L + 1
+        endloop
+        if GetWidgetLife(gHero[0]) <= 0.405 then
+            call ReviveHero(gHero[0], gFinalX + 600.0, gFinalY, false)
+        endif
+        call SetUnitInvulnerable(gHero[0], true)
+        call SetUnitPosition(gHero[0], gFinalX + 600.0, gFinalY)
+        call UnitAddAbility(gHero[0], 'ACtb')
+        call SetUnitState(gHero[0], UNIT_STATE_MANA, GetUnitState(gHero[0], UNIT_STATE_MAX_MANA))
+        call PanCameraToTimed(gFinalX, gFinalY, 0.0)
+        call TestFlush()
+    elseif gTestClock == 85 then
+        set gTestStunRemoved = 0
+        call TestLog("Storm Bolt order at the final boss accepted = " + TestB2S(IssueTargetOrder(gHero[0], "creepthunderbolt", gFinalBoss)))
+    elseif gTestClock == 90 then
+        call TestCheck(gTestStunRemoved > 0 and GetUnitAbilityLevel(gFinalBoss, 'BPSE') == 0, "stun immune: a real Storm Bolt hit him, the stun was gone at once (" + I2S(gTestStunRemoved) + " removed)")
+        // half HP, then jump the game clock 5 minutes: he must grow and keep his HP percentage
+        call SetWidgetLife(gFinalBoss, GetUnitState(gFinalBoss, UNIT_STATE_MAX_LIFE) * 0.5)
+        set gTestFinalTier = gFinalTier
+        set gTestFinalHp = GetUnitState(gFinalBoss, UNIT_STATE_MAX_LIFE)
+        set gGameTime = gGameTime + 300
+        call TestFlush()
+    elseif gTestClock == 95 then
+        call TestCheck(GetUnitState(gFinalBoss, UNIT_STATE_MAX_LIFE) > gTestFinalHp, "5 minutes later his max HP grew: " + I2S(R2I(gTestFinalHp)) + " -> " + I2S(R2I(GetUnitState(gFinalBoss, UNIT_STATE_MAX_LIFE))) + " (minute " + I2S(gFinalMinute) + ")")
+        call TestCheck(GetWidgetLife(gFinalBoss) / GetUnitState(gFinalBoss, UNIT_STATE_MAX_LIFE) < 0.55, "growing did not heal him (" + I2S(R2I(100.0 * GetWidgetLife(gFinalBoss) / GetUnitState(gFinalBoss, UNIT_STATE_MAX_LIFE))) + " % HP)")
+        call TestCheck(gFinalTier == gTestFinalTier + 1, "his spells went up a tier (" + I2S(gTestFinalTier) + " -> " + I2S(gFinalTier) + ")")
+        call TestCheck(TestFinalBitSum(gFinalHpBits, gFinalDmgBits) * gFinalDmgStep == gFinalDmgPerMin * gFinalMinute, "his damage follows the minute: +" + I2S(TestFinalBitSum(gFinalHpBits, gFinalDmgBits) * gFinalDmgStep))
+        call TestCheck(TestFinalBitSum(gFinalHpBits + gFinalDmgBits, gFinalArmorBits) == gFinalMinute / gFinalArmorEvery, "his armor follows the minute: +" + I2S(TestFinalBitSum(gFinalHpBits + gFinalDmgBits, gFinalArmorBits)))
+        call TestCheck(gTestFinalCast[0] > 0 and gTestFinalCast[1] > 0 and gTestFinalCast[2] > 0 and gTestFinalCast[3] > 0, "his own spells went off: Storm Bolt " + I2S(gTestFinalCast[0]) + ", War Stomp " + I2S(gTestFinalCast[1]) + ", Shockwave " + I2S(gTestFinalCast[2]) + ", Inferno " + I2S(gTestFinalCast[3]))
+        call TestCheck(gWave == gTestFinalWave, "no more waves in the final phase (wave " + I2S(gWave) + ")")
+        call TestFlush()
+        // the end dialog pauses a single-player game: no timer runs after this, so check in this same thread
+        call KillUnit(gFinalBoss)
+        call TestCheck(gGameOver and gEndWon, "the final boss is dead -> victory")
+        call TestFlush()
+        // Play again must clear the final phase; the test ends here (tools/run_test.sh closes the game on this line)
+        set gTestRound = 2
+        set gTestHold = true
+        call ExecuteFunc("CDRestart")
+        call TestCheck(not gFinalPhase and gFinalBoss == null and GetUnitAbilityLevel(gCastle, 'Avul') == 0, "Play again clears the final phase")
+        call TestLog("SELFTEST DONE")
+        call TestFlush()
     endif
 endfunction
 
@@ -2860,6 +3200,14 @@ function CDRestart takes nothing returns nothing
         return
     endif
     set gWaitingClear = false
+    set gFinalPhase = false
+    set gFinalBoss = null
+    set gFinalTier = -1
+    set gFinalMinute = -1
+    call PauseTimer(gFinalTimer)
+    if gFinalDialog != null then
+        call TimerDialogDisplay(gFinalDialog, false)
+    endif
     // spears in flight: resolve (no pending damage left for recycled handle ids) and remove, before units go away
     set gSpearTick = gSpearTick + 1000000
     call ForGroup(gSpearLive, function SpearSweepEnum)
@@ -3119,7 +3467,7 @@ function OnConfigChat takes nothing returns nothing
         call Msg(who + " set the wave gap to |cffffcc00" + I2S(n) + "s|r")
     endif
     // a countdown that is running now gets shortened if it is longer than the new setting
-    if gStarted and not gGameOver and not gWaitingClear and gWave > 0 and TimerGetRemaining(gWaveTimer) > NextWaveDelay() then
+    if gStarted and not gGameOver and not gFinalPhase and not gWaitingClear and gWave > 0 and TimerGetRemaining(gWaveTimer) > NextWaveDelay() then
         call TimerStart(gWaveTimer, NextWaveDelay(), false, function OnWaveTimer)
     endif
     set p = null
@@ -3192,6 +3540,12 @@ function InitGame takes nothing returns nothing
     call TimerStart(CreateTimer(), 0.1, true, function SpaceTick)
     call TimerStart(CreateTimer(), 0.2, true, function GrabTick)
     call TimerStart(CreateTimer(), 0.1, true, function SpearSweep)
+    call TimerStart(CreateTimer(), 0.05, true, function FinalImmuneTick)
+    if gTestMode then
+        set t = CreateTrigger()
+        call TriggerRegisterPlayerUnitEvent(t, Player(8), EVENT_PLAYER_UNIT_SPELL_EFFECT, null)
+        call TriggerAddAction(t, function OnFinalCastTest)
+    endif
     call TimerStart(CreateTimer(), 1.0, true, function UpdateBoard)
     call TimerStart(CreateTimer(), 1.0, true, function ProtectorTick)
     set t = CreateTrigger()

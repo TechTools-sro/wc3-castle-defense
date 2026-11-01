@@ -18,13 +18,14 @@ Start here, then read only what the task needs:
 ```bash
 python3 build.py            # dist/TechToolsCastleDefence.w3x + pjass + base-id check + installs into the game
 python3 build.py --test     # dist/TechToolsCastleDefence_TEST.w3x (8 s select, revealed map, scripted self-test)
-tools/run_test.sh 'Maps\Test\TechToolsCastleDefence_TEST.w3x' <outdir> 170  # Wine run + screenshots
+tools/run_test.sh 'Maps\Test\TechToolsCastleDefence_TEST.w3x' <outdir> 420  # Wine run in a virtual desktop + screenshots
 ```
 
 - **Test results file:** the TEST build writes one `PASS ...` / `FAIL ...` line per check (`TestCheck` / `TestLog`,
   flushed by `TestFlush` through the Preload writer) to
   `/home/novakj/games/warcraft3/CustomMapData/TestResults/cd_test.txt` — read it with
-  `grep -o 'Preload( "[^"]*" )' …`. Loading takes 10–80 s under Wine; the full run (both rounds + edge cases + stress + victory) needs ≥ 250 s.
+  `grep -o 'Preload( "[^"]*" )' …`. Loading takes 10–80 s under Wine; the full run (both rounds + edge cases + stress + final boss + victory) takes 3–5 min; the runner closes the game on the `SELFTEST DONE` line (give it 420 s).
+  ⚠️ No results and a frozen clock in the screenshots = the game paused (focus loss / a click), not a map bug.
   Test champions belong to the empty slot player 2 (a shop sells to the player's closest inventory unit). ⚠️ Jiří: **every feature must
   be verified in-game** — add a `TestCheck` for it in `TestStep` (round 0 = shop/champion checks, round 1 = lanes/gates).
 
@@ -35,6 +36,8 @@ tools/run_test.sh 'Maps\Test\TechToolsCastleDefence_TEST.w3x' <outdir> 170  # Wi
   and — whenever object data or game logic changed — an in-game run without a new `BlizzardError` crash folder.
 - Installing is safe while he plays ONLY because `build.py` replaces the map atomically (temp file + rename).
   Never copy a map over the installed one any other way (in-place overwrite crashed his game).
+- ⚠️ **Jiří's rule: close your own test game yourself the moment the test is over** — never leave the test window open
+  for him. `run_test.sh` does it on the `SELFTEST DONE` line; if a run ends any other way, kill it and check nothing is left.
 - ⚠️ **Never touch the owner's running game.** `run_test.sh` refuses if any `war3.exe` is up. If it is,
   ship the build and say plainly that it is untested in-game. Ask before asking him to close it.
 - In-game tests: a dialog pauses single-player; clicking the test window (xdotool) freezes it.
@@ -43,15 +46,18 @@ tools/run_test.sh 'Maps\Test\TechToolsCastleDefence_TEST.w3x' <outdir> 170  # Wi
 
 ## Versions
 
-- `MAP_VERSION` in `build.py` (now **v3.9**) is in the map name, the file name (`TechToolsCastleDefence_v3.9.w3x`) and
+- `MAP_VERSION` in `build.py` (now **v4.0**) is in the map name, the file name (`TechToolsCastleDefence_v4.0.w3x`) and
   the catalogue title. ⚠️ **Jiří's rule: every feature = a new version (1.2, 1.3, …) AND an upload to the
   catalogue** (LAN players must have the identical file). Bump, build, commit, upload, verify the download's
   SHA-256, record the new entry below + in `CHANGELOG.md`. Install removes older `TechToolsCastleDefence*.w3x`.
 
 ## Published
 
-- Catalogue (uploaded as `brainbot`): newest first — **v3.9 = https://techtools.cz/tools/warcraft3/#map/76** (current),
-  v3.8 = #75, v3.7 = #74, v3.6 = #73, v3.5 = #72, v3.4 = #71, v3.3 = #35 (v3.0–v3.2 were never uploaded), v2.9 = #34, v2.8 = #33, v2.7 = #32, v2.6 = #31, v2.5 = #30, v2.4 = #29, v2.3 = #28, v2.2 = #27, v2.1 = #26, v2.0 = #25, v1.9 = #24, v1.8 = #23, v1.7 = #22, v1.6 = #21, v1.5 = #20, v1.4 = #19, v1.3 = #18,
+- ⚠️ **The repo is PUBLIC:** https://github.com/TechTools-sro/wc3-castle-defense (Jiří's choice, 2026-11-01). Never commit
+  secrets, credentials or the game's own files (`ref/`, `dist/` stay ignored). The hidden dev-cheat names in `build.py` are public.
+
+- Catalogue (uploaded as `brainbot`): newest first — **v4.0 = https://techtools.cz/tools/warcraft3/#map/77** (current),
+  v3.9 = #76, v3.8 = #75, v3.7 = #74, v3.6 = #73, v3.5 = #72, v3.4 = #71, v3.3 = #35 (v3.0–v3.2 were never uploaded), v2.9 = #34, v2.8 = #33, v2.7 = #32, v2.6 = #31, v2.5 = #30, v2.4 = #29, v2.3 = #28, v2.2 = #27, v2.1 = #26, v2.0 = #25, v1.9 = #24, v1.8 = #23, v1.7 = #22, v1.6 = #21, v1.5 = #20, v1.4 = #19, v1.3 = #18,
   v1.2 = #17 and v1.1 = #16 (both have the broken Bank / upgrades), unversioned = #3 (stale; only an admin can
   delete old entries).
   Upload = `POST /warcraft3-api/maps` (multipart `file`, `title`, `players`, `description`, `doc=@docs/map-catalog.md`)

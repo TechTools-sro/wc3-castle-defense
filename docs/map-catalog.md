@@ -7,7 +7,7 @@ fixed computer players.
 ## Goal
 
 Pick a champion, hold **your own lane**, destroy your lane's tower and Nexus, kill the boss that rises from the
-ruins, then fight through the four shared **gate levels** (2–5). **Win** when every boss is dead. **Lose** when the Castle of Lordaeron in the middle falls.
+ruins, then fight through the four shared **gate levels** (2–5). When every boss is dead the **final boss** rises at the castle: **win** by killing him. **Lose** when the Castle of Lordaeron in the middle falls.
 
 ## How a round goes
 
@@ -20,7 +20,7 @@ ruins, then fight through the four shared **gate levels** (2–5). **Win** when 
    stands, basic units come out of it. Tower down → a **Protector** guards the Nexus,
    the next wave comes at once and stronger units come out of the Nexus. Nexus down → its boss rises and the
    strongest units come out of the ruins until the boss dies. ⚠️ Towers hit for ~25 000 and Nexuses for ~27 500 per shot (20 000 / 15 000 HP) — every next building and gate
-   level hits harder. Bosses: 35 000+ HP and ~1800+ per hit.
+   level hits harder. Lane bosses: 60 000 HP, ~2400 per hit.
 5. **Monsters:** melee 200 HP / 30 damage, ranged 120 HP / 60 damage; ×2 after your tower falls, ×3 in the boss
    stage. **Kill gold:** a minion pays as much gold as the wave number (wave 5 → 5 gold), double on Level 2, triple on
    Level 3.
@@ -31,6 +31,11 @@ ruins, then fight through the four shared **gate levels** (2–5). **Win** when 
 8. **Level 3 — the Frozen Gate (NW)**, **Level 4 — the Shadow Gate (SW)** and **Level 5 — the Inferno Gate (far
    SW)** follow, each opening when the previous gate's Nexus falls and each harder (tower, Nexus, monsters, boss),
    with more gold per kill (×2 … ×5). Every gate Nexus raises a boss. Win = every lane boss and all gate bosses dead.
+
+9. **The final boss — Kharazul the World Ender:** rises at the castle 30 s after the last boss falls (no more waves, the
+   castle is shielded). 5 000 000+ HP (more with more players) and 20 000+ damage per hit — **all growing with the game
+   minute**, also during the fight. **Stuns don't hold him**, and he stuns you: Storm Bolt, War Stomp, Inferno, Bash, plus
+   Shockwave. Kill him to win.
 
 ## Shops
 
