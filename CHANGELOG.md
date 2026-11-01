@@ -1,5 +1,20 @@
 # Changelog
 
+## v3.8 — 2026-11-01: the Hall of Champions moves to a small room in the top-right corner
+
+- **Uploaded as catalogue map #75** (HTTP 201, download SHA-256 `1183ef42…` matches; 26 versions in the family).
+
+- Jiří: "move the Hall of Champions to the top right corner and make it as small as possible, so monsters from the
+  nearby lanes' Nexus don't spawn there like now".
+- Cause (most likely): the old 1536 × 1536 hall in the NW lay 512 from the Frozen Gate's tower spawn; `CreateUnit`
+  places a unit on the nearest free pathable spot regardless of walls, so a big wave spilled into the hall.
+- `gen/layout.py`: `HALL_CENTRE` (−3200, 3200) → **(5632, 5504)** (empty NE corner, inside the camera bounds),
+  `HALL_HALF` 768 → **384** (768 × 768 room); tavern at +160, the invisible buyers at −128 (`HALL_SOUL_DY`). Checked:
+  no walkable floor within 768 of the hall, nearest spawn / Nexus 2320 away; top-down preview rendered.
+- The tavern sells within **600** (was 1600): enough for the buyers in the hall, nobody outside can buy a hero.
+  "Select a Champion" text sits just above the smaller room.
+- **Verified:** pjass + build checks, preview render. ⚠️ Not run in-game yet (Jiří was playing).
+
 ## v3.7 — 2026-11-01: a clean Dryad multishot (review fixes)
 
 - **Uploaded as catalogue map #74** (HTTP 201, download SHA-256 `97628cf3…` matches; 25 versions in the family).

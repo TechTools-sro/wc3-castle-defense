@@ -16,7 +16,8 @@ Invader of arm `d` = Player(8 + d): 0 North **The Scourge**, 1 East **The Burnin
 
 ## Round flow
 
-1. **Champion select** (45 s, `SELECT_TIME`). Camera on the Hall of Champions: **one** tavern with **7 champions**
+1. **Champion select** (45 s, `SELECT_TIME`). Camera on the Hall of Champions — a small walled room (768 × 768, `HALL_CENTRE` / `HALL_HALF`) in the empty
+   top-right corner, far from every spawn: **one** tavern (sells within 600 only) with **7 champions**
    (`TAVERNS`; stock 8 each, so several players may pick the same one). An invisible helper unit does the buying (no
    walking). A big gold **"Select a Champion"** floats over the hall for players who haven't picked. Time out → a
    random champion (untaken first). Every champion has 4 passive skills on **Q W E R** (`AEev` copies with 0 % evasion
@@ -94,7 +95,7 @@ Higher level = harder.
 
 | | L2 Dark Gate | L3 Frozen Gate | L4 Shadow Gate | L5 Inferno Gate |
 |---|---|---|---|---|
-| Where | NE | NW, around the Hall | SW (mirror of L2) | far SW, a chamber behind the L4 base |
+| Where | NE | NW | SW (mirror of L2) | far SW, a chamber behind the L4 base |
 | Tower HP / dmg | 6 500 / ~3500 | 10 000 / ~4500 | 15 000 / ~6000 | 21 000 / ~8000 |
 | Nexus HP / attack | 8 000 / 1300+4d50 | 15 000 / 1800+4d60 | 25 000 / 2400+4d80 | 40 000 / 3200+4d100 |
 | Wave bonus HP / dmg | +300 / — | +500 / +10 | +1000 / +25 | +2000 / +50 |

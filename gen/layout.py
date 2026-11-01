@@ -25,8 +25,11 @@ LANE_END = 4992                        # lanes run v in [PLAZA, LANE_END]
 BASE_START, BASE_END = 4992, 5888      # each lane ends in its OWN enemy base room
 ROOM_IN, ROOM_OUT = 256, 1152           # base room spans |u| in [ROOM_IN, ROOM_OUT]; |u| < ROOM_IN stays a wall
 
-HALL_CENTRE = (-3200, 3200)            # Hall of Champions (champion select), in the NW void
-HALL_HALF = 768
+# Hall of Champions (champion select): v3.8 (Jiri) a SMALL room in the empty top-right (NE) corner, far from every
+# spawn point. The old 1536-wide hall in the NW lay 512 from the Frozen Gate tower spawn, and a big wave that did not
+# fit there was placed by the engine onto the nearest free floor = into the hall (CreateUnit ignores walls).
+HALL_CENTRE = (5632, 5504)             # inside the camera bounds (margins: 4 cells left/right, 2 top/bottom)
+HALL_HALF = 384                        # 768 x 768 (6 x 6 tiles): the tavern + the invisible buyers, nothing else
 
 DIR_NAMES = ["North", "East", "South", "West"]
 DIR_FACING_IN = [270.0, 180.0, 90.0, 0.0]
@@ -152,8 +155,9 @@ def nexus_spawn(L):
     return from_arm(d, s * LANE_U, 5120)
 
 
-# Hall of Champions: ONE hall (v2.0) just north of the souls (selectors) in the middle
-HALL_TAVERNS = [(0, 300)]
+# Hall of Champions: ONE tavern (v2.0) just north of the souls (selectors, at HALL_SOUL_DY below the centre)
+HALL_TAVERNS = [(0, 160)]              # 256 x 256 footprint -> y +32..+288 inside the 384 half-size
+HALL_SOUL_DY = -128
 
 
 def hall_point(dx, dy):
@@ -214,8 +218,8 @@ SHARED_WAYPOINTS = [SHARED_TOWER_SPAWN, (SHARED_U, 2400), (SHARED_U, 1600), (230
 
 # --------------------------------------------------------------------------
 # LEVEL 3 — the Frozen Gate: second shared lane in the NW (lane 9 in the script). Closed until the Dark Citadel
-# (Level 2) falls. The corridor runs AROUND the Hall of Champions (x -3968..-2432, y 2432..3968): corner room at the
-# plaza's NW corner -> leg west under the Hall -> leg north left of the Hall -> base room in the top-left corner.
+# (Level 2) falls. The corridor runs around the void where the Hall of Champions stood until v3.7: corner room at the
+# plaza's NW corner -> leg west -> leg north -> base room in the top-left corner.
 LEVEL3_RECTS = [
     (-2048, 1280, -1280, 2048),     # corner room (overlaps the plaza corner -> the opening)
     (-5120, 1408, -2048, 2048),     # leg west (under the Hall, above the West lanes' base rooms)

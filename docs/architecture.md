@@ -121,5 +121,5 @@ tower `(±704, 3600)` (mid-lane), Nexus `(±704, 5440)`; hall at `(-3200, 3200)`
 Dark Gate NE (`SHARED_RECTS`: corner room 1280–1920, leg to x 3840, leg up to y 3840, base room x 2944–4096 / y 3840–4864);
 Shadow Gate SW (`LEVEL4_RECTS`, point mirror of the Dark Gate); Inferno Gate far SW (`LEVEL5_RECTS`: leg west out of the
 L4 base room x -5376..-4096, chamber x -6272..-5376 / y -4864..-3840; its waves walk out through the L4 corridor);
-all gate geometry per lane in `GATE_GEOMETRY`. Frozen Gate NW (`LEVEL3_RECTS`: corner room x -2048..-1280, leg west to x -5120 under the Hall, leg north at x -5120..-4480, base room x -5248..-4352 / y 3968–4864).
+all gate geometry per lane in `GATE_GEOMETRY`. Frozen Gate NW (`LEVEL3_RECTS`: corner room x -2048..-1280, leg west to x -5120 (under the void where the Hall stood until v3.7), leg north at x -5120..-4480, base room x -5248..-4352 / y 3968–4864).
 Wave units carry `userdata = lane*16 + waypoint` (gate units: 128–191).

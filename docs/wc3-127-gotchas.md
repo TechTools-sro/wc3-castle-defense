@@ -21,6 +21,10 @@
   events, self-test PASS) but its spear was 1 % size = invisible ("the extra spear has no animation", v3.5). Fix:
   full scale, `uscb` 0, and `SetUnitVertexColor(d, 255, 255, 255, 0)` right after `CreateUnit` (same thread → never
   drawn).
+- **`CreateUnit` puts a unit on the nearest FREE pathable spot, ignoring walls.** A wave too big for its spawn spot
+  spills onto any floor nearby, even a separate walled room: monsters showed up in the Hall of Champions, 512 from the
+  Frozen Gate tower spawn (most likely this; v3.8 moved the hall 2300+ away from every spawn). Keep separate rooms
+  well away from spawn points.
 - **Never kill an attack dummy — remove it.** A transparent dying Archer still plays its death scream and blood: those
   are model events, `usnd` "" doesn't stop them. `SpearSweep` removes spent dummies with `RemoveUnit`.
 - **A dummy whose target dies before its damage point re-acquires** anything within its acquisition range (the

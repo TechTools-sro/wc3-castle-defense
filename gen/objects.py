@@ -749,8 +749,9 @@ def original_item_mods():
 
 def original_ability_mods():
     """Taverns sell to a player's soul anywhere in the Hall of Champions - no walking needed.
-    'Ane2' = tavern Select Unit: aran = range, Neu1 = activation radius (AbilityMetaData.slk)."""
-    return [("Ane2", [("aran", U, 1, 0, 1600.0), ("Neu1", U, 1, 1, 1600.0)]),
+    'Ane2' = tavern Select Unit: aran = range, Neu1 = activation radius (AbilityMetaData.slk). 600 covers the small
+    hall (souls 288 from the tavern) and nothing outside it - no champion can buy another hero from a corridor."""
+    return [("Ane2", [("aran", U, 1, 0, 600.0), ("Neu1", U, 1, 1, 600.0)]),
             # grove shops (Premium Armory, Bank, Apothecary = 'Aneu'): sell to your champion anywhere on the map
             ("Aneu", [("aran", U, 1, 0, 20000.0), ("Neu1", U, 1, 1, 20000.0)]),
             # Fountain of Power: HP (ACnr/Aoar) and mana (ANre/Aarm) regeneration 1 % -> 2 % of max per second

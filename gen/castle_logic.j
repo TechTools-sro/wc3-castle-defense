@@ -2700,7 +2700,7 @@ function ShowPickTags takes nothing returns nothing
         if IsPlaying(i) and gHero[i] == null then
             set tt = CreateTextTag()
             call SetTextTagText(tt, "Select a Champion", 0.06)
-            call SetTextTagPos(tt, gHallX - 470.0, gHallY + 620.0, 0.0)
+            call SetTextTagPos(tt, gHallX - 470.0, gHallY + 450.0, 0.0)
             call SetTextTagColor(tt, 255, 204, 0, 255)
             call SetTextTagPermanent(tt, true)
             call SetTextTagVisibility(tt, GetLocalPlayer() == Player(i))
@@ -2819,7 +2819,7 @@ function SetupChampionSelect takes nothing returns nothing
             endloop
             set gXpPending[i] = 0
             call StockCircle(i)
-            set gSoul[i] = CreateUnit(Player(i), gSoulType, gHallX, gHallY, 90.0)
+            set gSoul[i] = CreateUnit(Player(i), gSoulType, gHallX, gHallY + gHallSoulDY, 90.0)
             call SetPlayerState(Player(i), PLAYER_STATE_RESOURCE_HERO_TOKENS, 1)
             call SetPlayerTechMaxAllowed(Player(i), 'HERO', 1)
             call SetPlayerState(Player(i), PLAYER_STATE_RESOURCE_GOLD, 1000)

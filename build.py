@@ -30,7 +30,7 @@ GAME_DIR = os.environ.get("WC3_DIR", "/home/novakj/games/warcraft3")
 TEST = "--test" in sys.argv
 # VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
 # map name (game list, lobby, loading screen), the file name and the catalogue title.
-MAP_VERSION = "3.7"
+MAP_VERSION = "3.8"
 MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
@@ -112,7 +112,7 @@ def ground_texture(x, y, kind, idx):
         return T["Dlvc"] if n > 0.45 else T["Kdtr"]       # Level 2, the Dark Gate: violet ruins + dark trim
     if kind == "hall":
         hx, hy = LY.HALL_CENTRE
-        return T["Kdkt"] if math.hypot(x - hx, y - hy) < 450 else T["Ksqt"]
+        return T["Kdkt"] if math.hypot(x - hx, y - hy) < 300 else T["Ksqt"]
     if kind == "base":
         if idx == 0:
             return T["Idki"] if n > 0.45 else T["Ibkb"]
@@ -474,6 +474,7 @@ globals
     integer gStatPerLevel = 2
     real gHallX = 0.0
     real gHallY = 0.0
+    real gHallSoulDY = -128.0
     real gSelectTime = 45.0
     real gFirstWaveDelay = 30.0
     real gWaveInterval = 0.0
@@ -762,6 +763,7 @@ def build_script():
     a(f"    set gStatPerLevel = {OB.STAT_PER_LEVEL}")
     a(f"    set gHallX = {jr(LY.HALL_CENTRE[0])}")
     a(f"    set gHallY = {jr(LY.HALL_CENTRE[1])}")
+    a(f"    set gHallSoulDY = {jr(LY.HALL_SOUL_DY)}")
     a(f"    set gSelectTime = {jr(SELECT_TIME)}")
     a(f"    set gFirstWaveDelay = {jr(FIRST_WAVE_DELAY)}")
     a(f"    set gWaveInterval = {jr(WAVE_INTERVAL)}")
