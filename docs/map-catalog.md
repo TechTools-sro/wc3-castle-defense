@@ -14,7 +14,7 @@ ruins, then fight through the four shared **gate levels** (2–5). **Win** when 
 1. **Champion select (45 s):** click a champion in the Hall of Champions — 7 champions, free, several players may
    pick the same one. No walking needed.
 2. **Your lane:** your champion spawns and revives on your Champion's Circle at your lane entrance.
-3. **Waves:** the next wave comes 10 s after every monster is dead; after every 5th wave there is a **2-minute
+3. **Waves:** the next wave comes **as soon as** every monster is dead; after every 10th wave there is a **1-minute
    shopping break**. Each cleared wave pays every player `50 + 50 × wave` gold and **1 tree**.
 4. **Stages:** the tower stands mid-lane, far in front of the Nexus — take them one at a time. While your tower
    stands, basic units come out of it. Tower down → a **Protector** guards the Nexus,
@@ -41,7 +41,7 @@ ruins, then fight through the four shared **gate levels** (2–5). **Win** when 
 - **Secret grove** (narrow passage at the SE corner of the plaza; its shops sell to your champion anywhere on the
   map — just select the shop): Fountain of Power (fast HP + mana),
   **Premium Armory** (1000 gold: lifesteal, attack speed, critical strike, bash, evasion, boots, regeneration,
-  mana regeneration — buy the same item again to upgrade it, up to Lv 5), **Bank** (1 tree = +10 gold income every minute), **Apothecary** (potions heal % of max and stack in one slot — even with a full inventory: Healing 50 % HP and Mana 50 % mana for 100 gold, Restoration full HP + mana for 250, Invulnerability 200; staff of teleportation).
+  mana regeneration — buy the same item again to upgrade it, up to Lv 5), **Bank** (1 tree = +100 gold income every minute), **Apothecary** (potions heal % of max and stack in one slot — even with a full inventory: Healing 50 % HP and Mana 50 % mana for 100 gold, Restoration full HP + mana for 250, Invulnerability 200; staff of teleportation).
 
 ## EPIC loot
 
@@ -52,10 +52,11 @@ bosses.
 
 - Spells on **Q W E R**; every level-up refills HP and mana; clearing your first wave gives level 2.
 - Hero level is practically unlimited. After level 10 (spells maxed) skill points go into **Attributes**
-  (learn key T): +10 Strength, Agility and Intelligence per level.
+  (learn key T): +30 Strength, Agility and Intelligence per level.
 - All heroes, melee too, can attack flying units.
 - **7 champions**, every skill passive (Q W E, 5 levels each):
-  - **Dryad** — spears: Extra Spear (+1 flying spear per level), Swift Throw (attack speed), Fire Spears (+damage).
+  - **Dryad** — spears: Extra Spear (+1 spear per level, thrown together with hers at other enemies in her range),
+    Swift Throw (attack speed), Fire Spears (+damage, fire burst on every spear).
   - **Mountain King**, **Tauren Chieftain**, **Pit Lord** — melee with **cleave** on every hit.
   - **Archmage**, **Lich** — ranged **splash**. **Far Seer** — lightning **bounces** to 4 enemies.
   - Their skills: **blast** (every hit damages enemies around the target), **nova** (every 3rd hit, a big area),
@@ -70,7 +71,7 @@ bosses.
 | `-cam` / Esc | camera follows your hero |
 | Space | jump to your hero |
 | `-break 60` | shopping break length in seconds (5–300) |
-| `-wave 5` | seconds between waves (1–60) |
+| `-wave 5` | seconds between waves (0–60, default 0) |
 
 ## Scoreboard
 

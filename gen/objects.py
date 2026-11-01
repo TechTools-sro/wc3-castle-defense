@@ -209,12 +209,15 @@ DRYAD_SKILL_LEVELS = 5
 SWIFT_STEP = 0.20
 SWIFT_ABILS = [f"Xsw{L}" for L in range(1, DRYAD_SKILL_LEVELS + 1)]     # AIsx copies, +20 % each (they stack)
 # (v3.2: no fire orb any more - Orb of Fire gives attacks SPLASH, Jiri wants none; the fire is a burst effect on hit)
-DRYAD_MISSILE_SPEED, DRYAD_MISSILE_ARC = 450, 0.25
+DRYAD_MISSILE_SPEED, DRYAD_MISSILE_ARC = 700, 0.25     # v3.5: 450 looked slow (Jiri); her spear and the extra ones match
 # Extra spears FLY (Jiri: the number of spears must be visible): each one is an invisible locust dummy that attacks once
-# with the spear missile; its hit makes the script deal the champion's damage (OnAttacked / OnDamaged).
-SPEAR_DUMMY, FIRE_DUMMY = "dspr", "dspf"
+# with the same spear missile, launched together with hers ("multishot" like X Hero Siege); its hit makes the script
+# deal the champion's damage (OnAttacked / OnDamaged).
+# ⚠️ The dummy must NOT scale its projectile: the Archer base has "Scale Projectiles" (uscb) = 1, and the old 0.01-scale
+# dummy shot 1 %-size, invisible spears (v3.5 fix: full scale + uscb 0; the script makes the dummy itself transparent).
+SPEAR_DUMMY = "dspr"
 DRYAD_DAMAGE_POINT = 0.3     # her attack releases the spear 0.3 s in: the dummies wait the same, so all spears fly together
-SPEAR_RANGE = 600.0          # extra spears hit enemies within this distance of the main target
+SPEAR_RANGE = 600.0          # v3.5: extra spears only fly at enemies within the Dryad's own attack range (600, from HER)
 ALL_CHAMPIONS[0] = (DRYAD_ID, 0, DRYAD_SKILLS)
 TAVERNS = [("tvc0", "Hall of Champions", [DRYAD_ID] + [c[0] for c in AOE_CHAMPIONS])]
 ALL_HEROES = [DRYAD_ID] + [c[0] for c in AOE_CHAMPIONS]
@@ -279,7 +282,7 @@ EPIC_ITEMS = [
 
 # Bank (secret grove): trade trees (lumber, +1 per cleared wave) for passive income.
 BANK_ITEM = "Ib01"
-INCOME_STEP = 10             # gold per minute per bought income (1 tree -> +10 gold/min)
+INCOME_STEP = 100            # gold per minute per bought income (v3.5 Jiri: 1 tree -> +100 gold/min)
 INCOME_TREE_COST = 1
 
 SHOPS = {
@@ -467,14 +470,18 @@ def custom_units():
     for (tid, name, heroes) in TAVERNS:
         units.append(("ntav", tid, [("unam", S, name), ("useu", S, ",".join(heroes))]))
     units.append(dryad_hero())
-    for did, missile in ((SPEAR_DUMMY, "Abilities\\Weapons\\Dryadmissile\\Dryadmissile.mdl"),
-                         (FIRE_DUMMY, "Abilities\\Weapons\\FireBallMissile\\FireBallMissile.mdl")):
-        units.append(("earc", did, [
-            ("unam", S, "Spear"), ("usca", R, 0.01), ("ushu", S, ""), ("uabi", S, "Aloc"), ("upgr", S, ""), ("ureq", S, ""),
-            ("umvs", I, 0), ("ucol", U, 0.0), ("ufoo", I, 0), ("uhpm", I, 100),
-            ("ua1b", I, 0), ("ua1d", I, 1), ("ua1s", I, 1), ("ua1c", U, 5.0), ("ua1r", I, 2000), ("uacq", U, 2000.0),
-            ("udp1", U, DRYAD_DAMAGE_POINT), ("ubs1", U, 0.0), ("ua1m", S, missile), ("ua1z", I, DRYAD_MISSILE_SPEED),
-            ("uma1", U, DRYAD_MISSILE_ARC), ("ua1g", S, "ground,air,structure,ward"), ("ulpz", U, 60.0)] + no_bounty))
+    # the extra-spear dummy: full scale (a scaled-down unit scales its missile when uscb = 1), "Scale Projectiles" off,
+    # no sounds, no corpse (death type 0 = vanishes); the script sets its vertex alpha to 0 the moment it is created
+    spear_dummy = [
+        ("unam", S, "Spear"), ("usca", R, 1.0), ("uscb", I, 0), ("ushu", S, ""), ("usnd", S, ""), ("udea", I, 0),
+        ("uabi", S, "Aloc"), ("upgr", S, ""), ("ureq", S, ""),
+        ("umvs", I, 0), ("ucol", U, 0.0), ("ufoo", I, 0), ("uhpm", I, 100),
+        ("ua1b", I, 0), ("ua1d", I, 1), ("ua1s", I, 1), ("ua1c", U, 5.0), ("ua1r", I, 2000), ("uacq", U, 2000.0),
+        ("udp1", U, DRYAD_DAMAGE_POINT), ("ubs1", U, 0.0),
+        ("ua1m", S, "Abilities\\Weapons\\Dryadmissile\\Dryadmissile.mdl"), ("ua1z", I, DRYAD_MISSILE_SPEED),
+        ("uma1", U, DRYAD_MISSILE_ARC), ("umh1", I, 1), ("ua1g", S, "ground,air,structure,ward"), ("ulpz", U, 60.0)]
+    assert ("uscb", I, 0) in spear_dummy and ("usca", R, 1.0) in spear_dummy, "spear dummy would shrink its missile"
+    units.append(("earc", SPEAR_DUMMY, spear_dummy + no_bounty))
     for (sid, name, items) in SHOPS.values():
         mods = [("unam", S, name), ("usei", S, ",".join(items))]
         if sid == SHOPS["bank"][0]:      # looks like a gold mine
@@ -564,7 +571,7 @@ def custom_units():
 # (3+3+3+1 points); from level 11 every skill point goes into "Attributes" (+3 Str/Agi/Int per level).
 MAX_HERO_LEVEL = 1000
 ATTR_ABIL = "Xatt"            # custom hero ability based on 'Aamk' (Attribute Bonus)
-ATTR_PER_LEVEL = 10           # Jiri: +10 Str/Agi/Int per Attributes level
+ATTR_PER_LEVEL = 30           # Jiri (v3.5): +30 Str/Agi/Int per Attributes level
 ATTR_LEVELS = 100             # learnable at hero levels 11..110; above that the script adds the stats itself
 ATTR_REQ_LEVEL = 11
 

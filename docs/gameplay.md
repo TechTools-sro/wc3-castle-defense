@@ -24,7 +24,7 @@ Invader of arm `d` = Player(8 + d): 0 North **The Scourge**, 1 East **The Burnin
 
    | Champion | Attack | Q | W | E |
    |---|---|---|---|---|
-   | **Dryad** (`Edry`, custom: Priestess base, Dryad model, slow high spear 450 / arc 0.25) | ranged, single target | Extra Spear: +1 **flying** spear per level at another enemy (full damage; spare spears hit the target) | Swift Throw: speed | Fire Spears: bonus (fire) |
+   | **Dryad** (`Edry`, custom: Priestess base, Dryad model, high spear 700 / arc 0.25) | ranged, single target | Extra Spear: +1 **flying** spear per level, thrown together with hers at another enemy **within her own range** (full damage; spare spears hit the main target only when it survives them all) | Swift Throw: speed | Fire Spears: bonus (fire burst on every spear) |
    | **Mountain King** (`Hmkg`) | melee, innate **cleave 30 %** | Thunder Clap: nova | Storm Hammer: bonus | Battle Fury: speed |
    | **Tauren Chieftain** (`Otch`) | melee, innate **cleave 30 %** | Shockwave: blast | War Stomp: nova | Endurance: speed |
    | **Pit Lord** (`Nplh`) | melee, innate **cleave 40 %** | Rain of Fire: nova | Howl of Terror: bonus | Doom Strike: blast |
@@ -44,8 +44,8 @@ Invader of arm `d` = Player(8 + d): 0 North **The Scourge**, 1 East **The Burnin
    floating "Name's lane", minimap ping). One message: "Defend your lane! -help = commands".
    Starting gold **1000** (`SetupChampionSelect`).
 3. **Waves.** First wave 30 s after the pick (`FIRST_WAVE_DELAY`). The next countdown starts only when **every
-   wave monster on every lane is dead**: then **10 s** (`WAVE_INTERVAL`), or a **2 min break after every 5th
-   wave** (`WAVE_BREAK`). The timer is hidden while monsters are alive.
+   wave monster on every lane is dead**: then **at once** (`WAVE_INTERVAL` = 0 s since v3.5), or a **1 min break after every
+   10th wave** (`WAVE_BREAK`, `BREAK_EVERY`). The timer is hidden while monsters are alive.
    The break is a **shopping break**: "BREAK - Time to go Shopping!", gold minimap pings + effects on the grove
    entrance and every grove building (`ShoppingTime`). Bosses don't hold the waves.
 4. **Push.** Each lane has its own tower (in front) and Nexus (behind). Tower destroyed → waves come out of the
@@ -109,7 +109,7 @@ Higher level = harder.
 ## Trees and the Bank
 
 - Every cleared wave (all monsters dead) gives every player **+1 tree** (lumber, top bar).
-- The **Bank** (secret grove, gold-mine look) sells **Income +10** for **1 tree**: +10 gold every minute,
+- The **Bank** (secret grove, gold-mine look) sells **Income +100** for **1 tree**: +100 gold every minute,
   stacks without limit (`BANK_ITEM`, `INCOME_STEP`). Paid on every full minute of the game clock (1:00, 2:00, …;
   `IncomeTick` from `OnTick`). Restart resets income and trees.
 
@@ -130,8 +130,8 @@ Every Nexus boss drops one EPIC crown at its ruins (purple ping + "EPIC DROP" me
 - Spells on **Q W E R** for cast and learn, tooltips retagged `[Q]` (`gen/hotkeys.py`).
 - Every hero can attack **air** units, melee heroes too (`ua1g` += air, `original_unit_mods`).
 - **Hero level is practically unlimited** (`MAX_HERO_LEVEL` = 1000 via `war3mapMisc.txt`). Spells are maxed at
-  level 10; from level 11 each skill point goes into **Attributes** (`Xatt`, learn key T): +10 Str/Agi/Int per
-  level, 100 levels (hero level 110). Above that every level-up adds +10 to all three automatically.
+  level 10; from level 11 each skill point goes into **Attributes** (`Xatt`, learn key T): +30 Str/Agi/Int per
+  level, 100 levels (hero level 110). Above that every level-up adds +30 to all three automatically.
 - **Level 2** when the player's first wave is cleared (or at wave 2 for everyone). Every level-up refills HP + mana.
 - Death → revive on the Champion's Circle after `4 + 2*level` s, max 24 s (`StartRevive`). Deaths counted.
 
@@ -231,7 +231,7 @@ anywhere on the map (`Aneu` radius 20 000). Bought items go straight into his in
 - **-help** (only to the asker): gold `Commands`, then light-blue command + grey description per line:
   `-zoom 250` zoom out · `-cam` camera follows your hero · `Space` jump to your hero · `-break 60` · `-wave 5`.
 - **Pace settings** (any player, announced to all; `OnConfigChat`): `-break N` = shopping-break length (5–300 s,
-  default 120), `-wave N` = seconds between waves (1–60 s, default 10). No number = show the current values.
+  default 60), `-wave N` = seconds between waves (0–60 s, default 0). No number = show the current values.
   A countdown already running is shortened at once if it is longer than the new value; kept across *Play again*.
 - **-zoom N**: 250 = distance 2500 (also accepts the raw distance); `-zoom` alone = normal. Remembered.
 - **Esc / -cam**: camera follows the champion. **Space**: jumps to the champion (quick position kept on him).

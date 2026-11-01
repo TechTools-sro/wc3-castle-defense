@@ -30,7 +30,7 @@ GAME_DIR = os.environ.get("WC3_DIR", "/home/novakj/games/warcraft3")
 TEST = "--test" in sys.argv
 # VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
 # map name (game list, lobby, loading screen), the file name and the catalogue title.
-MAP_VERSION = "3.4"
+MAP_VERSION = "3.5"
 MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
@@ -44,8 +44,9 @@ DEV_NAMES = ["root", "jiri_novak", "WorldEdit"]
 # timings (seconds)
 SELECT_TIME = float(os.environ.get("CD_SELECT", "8")) if TEST else 45.0
 FIRST_WAVE_DELAY = 10.0 if TEST else 30.0
-WAVE_INTERVAL = 10.0
-WAVE_BREAK = 25.0 if TEST else 120.0     # shopping break after every 5th wave
+WAVE_INTERVAL = 0.0                      # v3.5 (Jiri): the next wave comes right away once a wave is dead
+WAVE_BREAK = 25.0 if TEST else 60.0      # shopping break after every BREAK_EVERY-th wave
+BREAK_EVERY = 10
 
 W = LY.MAP_TILES                  # tiles per side
 NPTS = W + 1                      # tilepoints per side
@@ -359,7 +360,7 @@ globals
     integer array gTestPrim
     real gSpearRange = 600.0
     integer gSpearDummy = 0
-    integer gFireDummy = 0
+    string gFireFx = ""
     real array gLastHit
     integer gReachTech = 0
     integer gReachMax = 5
@@ -446,8 +447,9 @@ globals
     real gHallY = 0.0
     real gSelectTime = 45.0
     real gFirstWaveDelay = 30.0
-    real gWaveInterval = 10.0
-    real gWaveBreak = 120.0
+    real gWaveInterval = 0.0
+    real gWaveBreak = 60.0
+    integer gBreakEvery = 10
     real array gShopFxX
     real array gShopFxY
     integer gShopFxCount = 0
@@ -612,7 +614,7 @@ def build_script():
     a(f"    set gCleaveRad = {jr(OB.CLEAVE_RAD)}")
     a(f"    set gSpearRange = {jr(OB.SPEAR_RANGE)}")
     a(f"    set gSpearDummy = '{OB.SPEAR_DUMMY}'")
-    a(f"    set gFireDummy = '{OB.FIRE_DUMMY}'")
+    a(f"    set gFireFx = {jstr(OB.FX['fire'])}")
     # gate lanes 8-11 = Levels 2-5 (arms 4-7), all owned by the Scourge computer (Player 9)
     for g in OB.GATE_LEVELS:
         lane, arm, f = g["lane"], g["arm"], g
@@ -723,6 +725,7 @@ def build_script():
     a(f"    set gFirstWaveDelay = {jr(FIRST_WAVE_DELAY)}")
     a(f"    set gWaveInterval = {jr(WAVE_INTERVAL)}")
     a(f"    set gWaveBreak = {jr(WAVE_BREAK)}")
+    a(f"    set gBreakEvery = {BREAK_EVERY}")
     a(f"    set gTestMode = {'true' if TEST else 'false'}")
     a("endfunction")
     a("")

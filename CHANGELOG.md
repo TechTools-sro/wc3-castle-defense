@@ -1,5 +1,27 @@
 # Changelog
 
+## v3.5 — 2026-11-01: Dryad multishot fixed, waves without a gap, Attributes +30, Bank +100
+
+- **Uploaded as catalogue map #72** (HTTP 201, download SHA-256 `efb0530c…` matches; 23 versions in the family).
+
+- Jiří (playing v3.4): "the extra spear has no animation", "fire spears are slow, sometimes miss, and hit a tower too
+  far away — make it a clean multishot like X Hero Siege"; "no delay between waves, a 1 min break every 10 waves";
+  "level-up +30 all stats instead of +10"; "bank +100 per minute".
+- **Invisible extra spears — root cause:** the spear dummy (base Archer `earc`) was scaled to 0.01 and the Archer has
+  "Scale Projectiles" (`uscb` = 1), so its spear flew at 1 % size. The dummy is now full scale with `uscb` 0 and the
+  script makes it transparent (`ThrowSpear`); no corpse (`udea` 0), no sounds. The fire dummy (`dspf`, a fireball
+  missile) is gone: every extra spear is the same spear, Fire Spears shows a fire burst on each spear hit.
+- **Clean multishot (`SpearVolley`):** one spear per Extra Spear level at a different enemy **within the Dryad's own
+  attack range (600, measured from her)** — before, targets were picked within 600 of the *target*, so a tower far
+  beyond her range got hit. Spare spears go at the main target only if it survives them all (before, they flew at a
+  minion that her first spear had already killed = "missed"). Her spear and the extra ones fly at 700 (was 450).
+- **Waves:** the next wave starts right away when every monster is dead (`WAVE_INTERVAL` 0, "Next wave now!", no
+  countdown); a **1 min** shopping break after every **10th** wave (`BREAK_EVERY`, `WAVE_BREAK` 60). `-wave` accepts 0–60.
+- **Attributes** (T, from hero level 11): +30 Str/Agi/Int per level (`ATTR_PER_LEVEL`, was +10; also the automatic
+  gain past level 110). **Bank:** 1 tree = +100 gold per minute (`INCOME_STEP`, was +10).
+- **Verified:** pjass + build checks for the normal and the TEST build. ⚠️ **Not run in-game yet** — Jiří was playing
+  (the Wine self-test needs his game closed); the spear visuals need an in-game look.
+
 ## v3.4 — 2026-11-01: 6 AoE champions, bigger waves, potions sold as power-ups
 
 - **Uploaded as catalogue map #71** (HTTP 201, download SHA-256 `08169b93…` matches; 22 versions in the family).

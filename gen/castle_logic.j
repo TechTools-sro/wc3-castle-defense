@@ -1014,15 +1014,15 @@ function OnWaveTimer takes nothing returns nothing
     call UpdateBoard()
 endfunction
 
-// 30 s between waves, but a 1 min break after every 5th wave.
+// The next wave comes right away (gWaveInterval, 0 s since v3.5), but a 1 min break after every 10th wave.
 function NextWaveDelay takes nothing returns real
-    if ModuloInteger(gWave, 5) == 0 then
+    if ModuloInteger(gWave, gBreakEvery) == 0 then
         return gWaveBreak
     endif
     return gWaveInterval
 endfunction
 
-// Shopping break (after every 5th wave): announcement + gold pings and effects on the secret grove.
+// Shopping break (after every gBreakEvery-th wave): announcement + gold pings and effects on the secret grove.
 // Wave reward, paid when the wave is CLEARED: 100 gold for wave 1, +50 for every next wave (no cap).
 function WaveGold takes nothing returns integer
     return 50 + 50 * gWave
@@ -1241,6 +1241,52 @@ function AoeDamage takes unit src, unit skip, real x, real y, real rad, real amo
     return n
 endfunction
 
+// An extra spear's damage: the Dryad's last real hit (+ bonus %), or a level-1 estimate before her first hit.
+function SpearDamage takes integer p returns real
+    local real base = gLastHit[p]
+    if base <= 0.0 then
+        set base = I2R(GetHeroAgi(gHero[p], true)) + 25.0
+    endif
+    return base * (1.0 + I2R(ChampBonusPct(gHero[p])) / 100.0)
+endfunction
+
+// One extra spear: an invisible locust dummy at the Dryad attacks u once - its missile is her spear, launched with hers.
+// (Full-scale dummy made transparent here: a scaled-down one would shrink the spear, see objects.py SPEAR_DUMMY.)
+function ThrowSpear takes integer p, unit a, unit u returns nothing
+    local unit d = CreateUnit(Player(p), gSpearDummy, GetUnitX(a), GetUnitY(a), bj_RADTODEG * Atan2(GetUnitY(u) - GetUnitY(a), GetUnitX(u) - GetUnitX(a)))
+    call SetUnitVertexColor(d, 255, 255, 255, 0)
+    call UnitApplyTimedLife(d, 'BTLF', 4.0)
+    call IssueTargetOrder(d, "attack", u)
+    set d = null
+endfunction
+
+// n extra spears from the Dryad a ("multishot"): one at each OTHER enemy within HER attack range - never a far tower.
+// Spears left over hit the main target only when it survives them all (at a weak minion they would fly at a corpse).
+function SpearVolley takes integer p, unit a, unit tgt, integer n returns nothing
+    local unit u
+    local integer o
+    call GroupEnumUnitsInRange(gDmgGroup, GetUnitX(a), GetUnitY(a), gSpearRange + 200.0, null)
+    loop
+        set u = FirstOfGroup(gDmgGroup)
+        exitwhen u == null or n <= 0
+        call GroupRemoveUnit(gDmgGroup, u)
+        set o = GetPlayerId(GetOwningPlayer(u))
+        if u != tgt and o >= 8 and o <= 11 and GetWidgetLife(u) > 0.405 and IsUnitInRange(u, a, gSpearRange) and IsUnitVisible(u, Player(p)) then
+            call ThrowSpear(p, a, u)
+            set n = n - 1
+        endif
+    endloop
+    call GroupClear(gDmgGroup)
+    if n > 0 and GetWidgetLife(tgt) > SpearDamage(p) * I2R(n + 1) then
+        loop
+            exitwhen n <= 0
+            call ThrowSpear(p, a, tgt)
+            set n = n - 1
+        endloop
+    endif
+    set u = null
+endfunction
+
 function OnDamaged takes nothing returns nothing
     local unit src = GetEventDamageSource()
     local unit tgt = GetTriggerUnit()
@@ -1250,7 +1296,6 @@ function OnDamaged takes nothing returns nothing
     local integer k
     local integer L
     local integer b
-    local real base
     local real hit
     local real amount
     local real x
@@ -1266,16 +1311,15 @@ function OnDamaged takes nothing returns nothing
         set tgt = null
         return
     endif
-    if GetUnitTypeId(src) == gSpearDummy or GetUnitTypeId(src) == gFireDummy then
-        // an extra spear landed: the champion deals her last hit's damage (+ bonus) to this enemy
+    if GetUnitTypeId(src) == gSpearDummy then
+        // an extra spear landed: the champion deals her hit damage (+ bonus) to this enemy; Fire Spears = a fire burst
         if gHero[p] != null then
-            set base = gLastHit[p]
-            if base <= 0.0 then
-                set base = I2R(GetHeroAgi(gHero[p], true)) + 25.0
-            endif
             set gDmgLock = true
-            call UnitDamageTarget(gHero[p], tgt, base * (1.0 + I2R(ChampBonusPct(gHero[p])) / 100.0), true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
+            call UnitDamageTarget(gHero[p], tgt, SpearDamage(p), true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
             set gDmgLock = false
+            if GetUnitAbilityLevel(gHero[p], gFireSkill) > 0 then
+                call DestroyEffect(AddSpecialEffectTarget(gFireFx, tgt, "chest"))
+            endif
         endif
         call UnitApplyTimedLife(src, 'BTLF', 0.1)
         set gTestSpearHits = gTestSpearHits + 1
@@ -1348,18 +1392,13 @@ function OnDamaged takes nothing returns nothing
 endfunction
 
 // Every champion: remember the unit it starts an attack on (its PRIMARY target, see OnDamaged).
-// Dryad Extra Spear: one invisible spear dummy per level shoots at another enemy near the target - the spears are
-// SEEN flying together with hers (fire spears once Fire Spears is learned); spare spears hit the main target.
+// Dryad Extra Spear: one more spear per level, SEEN flying together with hers at other enemies in her range (SpearVolley).
 function OnAttacked takes nothing returns nothing
     local unit a = GetAttacker()
     local unit tgt = GetTriggerUnit()
-    local unit u
-    local unit d
     local integer p
     local integer c
     local integer n = 0
-    local integer o
-    local integer dt = gSpearDummy
     if a != null then
         set p = GetPlayerId(GetOwningPlayer(a))
         if p < 8 then
@@ -1372,37 +1411,11 @@ function OnAttacked takes nothing returns nothing
             endif
         endif
     endif
-    if n > 0 then
-        if GetUnitAbilityLevel(a, gFireSkill) > 0 then
-            set dt = gFireDummy
-        endif
-        call GroupEnumUnitsInRange(gDmgGroup, GetUnitX(tgt), GetUnitY(tgt), gSpearRange, null)
-        loop
-            set u = FirstOfGroup(gDmgGroup)
-            exitwhen u == null or n <= 0
-            call GroupRemoveUnit(gDmgGroup, u)
-            set o = GetPlayerId(GetOwningPlayer(u))
-            if u != tgt and o >= 8 and o <= 11 and GetWidgetLife(u) > 0.405 then
-                set d = CreateUnit(Player(p), dt, GetUnitX(a), GetUnitY(a), bj_RADTODEG * Atan2(GetUnitY(u) - GetUnitY(a), GetUnitX(u) - GetUnitX(a)))
-                call UnitApplyTimedLife(d, 'BTLF', 4.0)
-                call IssueTargetOrder(d, "attack", u)
-                set n = n - 1
-            endif
-        endloop
-        call GroupClear(gDmgGroup)
-        // not enough other enemies: the remaining spears fly at the same target (several spears at once)
-        loop
-            exitwhen n <= 0
-            set d = CreateUnit(Player(p), dt, GetUnitX(a), GetUnitY(a), bj_RADTODEG * Atan2(GetUnitY(tgt) - GetUnitY(a), GetUnitX(tgt) - GetUnitX(a)))
-            call UnitApplyTimedLife(d, 'BTLF', 4.0)
-            call IssueTargetOrder(d, "attack", tgt)
-            set n = n - 1
-        endloop
+    if n > 0 and tgt != null then
+        call SpearVolley(p, a, tgt, n)
     endif
     set a = null
     set tgt = null
-    set u = null
-    set d = null
 endfunction
 
 function DmgRebuild takes nothing returns nothing
@@ -1469,7 +1482,9 @@ function OnTick takes nothing returns nothing
     if gWaitingClear and not gGameOver and CountUnitsInGroup(gWaveUnits) == 0 then
         set gWaitingClear = false
         call TimerStart(gWaveTimer, NextWaveDelay(), false, function OnWaveTimer)
-        call TimerDialogDisplay(gWaveDialog, true)
+        if NextWaveDelay() >= 1.0 then
+            call TimerDialogDisplay(gWaveDialog, true)
+        endif
         // every cleared wave pays its gold + 1 tree (lumber) to every player
         call GiveAllGold(WaveGold())
         set L = 0
@@ -1481,8 +1496,10 @@ function OnTick takes nothing returns nothing
             set L = L + 1
         endloop
         set L = 0
-        if ModuloInteger(gWave, 5) == 0 then
+        if ModuloInteger(gWave, gBreakEvery) == 0 then
             call ShoppingTime()
+        elseif gWaveInterval < 1.0 then
+            call Msg("|cff40ff40All monsters dead!|r  |cffffcc00+" + I2S(WaveGold()) + " gold|r  |cff80ff80+1 tree|r   Next wave now!")
         else
             call Msg("|cff40ff40All monsters dead!|r  |cffffcc00+" + I2S(WaveGold()) + " gold|r  |cff80ff80+1 tree|r   Next wave in " + I2S(R2I(gWaveInterval)) + "s.")
         endif
@@ -1977,7 +1994,7 @@ function AddQuest takes string title, string text, string icon, boolean required
 endfunction
 
 function CreateQuests takes nothing returns nothing
-    call AddQuest("Defend your lane", "Pick a champion: click a hall and click a hero. You then defend |cffffcc00your own lane|r - every player has one lane, and a lane only sends monsters when its player is in the game.\n\nThe next wave comes 10 s after all monsters of the last one are dead (2 min shopping break after every 5th wave). Keep the |cffffcc00Castle of Lordaeron|r alive - if it falls, everyone loses.", "ReplaceableTextures\\CommandButtons\\BTNCastle.blp", true)
+    call AddQuest("Defend your lane", "Pick a champion: click a hall and click a hero. You then defend |cffffcc00your own lane|r - every player has one lane, and a lane only sends monsters when its player is in the game.\n\nThe next wave comes as soon as all monsters of the last one are dead (1 min shopping break after every 10th wave). Keep the |cffffcc00Castle of Lordaeron|r alive - if it falls, everyone loses.", "ReplaceableTextures\\CommandButtons\\BTNCastle.blp", true)
     call AddQuest("Destroy your Nexus", "At the end of |cffffcc00your lane|r stands your own enemy Nexus, guarded by a strong tower. The Nexus sends the waves of your lane. Destroy it and your lane goes quiet - but its boss rises from the ruins.", "ReplaceableTextures\\CommandButtons\\BTNDemonGate.blp", true)
     call AddQuest("Slay the bosses", "Kill the boss of every lane to |cff40ff40win|r. Help your friends with theirs!", "ReplaceableTextures\\CommandButtons\\BTNPitLord.blp", true)
     call AddQuest("Tips", "- Killing monsters gives gold and experience; every wave also pays gold.\n- |cffffcc00Secret grove|r: the narrow passage at the south-east corner of the plaza leads to the Fountain of Power (HP + mana), the Premium Armory (1000-gold items) and the Apothecary.\n- Your champion appears and revives on the circle in your colour at your lane - click the circle to |cffffcc00buy stats|r instantly (each buy costs 3% more).\n- Type |cffffcc00-help|r for the command list.\n- |cffffcc00Space|r = jump to your champion (hold to keep him centred); |cffffcc00Esc|r or -cam = camera follows him.\n- Spells are on |cffffcc00Q W E R|r. Clearing your first wave gives level 2.\n- Staff of Teleportation lets you jump back to the castle or to a friend.\n- Type |cffffcc00-zoom 250|r to zoom out (any value, e.g. -zoom 200; -zoom 165 = normal).", "ReplaceableTextures\\CommandButtons\\BTNSnazzyScroll.blp", false)
@@ -2829,7 +2846,7 @@ endfunction
 
 //---------------------------------------------------------------------------
 // Pace settings (any player, announced to everyone):
-//   -break 60   shopping-break length (5-300 s)      -wave 5   seconds between waves (1-60 s)
+//   -break 60   shopping-break length (5-300 s)      -wave 5   seconds between waves (0-60 s, default 0)
 // Without a number they show the current value. A running countdown that is longer is shortened at once.
 //---------------------------------------------------------------------------
 function OnConfigChat takes nothing returns nothing
@@ -2861,8 +2878,8 @@ function OnConfigChat takes nothing returns nothing
         set gWaveBreak = I2R(n)
         call Msg(who + " set the shopping break to |cffffcc00" + I2S(n) + "s|r")
     else
-        if n < 1 then
-            set n = 1
+        if n < 0 then
+            set n = 0
         elseif n > 60 then
             set n = 60
         endif

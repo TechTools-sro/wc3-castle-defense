@@ -16,6 +16,11 @@
   its group/userdata. Everything that tracks wave units must check the owner (`ReleaseWaveUnit`), or the wave
   never counts as cleared and the unit keeps getting lane orders.
 - JASS: a function must be defined before use; don't reuse native names (`RestartGame` is a native).
+- **A scaled-down dummy shoots scaled-down missiles** when its base unit has "Art - Scale Projectiles" (`uscb`,
+  UnitUI `scaleBull`) = 1 — the Archer (`earc`) and most ranged units do. The 0.01-scale spear dummy hit fine (damage
+  events, self-test PASS) but its spear was 1 % size = invisible ("the extra spear has no animation", v3.5). Fix:
+  full scale, `uscb` 0, and `SetUnitVertexColor(d, 255, 255, 255, 0)` right after `CreateUnit` (same thread → never
+  drawn). Give dummies `udea` 0 (no corpse) and `usnd` "" (no death sound).
 
 ## Shops and items
 
