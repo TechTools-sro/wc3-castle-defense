@@ -254,43 +254,81 @@ function PremiumLevel takes integer id, integer fam returns integer
     return 0
 endfunction
 
-function TryUpgradePremium takes unit h, item it returns boolean
-    local integer id = GetItemTypeId(it)
+// Premium family of an item type (any level), -1 = not a premium item.
+function PremiumFamily takes integer id returns integer
     local integer fam = 0
-    local integer s = 0
-    local integer L
-    local item o
     loop
-        exitwhen fam >= gPremCount or gPremItem[fam * 8 + 1] == id
+        exitwhen fam >= gPremCount
+        if PremiumLevel(id, fam) > 0 then
+            return fam
+        endif
         set fam = fam + 1
     endloop
-    if fam >= gPremCount then
+    return -1
+endfunction
+
+// Two premium items of the same family in one inventory merge into one: level = sum of both (Lv 1 bought while
+// holding Lv 3 -> Lv 4), capped at gPremMax, any level above the cap is refunded. Event-independent: called on buy,
+// on pickup AND every 0.2 s from GrabTick, so it works no matter which shop event the engine fires.
+function MergePremium takes unit h returns boolean
+    local integer a = 0
+    local integer b
+    local integer fam
+    local integer L
+    local item ia
+    local item ib
+    local player pl
+    if h == null or GetWidgetLife(h) <= 0.405 then
         return false
     endif
+    set pl = GetOwningPlayer(h)
     loop
-        exitwhen s >= 6
-        set o = UnitItemInSlot(h, s)
-        if o != null and o != it then
-            set L = PremiumLevel(GetItemTypeId(o), fam)
-            if L > 0 then
-                call RemoveItem(it)
-                if L >= gPremMax then
-                    call SetPlayerState(GetOwningPlayer(h), PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(GetOwningPlayer(h), PLAYER_STATE_RESOURCE_GOLD) + gPremPrice)
-                    call DisplayTimedTextToPlayer(GetOwningPlayer(h), 0.0, 0.0, 5.0, "|cffffcc00" + gPremName[fam] + "|r is already max level - refunded")
-                else
-                    call RemoveItem(o)
-                    call UnitAddItemById(h, gPremItem[fam * 8 + L + 1])
-                    call DestroyEffect(AddSpecialEffectTarget("Abilities\\Spells\\Items\\AIem\\AIemTarget.mdl", h, "origin"))
-                    call DisplayTimedTextToPlayer(GetOwningPlayer(h), 0.0, 0.0, 5.0, "|cffffcc00" + gPremName[fam] + "|r |cff4fc3ffLv " + I2S(L + 1) + "|r: " + gPremEffect[fam * 8 + L + 1])
-                endif
-                set o = null
-                return true
-            endif
+        exitwhen a >= 5
+        set ia = UnitItemInSlot(h, a)
+        set fam = -1
+        if ia != null then
+            set fam = PremiumFamily(GetItemTypeId(ia))
         endif
-        set s = s + 1
+        if fam >= 0 then
+            set b = a + 1
+            loop
+                exitwhen b >= 6
+                set ib = UnitItemInSlot(h, b)
+                if ib != null and PremiumFamily(GetItemTypeId(ib)) == fam then
+                    set L = PremiumLevel(GetItemTypeId(ia), fam) + PremiumLevel(GetItemTypeId(ib), fam)
+                    call RemoveItem(ib)
+                    call RemoveItem(ia)
+                    if L > gPremMax then
+                        call SetPlayerState(pl, PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(pl, PLAYER_STATE_RESOURCE_GOLD) + gPremPrice * (L - gPremMax))
+                        call DisplayTimedTextToPlayer(pl, 0.0, 0.0, 5.0, "|cffffcc00" + gPremName[fam] + "|r is already max level - refunded")
+                        set L = gPremMax
+                    else
+                        call DisplayTimedTextToPlayer(pl, 0.0, 0.0, 5.0, "|cffffcc00" + gPremName[fam] + "|r |cff4fc3ffLv " + I2S(L) + "|r: " + gPremEffect[fam * 8 + L])
+                    endif
+                    call UnitAddItemToSlotById(h, gPremItem[fam * 8 + L], a)
+                    call DestroyEffect(AddSpecialEffectTarget("Abilities\\Spells\\Items\\AIem\\AIemTarget.mdl", h, "origin"))
+                    set ia = null
+                    set ib = null
+                    set pl = null
+                    return true
+                endif
+                set b = b + 1
+            endloop
+        endif
+        set a = a + 1
     endloop
-    set o = null
+    set ia = null
+    set ib = null
+    set pl = null
     return false
+endfunction
+
+function MergePremiumAll takes unit h returns nothing
+    local integer n = 0
+    loop
+        exitwhen n >= 6 or not MergePremium(h)
+        set n = n + 1
+    endloop
 endfunction
 
 // Apothecary potions: heal a percent of max HP / mana on use; the same potion stacks into one slot.
@@ -358,14 +396,16 @@ function OnItemSold takes nothing returns nothing
         elseif StackPotion(b, it) then
             // potion merged into the one the champion already carries
         else
-            if not UnitHasItem(b, it) then
+            // a premium item always goes to the champion (whoever the shop picked as buyer)
+            if gHero[p] != null and PremiumFamily(GetItemTypeId(it)) >= 0 then
+                set b = gHero[p]
+            endif
+            if GetItemTypeId(it) != 0 and not UnitHasItem(b, it) then
                 if not UnitAddItem(b, it) then
                     call SetItemPosition(it, GetUnitX(b), GetUnitY(b))
                 endif
             endif
-            if GetItemTypeId(it) != 0 and b == gHero[p] then
-                call TryUpgradePremium(b, it)
-            endif
+            call MergePremiumAll(gHero[p])
         endif
     endif
     set it = null
@@ -383,7 +423,8 @@ function OnItemPickup takes nothing returns nothing
         set it = null
         return
     endif
-    if p < 8 and GetTriggerUnit() == gHero[p] and TryUpgradePremium(gHero[p], it) then
+    if p < 8 and GetTriggerUnit() == gHero[p] and PremiumFamily(GetItemTypeId(it)) >= 0 then
+        call MergePremiumAll(gHero[p])
         set it = null
         return
     endif
@@ -426,6 +467,9 @@ function GrabTick takes nothing returns nothing
         if gHero[p] != null and gCircleRect[p] != null and GetWidgetLife(gHero[p]) > 0.405 then
             set gGrabP = p
             call EnumItemsInRect(gCircleRect[p], null, function GrabTomeEnum)
+        endif
+        if gHero[p] != null then
+            call MergePremiumAll(gHero[p])
         endif
         set p = p + 1
     endloop

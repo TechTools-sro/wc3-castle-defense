@@ -29,6 +29,8 @@
   tomes and castle upgrades worked) — premium-item merges never ran. A **remote** purchase from a neutral shop (buyer
   far away, large `Aneu` radius) even leaves the item on the ground at the shop. Catch `EVENT_PLAYER_UNIT_SELL_ITEM` (it does fire for neutral shops) and hand the
   item to `GetBuyingUnit()` (`OnItemSold`). This silently broke the Bank once shops became remote.
+  ⚠️ Premium merges still failed in play after that (v1.3–v1.7, cause not pinned down in-game) → since v1.8 the merge does
+  not depend on any shop event: `GrabTick` sweeps every champion's inventory every 0.2 s (`MergePremium`).
 - A player buys from an allied player's shop through `Aall` (Shop Sharing); its `Neu1`/`aran` set the radius.
 - Tavern heroes: `usst` = 0 or they unlock only after 120–135 s; `ureq` = "" or the Altar (`TALT`) requirement
   greys out the neutral tavern; a scripted tavern buy needs ~2 s after the buyer unit is placed.

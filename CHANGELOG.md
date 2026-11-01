@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.8 — 2026-11-01: premium item upgrades no longer depend on shop events
+
+- **Uploaded as catalogue map #23** (HTTP 201, download SHA-256 `1c121554…` matches).
+
+- Jiří: buying the same premium item still gave a 2nd copy instead of upgrading it ("so crucial bug"). The old merge
+  ran only inside the shop events (`OnItemSold` / `OnItemPickup`) and still failed in play; the exact engine cause
+  was not reproduced. New `MergePremium` (`gen/castle_logic.j`): two items of one family in an inventory become one at
+  the summed level (Lv 1 + Lv 3 → Lv 4, capped at 5, excess refunded). It runs on buy, on pickup **and every 0.2 s for
+  every champion from `GrabTick`**, so it works whatever event fires; premium purchases always go to the champion.
+  Replaces `TryUpgradePremium`. Verified: pjass + build. **Not tried in-game** (Jiří chose to ship untested).
+
 ## v1.7 — 2026-11-01: potions heal % and stack
 
 - **Uploaded as catalogue map #22** (HTTP 201, download SHA-256 `194772af…` matches).
