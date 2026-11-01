@@ -2,6 +2,8 @@
 
 ## v4.3 — 2026-11-01: twelve champions of X Hero Siege, wider lanes, fewer and far stronger monsters, ultra fast bosses
 
+- **Uploaded as catalogue map #80** (HTTP 201, download SHA-256 `7fc88a60…` matches dist and the installed map; 31 versions in the family).
+
 - Jiří: "implement the champions of X Hero Siege 3.28, because the Dryad there throws several spears at once" → then: the twelve best, one tavern, the Dryad copied completely, the others with their real abilities. "Lanes too narrow at wave 23, melee behind, ranged in front." "Bosses far too easy, far too many weak monsters, late play boring." "Bosses ultra fast, high damage, durable, not stunnable." "Castle Regeneration should show what was bought." → [docs/gameplay.md](docs/gameplay.md) § Champions, § The map, [docs/balance.md](docs/balance.md)
 - **12 champions from the reference, in the one tavern:** Dryad, Mountain King, Tauren Chieftain, Pit Lord, Archmage, Lich, Paladin, Blademaster, Beastmaster, Crypt Lord, Demon Hunter, Priestess of the Moon. `tools/xhs_port.py` generates `gen/xhs_data.py` from the local reference map, read-only, numbers and art paths only; the reference stays out of this repo. Their abilities are the native ones with the reference's numbers, a few triggers where it has triggers (`HeroGrants`, `OnHeroGlue*`), our own short text. The old champion layer, spear dummies included, is gone.
 - **The Dryad's spears are the real thing now:** the native Barrage. Measured: 4 / 6 / 8 / up to 10 enemies hit per attack at levels 1 to 4, her own hit included, seen as simultaneous spears in a film. See gameplay and gotchas for the rules this ability really has: it goes with her attack and does the damage of her weapon, not the fields' 250 to 2000.
