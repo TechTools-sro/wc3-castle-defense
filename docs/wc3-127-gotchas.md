@@ -20,7 +20,17 @@
   UnitUI `scaleBull`) = 1 — the Archer (`earc`) and most ranged units do. The 0.01-scale spear dummy hit fine (damage
   events, self-test PASS) but its spear was 1 % size = invisible ("the extra spear has no animation", v3.5). Fix:
   full scale, `uscb` 0, and `SetUnitVertexColor(d, 255, 255, 255, 0)` right after `CreateUnit` (same thread → never
-  drawn). Give dummies `udea` 0 (no corpse) and `usnd` "" (no death sound).
+  drawn).
+- **Never kill an attack dummy — remove it.** A transparent dying Archer still plays its death scream and blood: those
+  are model events, `usnd` "" doesn't stop them. `SpearSweep` removes spent dummies with `RemoveUnit`.
+- **A dummy whose target dies before its damage point re-acquires** anything within its acquisition range (the
+  cancelled attack doesn't start the cooldown) — the 2000-range spear dummy shot far towers. Keep dummy ranges short,
+  give it damage point 0, remember its assigned target and stop it in `EVENT_PLAYER_UNIT_ATTACKED` if it attacks
+  anything else (that event fires when the attack starts, before the missile).
+- **`EVENT_PLAYER_UNIT_ATTACKED` fires at the START of an attack**, before the damage point, and again on every
+  restart (stop-spam, cancelled swings). Anything that must happen with the real release (extra missiles) waits for
+  `damage point / attack speed` (2 % per agility, item and skill bonuses, capped at +400 %) and is cancelled by a new
+  point / immediate order.
 
 ## Shops and items
 

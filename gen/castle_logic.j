@@ -262,7 +262,7 @@ function AdvanceStatPrice takes integer p, item it returns nothing
     endloop
 endfunction
 
-// Bank: 1 tree buys +gIncomeStep (10) gold income per minute, paid by IncomeTick on every full minute of the
+// Bank: 1 tree buys +gIncomeStep (INCOME_STEP in gen/objects.py, 100) gold income per minute, paid by IncomeTick on every full minute of the
 // game clock (called from OnTick).
 function BuyIncome takes integer p, item it returns nothing
     call RemoveItem(it)
@@ -1250,6 +1250,31 @@ function AoeDamage takes unit src, unit skip, real x, real y, real rad, real amo
     return AoeDamageFx(src, skip, x, y, rad, amount, "")
 endfunction
 
+// ---- Dryad spears (v3.7). Every extra spear is an invisible dummy that shoots ONE spear at ONE assigned enemy:
+// gSpearTgt / gSpearAmt / gSpearEnd per slot (the dummy's user data). Damage on the way is "pending" per target
+// (gSpearHT, keyed by its handle id), so the next throw doesn't pick an enemy already doomed by spears in flight.
+// Dummies never die (an Archer death plays a scream and blood even when transparent): SpearSweep removes them.
+function SpearPending takes unit u returns real
+    return LoadReal(gSpearHT, GetHandleId(u), 0)
+endfunction
+
+// A spear is done (hit, missed, expired or cancelled): its damage is no longer pending. Safe to call twice.
+function SpearResolve takes integer s returns nothing
+    local integer h
+    local real v
+    if gSpearTgt[s] != null then
+        set h = GetHandleId(gSpearTgt[s])
+        set v = LoadReal(gSpearHT, h, 0) - gSpearAmt[s]
+        if v <= 0.5 then
+            call RemoveSavedReal(gSpearHT, h, 0)
+        else
+            call SaveReal(gSpearHT, h, 0, v)
+        endif
+        set gSpearTgt[s] = null
+    endif
+    set gSpearAmt[s] = 0.0
+endfunction
+
 // An extra spear's damage: the Dryad's last real hit (+ bonus %), or a level-1 estimate before her first hit.
 function SpearDamage takes integer p returns real
     local real base = gLastHit[p]
@@ -1259,41 +1284,169 @@ function SpearDamage takes integer p returns real
     return base * (1.0 + I2R(ChampBonusPct(gHero[p])) / 100.0)
 endfunction
 
-// One extra spear: an invisible locust dummy at the Dryad attacks u once - its missile is her spear, launched with hers.
-// (Full-scale dummy made transparent here: a scaled-down one would shrink the spear, see objects.py SPEAR_DUMMY.)
-function ThrowSpear takes integer p, unit a, unit u returns nothing
-    local unit d = CreateUnit(Player(p), gSpearDummy, GetUnitX(a), GetUnitY(a), bj_RADTODEG * Atan2(GetUnitY(u) - GetUnitY(a), GetUnitX(u) - GetUnitX(a)))
+// One extra spear at u, launched right now (dummy damage point 0, her launch point). j > 0 = the j-th spare spear at
+// her own target: it starts beside her (25 / 50 / 75 / 100 out, alternating sides) so every spear is SEEN.
+function ThrowSpear takes integer p, unit a, unit u, integer j returns nothing
+    local real ang = Atan2(GetUnitY(u) - GetUnitY(a), GetUnitX(u) - GetUnitX(a))
+    local real off = 0.0
+    local real back = 0.0
+    local integer s
+    local unit d = CreateUnit(Player(p), gSpearDummy, GetUnitX(a), GetUnitY(a), bj_RADTODEG * ang)
     call SetUnitVertexColor(d, 255, 255, 255, 0)
-    call UnitApplyTimedLife(d, 'BTLF', 4.0)
+    if j > 0 then
+        set off = 25.0 * I2R(ModuloInteger((j + 1) / 2 - 1, 4) + 1)
+        set back = 20.0 * I2R(((j + 1) / 2 - 1) / 4)
+        if ModuloInteger(j, 2) == 0 then
+            set off = -off
+        endif
+        call SetUnitX(d, GetUnitX(a) + off * Cos(ang + bj_PI / 2.0) - back * Cos(ang))
+        call SetUnitY(d, GetUnitY(a) + off * Sin(ang + bj_PI / 2.0) - back * Sin(ang))
+    endif
+    set gSpearSlot = gSpearSlot + 1
+    if gSpearSlot > 8000 then
+        set gSpearSlot = 1
+    endif
+    set s = gSpearSlot
+    call SpearResolve(s)
+    set gSpearTgt[s] = u
+    set gSpearAmt[s] = SpearDamage(p)
+    set gSpearEnd[s] = gSpearTick + 40
+    call SaveReal(gSpearHT, GetHandleId(u), 0, SpearPending(u) + gSpearAmt[s])
+    call SetUnitUserData(d, s)
+    call GroupAddUnit(gSpearLive, d)
     call IssueTargetOrder(d, "attack", u)
     set d = null
 endfunction
 
-// n extra spears from the Dryad a ("multishot"): one at each OTHER enemy within HER attack range - never a far tower.
-// Spears left over hit the main target only when it survives them all (at a weak minion they would fly at a corpse).
-function SpearVolley takes integer p, unit a, unit tgt, integer n returns nothing
+// n extra spears from the Dryad a ("multishot", like X Hero Siege): one at each OTHER enemy within HER attack range that
+// the spears already in flight won't kill; the rest at her target - as many as it survives (+ her own spear).
+// Returns how many spears were thrown.
+function SpearVolley takes integer p, unit a, unit tgt, integer n returns integer
     local unit u
     local integer o
+    local integer k = 0
+    local integer thrown = 0
+    local real sd = SpearDamage(p)
+    local real life
     call GroupEnumUnitsInRange(gDmgGroup, GetUnitX(a), GetUnitY(a), gSpearRange + 200.0, null)
     loop
         set u = FirstOfGroup(gDmgGroup)
         exitwhen u == null or n <= 0
         call GroupRemoveUnit(gDmgGroup, u)
         set o = GetPlayerId(GetOwningPlayer(u))
-        if u != tgt and o >= 8 and o <= 11 and GetWidgetLife(u) > 0.405 and IsUnitInRange(u, a, gSpearRange) and IsUnitVisible(u, Player(p)) then
-            call ThrowSpear(p, a, u)
+        if u != tgt and o >= 8 and o <= 11 and GetWidgetLife(u) - SpearPending(u) > 0.405 and IsUnitInRange(u, a, gSpearRange) and IsUnitVisible(u, Player(p)) then
+            call ThrowSpear(p, a, u, 0)
             set n = n - 1
+            set thrown = thrown + 1
         endif
     endloop
     call GroupClear(gDmgGroup)
-    if n > 0 and GetWidgetLife(tgt) > SpearDamage(p) * I2R(n + 1) then
-        loop
-            exitwhen n <= 0
-            call ThrowSpear(p, a, tgt)
-            set n = n - 1
-        endloop
-    endif
+    set life = GetWidgetLife(tgt) - SpearPending(tgt)
+    loop
+        exitwhen k >= n or life <= sd * I2R(k + 2)
+        set k = k + 1
+    endloop
+    set n = 1
+    loop
+        exitwhen n > k
+        call ThrowSpear(p, a, tgt, n)
+        set n = n + 1
+    endloop
     set u = null
+    return thrown + k
+endfunction
+
+// Her spear leaves her hand gDryadDmgPt (0.3 s) into the attack, sooner with attack speed: gAgiAs (2 %) per agility point,
+// gSwiftStep per Swift Throw level, Fury Gloves; the engine caps the bonus at +400 %.
+function DryadReleaseDelay takes unit a returns real
+    local real f = 1.0 + gAgiAs * I2R(GetHeroAgi(a, true)) + gSwiftStep * I2R(GetUnitAbilityLevel(a, gSwiftSkill))
+    local integer i = 0
+    local integer L
+    loop
+        exitwhen i >= 6
+        if UnitItemInSlot(a, i) != null then
+            set L = PremiumLevel(GetItemTypeId(UnitItemInSlot(a, i)), gGloveFam)
+            if L > 0 then
+                set f = f + gGloveAs0 + gGloveAsStep * I2R(L - 1)
+            endif
+        endif
+        set i = i + 1
+    endloop
+    if f > 5.0 then
+        set f = 5.0
+    endif
+    return gDryadDmgPt / f
+endfunction
+
+// Her spear is released now (gVolleyTimer[p], started by OnAttacked): throw the extra spears with it. An attack cancelled
+// by a new order (OnHeroOrder) or restarted (OnAttacked again) never gets here, so no spears without hers.
+function VolleyRelease takes nothing returns nothing
+    local timer t = GetExpiredTimer()
+    local integer p = 0
+    local integer n
+    local integer L
+    local integer k
+    local boolean storm = false
+    local unit a
+    loop
+        exitwhen p >= 8 or gVolleyTimer[p] == t
+        set p = p + 1
+    endloop
+    set t = null
+    if p >= 8 or not gVolleyPending[p] then
+        return
+    endif
+    set gVolleyPending[p] = false
+    set a = gHero[p]
+    if a == null or GetWidgetLife(a) <= 0.405 or gVolleyTgt[p] == null or GetWidgetLife(gVolleyTgt[p]) <= 0.405 then
+        set a = null
+        return
+    endif
+    set n = GetUnitAbilityLevel(a, gSpearAbil)
+    set L = GetUnitAbilityLevel(a, gVolleyAbil)
+    if L > 0 then
+        set gVolleyCount[p] = gVolleyCount[p] + 1
+        if ModuloInteger(gVolleyCount[p], gVolleyEvery) == 0 then
+            set n = n + gVolleyPer * L
+            set storm = true
+            set gTestVolley = gTestVolley + 1
+        endif
+    endif
+    if n > 0 then
+        set k = SpearVolley(p, a, gVolleyTgt[p], n)
+        if storm then
+            set gTestVolleySpears = gTestVolleySpears + k
+            if gTestVolleyFirst == 0 then
+                set gTestVolleyFirst = k
+            endif
+        endif
+    endif
+    set a = null
+endfunction
+
+function SpearSweepEnum takes nothing returns nothing
+    local unit d = GetEnumUnit()
+    local integer s = GetUnitUserData(d)
+    if gSpearEnd[s] <= gSpearTick then
+        call SpearResolve(s)
+        call GroupRemoveUnit(gSpearLive, d)
+        call RemoveUnit(d)
+    endif
+    set d = null
+endfunction
+
+// 0.1 s: spent or expired (4 s) spear dummies are removed - never killed.
+function SpearSweep takes nothing returns nothing
+    set gSpearTick = gSpearTick + 1
+    call ForGroup(gSpearLive, function SpearSweepEnum)
+endfunction
+
+// A new point / immediate order (move, stop, hold, ...) cancels the Dryad's attack in its wind-up: no extra spears.
+function OnHeroOrder takes nothing returns nothing
+    local integer p = GetPlayerId(GetOwningPlayer(GetTriggerUnit()))
+    if p < 8 and GetTriggerUnit() == gHero[p] then
+        set gVolleyPending[p] = false
+    endif
 endfunction
 
 function OnDamaged takes nothing returns nothing
@@ -1321,17 +1474,19 @@ function OnDamaged takes nothing returns nothing
         return
     endif
     if GetUnitTypeId(src) == gSpearDummy then
-        // an extra spear landed: the champion deals her hit damage (+ bonus) to this enemy; Fire Spears = a fire burst
-        if gHero[p] != null then
+        // an extra spear landed: on its ASSIGNED enemy the champion deals the spear's damage; Fire Spears = a fire burst
+        set k = GetUnitUserData(src)
+        if tgt == gSpearTgt[k] and gHero[p] != null then
             set gDmgLock = true
-            call UnitDamageTarget(gHero[p], tgt, SpearDamage(p), true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
+            call UnitDamageTarget(gHero[p], tgt, gSpearAmt[k], true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
             set gDmgLock = false
             if GetUnitAbilityLevel(gHero[p], gFireSkill) > 0 then
                 call DestroyEffect(AddSpecialEffectTarget(gFireFx, tgt, "chest"))
             endif
+            set gTestSpearHits = gTestSpearHits + 1
         endif
-        call UnitApplyTimedLife(src, 'BTLF', 0.1)
-        set gTestSpearHits = gTestSpearHits + 1
+        call SpearResolve(k)
+        set gSpearEnd[k] = 0
         set src = null
         set tgt = null
         return
@@ -1415,37 +1570,38 @@ function OnDamaged takes nothing returns nothing
 endfunction
 
 // Every champion: remember the unit it starts an attack on (its PRIMARY target, see OnDamaged).
-// Dryad Extra Spear: one more spear per level, SEEN flying together with hers at other enemies in her range (SpearVolley);
-// Spear Storm (R): every gVolleyEvery-th throw gVolleyPer more spears per level.
+// Dryad Extra Spear (one more spear per level) / Spear Storm (R, every gVolleyEvery-th throw gVolleyPer more per level):
+// the spears are thrown when HER spear leaves her hand (VolleyRelease), seen flying with it at other enemies in her range.
+// A spear dummy that starts attacking anything but its assigned enemy (its target died) is stopped before it shoots.
 function OnAttacked takes nothing returns nothing
     local unit a = GetAttacker()
     local unit tgt = GetTriggerUnit()
     local integer p
     local integer c
-    local integer n = 0
-    local integer L
     if a != null then
         set p = GetPlayerId(GetOwningPlayer(a))
         if p < 8 then
+            if GetUnitTypeId(a) == gSpearDummy then
+                set c = GetUnitUserData(a)
+                if tgt != gSpearTgt[c] then
+                    call PauseUnit(a, true)
+                    call SpearResolve(c)
+                    set gSpearEnd[c] = 0
+                endif
+                set a = null
+                set tgt = null
+                return
+            endif
             set c = ChampIndex(GetUnitTypeId(a))
             if c >= 0 then
                 set gAtkTarget[c * 8 + p] = tgt
             endif
-            if a == gHero[p] then
-                set n = GetUnitAbilityLevel(a, gSpearAbil)
-                set L = GetUnitAbilityLevel(a, gVolleyAbil)
-                if L > 0 then
-                    set gVolleyCount[p] = gVolleyCount[p] + 1
-                    if ModuloInteger(gVolleyCount[p], gVolleyEvery) == 0 then
-                        set n = n + gVolleyPer * L
-                        set gTestVolley = gTestVolley + 1
-                    endif
-                endif
+            if a == gHero[p] and tgt != null and (GetUnitAbilityLevel(a, gSpearAbil) > 0 or GetUnitAbilityLevel(a, gVolleyAbil) > 0) then
+                set gVolleyTgt[p] = tgt
+                set gVolleyPending[p] = true
+                call TimerStart(gVolleyTimer[p], DryadReleaseDelay(a), false, function VolleyRelease)
             endif
         endif
-    endif
-    if n > 0 and tgt != null then
-        call SpearVolley(p, a, tgt, n)
     endif
     set a = null
     set tgt = null
@@ -2266,11 +2422,14 @@ function TestStep takes nothing returns nothing
             endif
             call IssueNeutralImmediateOrderById(Player(0), gApoShop, gPotToken[1])
             call IssueNeutralImmediateOrderById(Player(0), gArmoryShop, gPremItem[1])
+            // a dense pack of 16 paused Taurens (1300 HP, no fight back) within her range: every Spear Storm throw must
+            // find 14 different enemies (Extra Spear 5 + 9)
             set L = 0
             loop
-                exitwhen L >= 4
-                set u = CreateUnit(Player(8), 'otau', GetUnitX(gHero[0]) + 250.0 * Cos(L * 0.5), GetUnitY(gHero[0]) + 250.0 * Sin(L * 0.5), 0.0)
+                exitwhen L >= 16
+                set u = CreateUnit(Player(8), 'otau', GetUnitX(gHero[0]) + (250.0 + 60.0 * ModuloInteger(L, 3)) * Cos(L * 0.39), GetUnitY(gHero[0]) + (250.0 + 60.0 * ModuloInteger(L, 3)) * Sin(L * 0.39), 0.0)
                 call PauseUnit(u, true)
+                set gTestTau = u
                 set L = L + 1
             endloop
             call IssueTargetOrder(gHero[0], "attack", u)
@@ -2379,7 +2538,7 @@ function TestStep takes nothing returns nothing
             call TestCheck(GetHeroLevel(gHero[0]) == gTestLvl + 1, "Experience buy = +1 level (" + I2S(gTestLvl) + " -> " + I2S(GetHeroLevel(gHero[0])) + ")")
             call TestCheck(TestPremLevel(gHero[0]) == 5, "4 more Vampire Fang buys (stock 5) = Lv 5 (is Lv " + I2S(TestPremLevel(gHero[0])) + ")")
             call TestCheck(TestSlots(gHero[0], 'phea') == 1 and TestCharges(gHero[0], 'phea') == 2, "potions still stacked: slots " + I2S(TestSlots(gHero[0], 'phea')) + ", charges " + I2S(TestCharges(gHero[0], 'phea')))
-            call TestCheck(GetUnitAbilityLevel(gHero[0], gVolleyAbil) == 3 and gTestVolley > 0, "Spear Storm (R) Lv 3: " + I2S(gTestVolley) + " volleys (every 4th throw +9 spears), spear hits " + I2S(gTestSpearHits))
+            call TestCheck(GetUnitAbilityLevel(gHero[0], gVolleyAbil) == 3 and gTestVolley > 0 and gTestVolleyFirst == GetUnitAbilityLevel(gHero[0], gSpearAbil) + gVolleyPer * 3, "Spear Storm (R) Lv 3: the first volley threw " + I2S(gTestVolleyFirst) + " spears into the pack (expected 14); " + I2S(gTestVolley) + " volleys, " + I2S(gTestVolleySpears) + " volley spears, " + I2S(gTestSpearHits) + " spear hits")
             // buy a stat while the champion is dead: the price must step at once
             set gTestNext = gStatNext[0]
             call KillUnit(gHero[0])
@@ -2395,6 +2554,8 @@ function TestStep takes nothing returns nothing
         if gTestRound == 0 then
             call TestCheck(gStatNext[0] == gTestNext + 1 or gStatNext[0] == gTestNext, "dead buy: price step " + I2S(gTestNext) + " -> " + I2S(gStatNext[0]) + " (same = the shop refused the buy, nothing paid)")
             call TestCheck(gStatApplied[0] <= gStatNext[0], "dead buy: bonus waits for the revive (applied " + I2S(gStatApplied[0]) + " of " + I2S(gStatNext[0]) + ")")
+            // 5 s after the Dryad died: every spear dummy is removed (none killed) and no spear damage is left pending
+            call TestCheck(CountUnitsInGroup(gSpearLive) == 0 and SpearPending(gTestTau) < 1.0, "spear dummies cleaned up: " + I2S(CountUnitsInGroup(gSpearLive)) + " left, pending " + I2S(R2I(SpearPending(gTestTau))))
             call TestFlush()
             // the 6 AoE champions (created at t=10, fighting since)
             set c = 1
@@ -2554,6 +2715,8 @@ function AssignHero takes integer p, unit h returns nothing
     local integer j = 0
     local integer id = GetUnitTypeId(h)
     set gHero[p] = h
+    set gLastHit[p] = 0.0
+    set gVolleyPending[p] = false
     call HidePickTag(p)
     if gSoul[p] != null then
         call RemoveUnit(gSoul[p])
@@ -2697,6 +2860,10 @@ function CDRestart takes nothing returns nothing
         return
     endif
     set gWaitingClear = false
+    // spears in flight: resolve (no pending damage left for recycled handle ids) and remove, before units go away
+    set gSpearTick = gSpearTick + 1000000
+    call ForGroup(gSpearLive, function SpearSweepEnum)
+    set gSpearTick = gSpearTick - 1000000
     call PauseTimer(gWaveTimer)
     call PauseTimer(gSelectTimer)
     if gWaveDialog != null then
@@ -2743,6 +2910,17 @@ function CDRestart takes nothing returns nothing
         set gKills[i] = 0
         set gDeaths[i] = 0
         set gIncome[i] = 0
+        set gLastHit[i] = 0.0
+        set gVolleyCount[i] = 0
+        set gVolleyPending[i] = false
+        set j = 0
+        loop
+            exitwhen j >= gChampN
+            set gStormCount[j * 8 + i] = 0
+            set gHitCount[j * 8 + i] = 0
+            set gAtkTarget[j * 8 + i] = null
+            set j = j + 1
+        endloop
         call SetPlayerTechResearched(Player(i), gReachTech, 0)
         set gFirstWaveLeft[i] = 0
         set gLaneState[i] = -1
@@ -2860,6 +3038,19 @@ function DevArg takes string m, integer cmdLen, integer def returns integer
     return S2I(rest)
 endfunction
 
+// -wave / -break argument: -1 = no number (show the current values). Unlike DevArg, "0" is a real value here.
+function PaceArg takes string m, integer cmdLen returns integer
+    local string rest = SubString(m, cmdLen, StringLength(m))
+    loop
+        exitwhen StringLength(rest) == 0 or SubString(rest, 0, 1) != " "
+        set rest = SubString(rest, 1, StringLength(rest))
+    endloop
+    if StringLength(rest) == 0 or (S2I(rest) == 0 and SubString(rest, 0, 1) != "0") then
+        return -1
+    endif
+    return S2I(rest)
+endfunction
+
 function OnDevChat takes nothing returns nothing
     local player p = GetTriggerPlayer()
     local integer id = GetPlayerId(p)
@@ -2901,9 +3092,9 @@ function OnConfigChat takes nothing returns nothing
         return
     endif
     if isBreak then
-        set n = DevArg(m, 6, -1)
+        set n = PaceArg(m, 6)
     else
-        set n = DevArg(m, 5, -1)
+        set n = PaceArg(m, 5)
     endif
     if n < 0 then
         call DisplayTimedTextToPlayer(p, 0.0, 0.0, 6.0, "Break |cffffcc00" + I2S(R2I(gWaveBreak)) + "s|r   Wave gap |cffffcc00" + I2S(R2I(gWaveInterval)) + "s|r")
@@ -3000,6 +3191,7 @@ function InitGame takes nothing returns nothing
     call TriggerAddAction(t, function OnFollowToggle)
     call TimerStart(CreateTimer(), 0.1, true, function SpaceTick)
     call TimerStart(CreateTimer(), 0.2, true, function GrabTick)
+    call TimerStart(CreateTimer(), 0.1, true, function SpearSweep)
     call TimerStart(CreateTimer(), 1.0, true, function UpdateBoard)
     call TimerStart(CreateTimer(), 1.0, true, function ProtectorTick)
     set t = CreateTrigger()
@@ -3047,6 +3239,17 @@ function InitGame takes nothing returns nothing
     set t = CreateTrigger()
     call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_UNIT_ATTACKED)
     call TriggerAddAction(t, function OnAttacked)
+    // the Dryad's spear release: one timer per player; a new point / immediate order of a player's unit cancels it
+    set t = CreateTrigger()
+    set i = 0
+    loop
+        exitwhen i >= 8
+        set gVolleyTimer[i] = CreateTimer()
+        call TriggerRegisterPlayerUnitEvent(t, Player(i), EVENT_PLAYER_UNIT_ISSUED_POINT_ORDER, null)
+        call TriggerRegisterPlayerUnitEvent(t, Player(i), EVENT_PLAYER_UNIT_ISSUED_ORDER, null)
+        set i = i + 1
+    endloop
+    call TriggerAddAction(t, function OnHeroOrder)
     set t = CreateTrigger()
     call TriggerRegisterAnyUnitEventBJ(t, EVENT_PLAYER_HERO_SKILL)
     call TriggerAddAction(t, function OnHeroSkill)

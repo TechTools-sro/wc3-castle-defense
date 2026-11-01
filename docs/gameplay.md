@@ -25,7 +25,7 @@ Invader of arm `d` = Player(8 + d): 0 North **The Scourge**, 1 East **The Burnin
 
    | Champion | Attack | Q | W | E | R (ultimate) |
    |---|---|---|---|---|---|
-   | **Dryad** (`Edry`, custom: Priestess base, Dryad model, high spear 700 / arc 0.25) | ranged, single target | Extra Spear: +1 **flying** spear per level, thrown together with hers at another enemy **within her own range** (full damage; spare spears hit the main target only when it survives them all) | Swift Throw: speed | Fire Spears: bonus (fire burst on every spear) | Spear Storm: volley |
+   | **Dryad** (`Edry`, custom: Priestess base, Dryad model, high spear 700 / arc 0.25) | ranged, single target | Extra Spear: +1 **flying** spear per level, thrown the moment her spear leaves her hand (`DryadReleaseDelay`) at another enemy **within her own range** that the spears in flight won't kill (full damage); leftover spears hit her target, as many as it survives, each starting beside her | Swift Throw: speed | Fire Spears: bonus (fire burst on every spear) | Spear Storm: volley |
    | **Mountain King** (`Hmkg`) | melee, innate **cleave 30 %** | Thunder Clap: nova | Storm Hammer: bonus | Battle Fury: speed | Avatar: storm (lightning on every victim) |
    | **Tauren Chieftain** (`Otch`) | melee, innate **cleave 30 %** | Shockwave: blast | War Stomp: nova | Endurance: speed | Stampede: storm |
    | **Pit Lord** (`Nplh`) | melee, innate **cleave 40 %** | Rain of Fire: nova | Howl of Terror: bonus | Doom Strike: blast | Inferno: storm (meteor) |
@@ -132,9 +132,10 @@ Every Nexus boss drops one EPIC crown at its ruins (purple ping + "EPIC DROP" me
 
 - Spells on **Q W E R** for cast and learn, tooltips retagged `[Q]` (`gen/hotkeys.py`).
 - Every hero can attack **air** units, melee heroes too (`ua1g` += air, `original_unit_mods`).
-- **Hero level is practically unlimited** (`MAX_HERO_LEVEL` = 1000 via `war3mapMisc.txt`). Spells are maxed at
-  level 10; from level 11 each skill point goes into **Attributes** (`Xatt`, learn key T): +30 Str/Agi/Int per
-  level, 100 levels (hero level 110). Above that every level-up adds +30 to all three automatically.
+- **Hero level is practically unlimited** (`MAX_HERO_LEVEL` = 1000 via `war3mapMisc.txt`). 1 skill point per
+  level: Q/W/E 5 levels each, R 3 (hero level 6 / 11 / 16) = 18 points, so spells are maxed at hero level 18 at the
+  earliest. From level 11 a point can also go into **Attributes** (`Xatt`, learn key T): +30 Str/Agi/Int per level,
+  100 levels. Past hero level 110 every level-up adds +30 to all three automatically.
 - **Level 2** when the player's first wave is cleared (or at wave 2 for everyone). Every level-up refills HP + mana.
 - Death → revive on the Champion's Circle after `4 + 2*level` s, max 24 s (`StartRevive`). Deaths counted.
 

@@ -1,5 +1,33 @@
 # Changelog
 
+## v3.7 — 2026-11-01: a clean Dryad multishot (review fixes)
+
+- **Uploaded as catalogue map #74** (HTTP 201, download SHA-256 `97628cf3…` matches; 25 versions in the family).
+
+- An adversarial code review of v3.5/v3.6 (3 lenses, every finding re-checked by a skeptic: 16 confirmed, 1 rejected)
+  found why spears still looked messy; all fixed here:
+  - **Spears re-aimed at far towers:** a dummy whose enemy died before its damage point went idle and auto-acquired
+    anything within 2000. Now every dummy remembers its enemy (`gSpearTgt[slot]`, slot = user data), is stopped in
+    `OnAttacked` if it attacks anything else, deals damage only to its own enemy, and has range 800 / damage point 0.
+  - **Spears launched late** (fixed 0.3 s while her attack speed shortens her wind-up) and **even when her attack was
+    cancelled:** the extra spears now leave at her real release moment — `DryadReleaseDelay` (0.3 s ÷ attack-speed
+    factor: 2 % per agility, Swift Throw, Fury Gloves, capped at +400 %) on a per-player timer (`gVolleyTimer`,
+    `VolleyRelease`); a new point / immediate order cancels it (`OnHeroOrder`), a restarted attack restarts it. The
+    Spear Storm counter counts real throws. Dummies shoot from her launch point (0, 0, 100).
+  - **Spears at corpses:** damage in flight is now "pending" per target (`gSpearHT`, `SpearPending` / `SpearResolve`);
+    a throw skips enemies the spears in flight will kill.
+  - **More levels threw fewer spares** (all-or-nothing rule): now as many spares as the target survives. **Spares
+    overlapped** on one path: each starts beside her (25 / 50 / 75 / 100, alternating sides).
+  - **Death scream and blood** from every dummy (Archer model events): dummies are never killed — `SpearSweep` (0.1 s)
+    removes spent ones and any older than 4 s.
+  - `-wave 0` was impossible (`DevArg` reads 0 as "no number"): new `PaceArg`. Restart and a new hero reset the last
+    hit and the skill counters (`gLastHit`, `gVolleyCount`, `gStormCount`, `gHitCount`, `gAtkTarget`), and restart
+    resolves and removes spears in flight. Stale docs fixed ("spells maxed at level 10", old wave/Bank numbers);
+    three new gotchas in `docs/wc3-127-gotchas.md`.
+- Self-test: the Dryad shoots into 16 paused Taurens; the first Spear Storm must throw exactly 14 spears; 5 s after
+  her death no spear dummy and no pending damage may remain.
+- **Verified:** pjass + build checks (normal + TEST). ⚠️ **Not run in-game yet** — Jiří was playing.
+
 ## v3.6 — 2026-11-01: every champion has 4 spells — Q, W, E and an R ultimate
 
 - **Uploaded as catalogue map #73** (HTTP 201, download SHA-256 `196cb49f…` matches; 24 versions in the family).

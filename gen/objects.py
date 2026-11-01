@@ -251,7 +251,9 @@ DRYAD_MISSILE_SPEED, DRYAD_MISSILE_ARC = 700, 0.25     # v3.5: 450 looked slow (
 # ⚠️ The dummy must NOT scale its projectile: the Archer base has "Scale Projectiles" (uscb) = 1, and the old 0.01-scale
 # dummy shot 1 %-size, invisible spears (v3.5 fix: full scale + uscb 0; the script makes the dummy itself transparent).
 SPEAR_DUMMY = "dspr"
-DRYAD_DAMAGE_POINT = 0.3     # her attack releases the spear 0.3 s in: the dummies wait the same, so all spears fly together
+DRYAD_DAMAGE_POINT = 0.3     # her attack releases the spear 0.3 s in (less with attack speed): the script throws the
+                             # extra spears at that moment (VolleyRelease) and the dummies shoot at once (damage point 0)
+AGI_ATTACK_SPEED = 0.02      # Units\MiscGame.txt AgiAttackSpeedBonus (1.27 default, not changed by this map)
 SPEAR_RANGE = 600.0          # v3.5: extra spears only fly at enemies within the Dryad's own attack range (600, from HER)
 ALL_CHAMPIONS[0] = (DRYAD_ID, 0, DRYAD_SKILLS)
 TAVERNS = [("tvc0", "Hall of Champions", [DRYAD_ID] + [c[0] for c in AOE_CHAMPIONS])]
@@ -271,11 +273,12 @@ PREMIUM_PRICE = 1000
 #   (name, base item, icon, ability base, [(field, type, data ptr)], values(L) -> [one per field], effect(L) -> text)
 PREMIUM_LEVELS = 5
 PREMIUM_STOCK = 5            # = PREMIUM_LEVELS, so Lv 5 can be bought in one go (v3.3, Jiri; was 3)
+GLOVES_AS_BASE, GLOVES_AS_STEP = 0.40, 0.15     # Fury Gloves attack speed (the script's spear timing reads them too)
 PREMIUM_DEF = [
     ("Vampire Fang", "modt", "BTNMaskOfDeath", "AIva", [("Ivam", "U", 1)],
      lambda L: [0.30 + 0.10 * (L - 1)], lambda L: f"{30 + 10 * (L - 1)}% lifesteal"),
     ("Fury Gloves", "gcel", "BTNGlove", "AIsx", [("Isx1", "U", 1)],
-     lambda L: [0.40 + 0.15 * (L - 1)], lambda L: f"+{40 + 15 * (L - 1)}% attack speed"),
+     lambda L: [GLOVES_AS_BASE + GLOVES_AS_STEP * (L - 1)], lambda L: f"+{round(100 * (GLOVES_AS_BASE + GLOVES_AS_STEP * (L - 1)))}% attack speed"),
     ("Executioner's Axe", "ratc", "BTNCriticalStrike", "AIcs", [("Ocr1", "U", 1), ("Ocr2", "U", 2), ("Ocr3", "U", 3), ("Ocr4", "U", 4)],
      lambda L: [20.0 + 5 * (L - 1), 3.0, 0.0, 0.0], lambda L: f"{20 + 5 * (L - 1)}% chance for 3x damage"),
     ("Stormhammer", "ratc", "BTNBash", "AIbx", [("Hbh1", "U", 1), ("Hbh3", "U", 3), ("adur", "U", 0), ("ahdu", "U", 0)],
@@ -300,7 +303,8 @@ def premium_abil_id(i, L):
     return f"Xp0{i + 1}" if L == 1 else f"Xu{i + 1}{L}"
 
 
-PREMIUM = [(premium_item_id(i, 1),) for i in range(len(PREMIUM_DEF))]   # shop list (Lv 1 ids)
+PREMIUM = [(premium_item_id(i, 1),) for i in range(len(PREMIUM_DEF))]
+GLOVES_FAMILY = [d[0] for d in PREMIUM_DEF].index("Fury Gloves")   # shop list (Lv 1 ids)
 PREMIUM_KEYS = "QWERASDF"
 
 # Long Reach (Premium Armory, slot row 3): ONE buy = +REACH_STEP attack range, MELEE champions only (v2.1: the old
@@ -515,10 +519,10 @@ def custom_units():
         ("unam", S, "Spear"), ("usca", R, 1.0), ("uscb", I, 0), ("ushu", S, ""), ("usnd", S, ""), ("udea", I, 0),
         ("uabi", S, "Aloc"), ("upgr", S, ""), ("ureq", S, ""),
         ("umvs", I, 0), ("ucol", U, 0.0), ("ufoo", I, 0), ("uhpm", I, 100),
-        ("ua1b", I, 0), ("ua1d", I, 1), ("ua1s", I, 1), ("ua1c", U, 5.0), ("ua1r", I, 2000), ("uacq", U, 2000.0),
-        ("udp1", U, DRYAD_DAMAGE_POINT), ("ubs1", U, 0.0),
+        ("ua1b", I, 0), ("ua1d", I, 1), ("ua1s", I, 1), ("ua1c", U, 5.0), ("ua1r", I, 800), ("uacq", U, 800.0),
+        ("udp1", U, 0.0), ("ubs1", U, 0.0), ("ulpx", U, 0.0), ("ulpy", U, 0.0),
         ("ua1m", S, "Abilities\\Weapons\\Dryadmissile\\Dryadmissile.mdl"), ("ua1z", I, DRYAD_MISSILE_SPEED),
-        ("uma1", U, DRYAD_MISSILE_ARC), ("umh1", I, 1), ("ua1g", S, "ground,air,structure,ward"), ("ulpz", U, 60.0)]
+        ("uma1", U, DRYAD_MISSILE_ARC), ("umh1", I, 1), ("ua1g", S, "ground,air,structure,ward"), ("ulpz", U, 100.0)]
     assert ("uscb", I, 0) in spear_dummy and ("usca", R, 1.0) in spear_dummy, "spear dummy would shrink its missile"
     units.append(("earc", SPEAR_DUMMY, spear_dummy + no_bounty))
     for (sid, name, items) in SHOPS.values():
@@ -625,7 +629,7 @@ def _ref_slk(name):
 
 
 def attribute_ability():
-    """('Aamk', ATTR_ABIL, mods): 100 levels, each level = +3 more Str/Agi/Int (values are cumulative)."""
+    """('Aamk', ATTR_ABIL, mods): 100 levels, each level = +ATTR_PER_LEVEL more Str/Agi/Int (values are cumulative)."""
     mods = [("alev", I, 0, 0, ATTR_LEVELS), ("arlv", I, 0, 0, ATTR_REQ_LEVEL), ("alsk", I, 0, 0, 1),
             ("aher", I, 0, 0, 1), ("arhk", S, 0, 0, "T"), ("arpx", I, 0, 0, 0), ("arpy", I, 0, 0, 1),
             ("abpx", I, 0, 0, 2), ("abpy", I, 0, 0, 1),

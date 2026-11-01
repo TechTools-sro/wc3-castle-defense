@@ -51,8 +51,9 @@ bosses.
 ## Champions
 
 - Spells on **Q W E R**; every level-up refills HP and mana; clearing your first wave gives level 2.
-- Hero level is practically unlimited. After level 10 (spells maxed) skill points go into **Attributes**
-  (learn key T): +30 Strength, Agility and Intelligence per level.
+- Hero level is practically unlimited, 1 skill point per level. Q W E have 5 levels, the R ultimate 3 (hero level
+  6 / 11 / 16): all spells are maxed at hero level 18 at the earliest. From hero level 11 a point can also go into
+  **Attributes** (learn key T): +30 Strength, Agility and Intelligence per level.
 - All heroes, melee too, can attack flying units.
 - **7 champions**, 4 passive skills each — Q W E (5 levels) and the **R ultimate** (3 levels, at hero level 6 / 11 / 16):
   - **Dryad** — spears: Extra Spear (+1 spear per level, thrown together with hers at other enemies in her range),

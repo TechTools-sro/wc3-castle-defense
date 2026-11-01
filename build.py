@@ -30,7 +30,7 @@ GAME_DIR = os.environ.get("WC3_DIR", "/home/novakj/games/warcraft3")
 TEST = "--test" in sys.argv
 # VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
 # map name (game list, lobby, loading screen), the file name and the catalogue title.
-MAP_VERSION = "3.6"
+MAP_VERSION = "3.7"
 MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
@@ -361,6 +361,25 @@ globals
     integer array gVolleyCount
     integer array gTestStorm
     integer gTestVolley = 0
+    integer gTestVolleySpears = 0
+    integer gTestVolleyFirst = 0
+    unit gTestTau = null
+    hashtable gSpearHT = InitHashtable()
+    group gSpearLive = CreateGroup()
+    integer gSpearSlot = 0
+    integer gSpearTick = 0
+    unit array gSpearTgt
+    real array gSpearAmt
+    integer array gSpearEnd
+    timer array gVolleyTimer
+    unit array gVolleyTgt
+    boolean array gVolleyPending
+    real gDryadDmgPt = 0.3
+    real gSwiftStep = 0.2
+    real gAgiAs = 0.02
+    integer gGloveFam = 1
+    real gGloveAs0 = 0.4
+    real gGloveAsStep = 0.15
     real gCleaveRad = 250.0
     unit array gAtkTarget
     integer array gHitCount
@@ -627,6 +646,12 @@ def build_script():
     a(f"    set gVolleyAbil = '{OB.DRYAD_SKILLS[3][0]}'")
     a(f"    set gVolleyPer = {OB.DRYAD_SKILLS[3][5]}")
     a(f"    set gVolleyEvery = {OB.VOLLEY_EVERY}")
+    a(f"    set gDryadDmgPt = {jr(OB.DRYAD_DAMAGE_POINT)}")
+    a(f"    set gSwiftStep = {jr(OB.SWIFT_STEP)}")
+    a(f"    set gAgiAs = {jr(OB.AGI_ATTACK_SPEED)}")
+    a(f"    set gGloveFam = {OB.GLOVES_FAMILY}")
+    a(f"    set gGloveAs0 = {jr(OB.GLOVES_AS_BASE)}")
+    a(f"    set gGloveAsStep = {jr(OB.GLOVES_AS_STEP)}")
     a(f"    set gCleaveRad = {jr(OB.CLEAVE_RAD)}")
     a(f"    set gSpearRange = {jr(OB.SPEAR_RANGE)}")
     a(f"    set gSpearDummy = '{OB.SPEAR_DUMMY}'")
@@ -905,7 +930,7 @@ def misc_constants(game):
     return ("\r\n".join(out) + "\r\n").encode("latin1")
 
 
-REQUIRED_SCRIPT_DATA = ["set gVolleyAbil = ", "set gSkPer = ", "set gSkFx2[0] = ", "set gBankItem = ", "set gIncomeStep = ", "set gPremItem[1] = ", "set gPremCount = ",
+REQUIRED_SCRIPT_DATA = ["set gGloveFam = ", "set gDryadDmgPt = ", "set gVolleyAbil = ", "set gSkPer = ", "set gSkFx2[0] = ", "set gBankItem = ", "set gIncomeStep = ", "set gPremItem[1] = ", "set gPremCount = ",
                         "set gShopFxCount = ", "set gDevCount = ", "set gAttrPerLevel = ", "set gReachItem = ",
                         "set gGateState[11] = ", "set gStageUnit[0] = ", "set gEpicItem[5] = ", "set gStatItem[0] = ", "set gHeroPool[0] = ",
                         "set gPotCount = ", "set gSpearAbil = ", "set gSwiftAbil[5] = ", "set gSpearDummy = ",

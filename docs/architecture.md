@@ -25,7 +25,7 @@
 
 | Path | What |
 |---|---|
-| `build.py` | Pipeline above, timings (`SELECT_TIME`, `FIRST_WAVE_DELAY`, `WAVE_INTERVAL`, `WAVE_BREAK`), map flags, player colours, globals block + `InitData` generator, `check_object_bases` |
+| `build.py` | Pipeline above, timings (`SELECT_TIME`, `FIRST_WAVE_DELAY`, `WAVE_INTERVAL`, `WAVE_BREAK`, `BREAK_EVERY`), map flags, player colours, globals block + `InitData` generator, `check_object_bases` |
 | `gen/layout.py` | All geometry (96×96, 128-grid bounds): plaza, lanes, waypoints, bases, circles, gates, hall, grove |
 | `gen/objects.py` | Factions + wave rosters, taverns/heroes, castle/soul/circle/shops/Nexus/towers/bosses, circle + castle shop kinds (`KINDS_DEF`), premium items (`PREMIUM`), original-object edits |
 | `gen/castle_logic.j` | All game logic, hand-written vanilla JASS |
@@ -48,10 +48,10 @@
 | Lane hint | `ShowLaneHint` (creates the circle unit, its rect, label) |
 | Scoreboard | `BoardSet`, `TimeText` (m:ss), `UpdateBoard` (1 s; game time `gGameTime` counted in `OnTick`), `BoardWidth`, `CreateBoard` |
 | Setup | `SetupAlliances`, `SetupDarkness`, `MakeWallInvulnerable`, `CreateKingdom`, `CreateLaneBase` |
-| Waves | `LaneStage` (0 tower / 1 Nexus / 2 ruins), `SpawnWaveUnit`, `SpawnWave` (front/back/champions), `OnWaveTimer`, `NextWaveDelay` (10 s / 2-min break), `WaveGold` (paid on clear), `ShoppingTime` (break announcement + grove pings), `OnFirstWave`, `ReleaseWaveUnit` (charmed units leave the wave), `WaveUnitTick` |
+| Waves | `LaneStage` (0 tower / 1 Nexus / 2 ruins), `SpawnWaveUnit`, `SpawnWave` (front/back/champions), `OnWaveTimer`, `NextWaveDelay` (`gWaveInterval` 0 s; `gWaveBreak` 60 s — 25 s in `--test` — after every `gBreakEvery`-th = 10th wave), `WaveGold` (paid on clear), `ShoppingTime` (break announcement + grove pings), `OnFirstWave`, `ReleaseWaveUnit` (charmed units leave the wave), `WaveUnitTick` |
 | Bosses | `BossFindTarget`, `BossCast`, `BossSummon`, `BossTick` |
 | Test build | `TestStep` (5 s steps, round 0 = champion/shop checks, round 1 = lanes/gates), `TestEdge` (1 s steps after round 0: dead buy, refunds, full inventory, potion use, stress), `TestLog` / `TestCheck` / `TestFlush` (PASS/FAIL lines → `CustomMapData\TestResults\cd_test.txt` via Preload), `TestSlots` / `TestCharges` / `TestPremLevel` |
-| Champion skills | `ChampIndex`, `ChampBonusPct`, `AoeDamage` / `AoeDamageFx` (effect on every victim), `OnAttacked` (+ Spear Storm counter `gVolleyCount`) (primary target `gAtkTarget[c*8+p]`; Dryad: `SpearVolley` → `ThrowSpear`, one flying dummy spear per level at other enemies within HER range), `SpearDamage`, `OnDamaged` (dummy spear hit → champion damage + Fire Spears burst; on the primary hit: bonus, innate cleave, blast, nova every 3rd hit, R storm every `gStormEvery`-th hit (`gStormCount`); tables `gChamp*` / `gSk*` (index = `gSkPer` × champion + slot) from `ALL_CHAMPIONS` / `ALL_SKILLS`), `DmgRebuild` / `OnEnterMap` (per-unit damage registration of enemies, rebuilt past 3000), `OnHeroSkill` (Swift Throw on learn) |
+| Champion skills | `ChampIndex`, `ChampBonusPct`, `AoeDamage` / `AoeDamageFx` (effect on every victim), `OnAttacked` (+ Spear Storm counter `gVolleyCount`) (primary target `gAtkTarget[c*8+p]`; Dryad: starts `gVolleyTimer[p]` for her release moment `DryadReleaseDelay`; a spear dummy attacking anything but its assigned enemy is paused), `VolleyRelease` → `SpearVolley` → `ThrowSpear` (pending damage per target in `gSpearHT`: `SpearPending` / `SpearResolve`), `SpearSweep` (0.1 s, removes spent dummies), `OnHeroOrder` (a point / immediate order cancels the pending release), `SpearDamage`, `OnDamaged` (dummy spear hit → champion damage + Fire Spears burst; on the primary hit: bonus, innate cleave, blast, nova every 3rd hit, R storm every `gStormEvery`-th hit (`gStormCount`); tables `gChamp*` / `gSk*` (index = `gSkPer` × champion + slot) from `ALL_CHAMPIONS` / `ALL_SKILLS`), `DmgRebuild` / `OnEnterMap` (per-unit damage registration of enemies, rebuilt past 3000), `OnHeroSkill` (Swift Throw on learn) |
 | Tick (1 s) | `OnTick`: steer waves, on a cleared wave pay gold + 1 tree and start the countdown, boss AI |
 | Outcome | `ShowEndDialog`, `CheckVictory`, `OnCastleDestroyed`, `DropLoot` (unused now), `DropEpic` (boss crown by level), `AnyNexusLeft` (any lane still spawning), `OnTowerDestroyed` (Protector + instant wave), `ProtectorTick` (leash), `OnNexusDestroyed`, `OnBossSlain` |
 | Gate levels | `OpenGateLane` (lanes 8–11 = Levels 2–5, each opened by the previous Nexus), `OnGateNexusDestroyed` (boss rises, next level opens), `OnGateBossSlain` (level cleared), `MinionBounty` (kill gold for every wave unit) — gate lanes reuse the lane arrays (`gTower[L]`, `gBoss[L]`, `gWpX[L*8..]`, `gStageUnit[arm*6..]`, `gGate[L]`) plus `gGateHpAbil/gGateDmgAbil/gGateTint*/gGateGold/gGateDir[L]`; state `gGateState[L]` (-1 closed, 0 open, 1 boss, 2 cleared) |
@@ -93,7 +93,7 @@
 | `Xo01`–`Xo05` | ability (base `AIx1`) | EPIC crown all-stats bonus |
 | `Ixr1` | item (base `tst2`) | Long Reach (+150 attack range, once, melee only) — not sold since v2.6 |
 | `Rcrg` | upgrade (base `Rhri`, `war3map.w3q`) | Long Reach range upgrade, 1 level, +150 (`ratr`); only the melee champions list it in `upgr` |
-| `Ib01` | item (base `tst2`) | Bank: Income +10 per minute for 1 tree |
+| `Ib01` | item (base `tst2`) | Bank: Income +100 (`INCOME_STEP`) per minute for 1 tree |
 | `Ih Im Id Ir Is Ia Ii Il Ix` + `00`–`39` | item (base `tst2`) | Circle shop kinds × price steps (`Ix` = Experience) |
 | `Iy Ik Ie` + `00`–`39`, `Ic00`, `Iw00` | item (base `tst2`) | Castle shop: health/armor/regen steps, repair, shockwave (1 tree each) |
 | `Ip01`–`Ip08` | item | Premium items Lv 1 (sold) |
@@ -107,7 +107,7 @@
 | `Ipo1`–`Ipo4` | item (base `tst2`, power-up) | Apothecary potion tokens (Healing, Mana, Restoration, Invulnerability) |
 | `Xesp` `Xswt` `Xfsp` `Xdsr` | hero ability (base `AEev`, 0 % evasion) | Dryad skills Extra Spear / Swift Throw / Fire Spears (5 levels) / Spear Storm (R, 3 levels) — level holders; effects in the script |
 | `Xsw1`–`Xsw5` | ability (base `AIsx`) | Hidden +20 % attack speed each, added on Swift Throw learn |
-| `dspr` | unit (base `earc`, locust, full scale + `uscb` 0, made transparent by the script) | Extra Spear dummy: one shot with the spear missile, 4 s timed life, no corpse (`dspf` fire dummy removed in v3.5) |
+| `dspr` | unit (base `earc`, locust, full scale + `uscb` 0, damage point 0, launch point = hers, range 800; made transparent by the script) | Extra Spear dummy: ONE spear at its assigned enemy (`gSpearTgt[slot]`, slot = user data); never killed — `SpearSweep` removes it when spent or after 4 s (`dspf` fire dummy removed in v3.5) |
 | `Xatt` | hero ability (base `Aamk`) | Attributes: 100 levels, +30 all stats per level, learnable from hero level 11 |
 | `Xcsh`, `Xcs2` | ability (bases `Aneu`, `Aall`) | Castle shop buyer selection, 3000 radius |
 | `BTNCDStr/Agi/Int.blp` | imported icon | `ReplaceableTextures\CommandButtons\` (+ `CommandButtonsDisabled\DISBTN…`) |
