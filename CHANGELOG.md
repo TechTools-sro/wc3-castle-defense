@@ -2,6 +2,8 @@
 
 ## v4.2 — 2026-11-01: every lane has its own wave
 
+- **Uploaded as catalogue map #79** (HTTP 201, download SHA-256 `1bf9d59d…` matches dist and the installed map; 30 versions in the family).
+
 - Jiří: "every lane will have its own wave levels! each player will have its own wave level based on how fast he cleans it!" → [docs/gameplay.md](docs/gameplay.md) § Every lane has its own wave
 - **Each lane counts by itself** (`gLaneWave`): its next wave comes when THAT lane is clear, its 10th wave gives that lane its break, and its number sets size, HP, damage and kill gold. A slow player holds back nobody but himself. It used to be one counter, and everyone waited for the last monster on the map.
 - **A clear pays the lane's player only**, `50 + 50 × his wave` gold + 1 tree. It used to pay everyone.
