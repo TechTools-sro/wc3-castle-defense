@@ -54,7 +54,7 @@ def progress_set():
 
 
 def stall_set():
-    """Leave the last monster alive from wave 3 and let the Bank pay."""
+    """From wave 3, walk away from the last monsters and stay away, while the Bank pays and the gold stays unspent."""
     return [{"name": "dryad-stall-s1", "hero": "dryad", "build": "starter", "seed": 1, "mode": 2, "stall_wave": 3, "duration": 420, "timeout": 800}]
 
 
@@ -68,8 +68,8 @@ SETS = {"fight": fight_set, "progress": progress_set, "stall": stall_set, "smoke
 def build_map(run, out_dir):
     index, primary = HEROES[run["hero"]]
     cycle = CYCLES.get(run["build"], "")
-    if run["mode"] == 0:
-        cycle = ""
+    if run["mode"] != 1:
+        cycle = ""            # fight: no purchase after the start; stall: gold stays unspent, so the log shows the Bank directly
     elif cycle is None:
         cycle = primary
     config = {"hero": index, "mode": run["mode"], "seed": run["seed"], "buy": BUILDS[run["build"]](primary), "cycle": cycle,
@@ -130,7 +130,7 @@ def summarize(run, parsed):
             "tower_hits": [e for e in events if e.get("event") == "tower_hit"], "progress": [e for e in events if e.get("event") in ("tower_destroyed", "nexus_destroyed", "boss_slain", "castle_destroyed")],
             "pending_at_end": [e for e in events if e.get("event") == "buy_pending_at_end"],
             "buys_ok": [e for e in events if e.get("event") == "buy_ok"], "buys_failed": [e for e in events if e.get("event") in ("buy_failed", "buy_refused")],
-            "beats": [e for e in events if e.get("event") == "beat"], "final": last, "end": end, "fail": parsed["fail"], "done": parsed["done"]}
+            "stall": [e for e in events if e.get("event") == "stall_start"], "beats": [e for e in events if e.get("event") == "beat"], "final": last, "end": end, "fail": parsed["fail"], "done": parsed["done"]}
 
 
 def run_one(run, slot, label, base, lock):

@@ -492,9 +492,15 @@ function ProbeHero takes nothing returns nothing
     if hp < mx * 0.4 then
         call ProbeDrink(h)
     endif
-    if gPrMode == 2 and gWave >= gPrStallWave and ProbeAlive() <= 1 then
-        // the stall: walk away from the last monster and let the clock run
-        call ProbeOrderTo(h, "move", gPrFarX, gPrFarY)
+    if gPrMode == 2 and gWave >= gPrStallWave and (gPrStalling or ProbeAlive() <= gPrStallAlive) then
+        // the stall: leave the last monsters alive, stay away from them for good and let the clock run
+        if not gPrStalling then
+            set gPrStalling = true
+            call ProbeLog("event=stall_start wave=" + I2S(gWave) + " " + ProbeState())
+        endif
+        if GetUnitCurrentOrder(h) != 851986 and ProbeDist(x, y, gPrFarX, gPrFarY) > 200.0 then
+            call IssuePointOrder(h, "move", gPrFarX, gPrFarY)
+        endif
         set h = null
         return
     endif
