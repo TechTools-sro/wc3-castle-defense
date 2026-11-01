@@ -705,6 +705,12 @@ ATTR_LEVELS = 100             # learnable at hero levels 11..110; above that the
 ATTR_REQ_LEVEL = 11
 
 
+def hero_base_armor(hero_id):
+    """Base armor of a hero in the game's data (Units\\UnitBalance.slk `def`; the Dryad is a copy of its base unit)."""
+    base = {DRYAD_ID: "Emoo"}.get(hero_id, hero_id)
+    return float(_ref_slk("Units_UnitBalance.slk")[base]["def"])
+
+
 def _ref_slk(name):
     import os
     from slk import read_slk

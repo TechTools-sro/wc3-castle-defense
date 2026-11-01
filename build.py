@@ -4,10 +4,12 @@
     python3 build.py            # dist/TechToolsCastleDefence.w3x + pjass + base-id check + install into the game
     python3 build.py --test     # dist/TechToolsCastleDefence_TEST.w3x (fast timers, scripted self-test)
     python3 build.py --no-install
+    CD_PROBE='{...}' python3 build.py --probe   # dist/TechToolsCastleDefence_PROBE.w3x: production game + gen/probe.j (docs/balance.md)
 
 Everything (terrain, walls, objects, script, art) is generated here; see CLAUDE.md and docs/.
 """
 import math
+import json
 import os
 import random
 import shutil
@@ -28,10 +30,13 @@ from mpq import write_w3x, GameData       # noqa: E402
 
 GAME_DIR = os.environ.get("WC3_DIR", "/home/novakj/games/warcraft3")
 TEST = "--test" in sys.argv
+PROBE = json.loads(os.environ.get("CD_PROBE", "{}")) if "--probe" in sys.argv else None     # never installed, see apply_probe
+if TEST and PROBE is not None:
+    sys.exit("--probe and --test cannot be combined: --test changes the timers and runs TestStep")
 # VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
 # map name (game list, lobby, loading screen), the file name and the catalogue title.
 MAP_VERSION = "4.0"
-MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
+MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else "TechToolsCastleDefence_PROBE.w3x" if PROBE is not None else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
 # coloured name for the game's map list / lobby / loading screen: TechTools blue + WarCraft gold + version
@@ -1059,8 +1064,119 @@ def check_object_bases():
         sys.exit("bad object bases:\n  " + "\n  ".join(bad[:20]))
 
 
+PROBE_GLOBALS = """    // balance probe: only in --probe maps
+    integer gPrHero = 0
+    integer gPrMode = 0
+    integer gPrSeed = 1
+    integer gPrMaxWave = 0
+    integer gPrStallWave = 3
+    real gPrDuration = 300.0
+    real gPrEngage = 1000.0
+    real gPrSafeDist = 1050.0
+    real gPrTowerRange = 750.0
+    real gPrPushHits = 0.0
+    integer gPrAlive = 0
+    real gPrBaseArmor = 0.0
+    real gPrArmorStep = 2.0
+    real gPrTowerHit = 25000.0
+    real gPrNexusHit = 27500.0
+    real gPrBossHit = 2400.0
+    real gPrFromWave = 0.0
+    real gPrFromTower = 0.0
+    real gPrFromNexus = 0.0
+    real gPrFromBoss = 0.0
+    real gPrFromOther = 0.0
+    boolean gPrBuyDone = false
+    real gPrPriceBase = 100.0
+    real gPrPriceXp = 250.0
+    real gPrPriceGrowth = 1.03
+    integer gPrPotionPrice = 100
+    string gPrBuy = ""
+    string gPrCycle = ""
+    integer gPrBuyAt = 0
+    integer gPrCycleAt = 0
+    integer gPrSkillNext = 0
+    integer gPrSpent = 0
+    integer gPrHits = 0
+    integer gPrTowerHits = 0
+    integer gPrNexusHits = 0
+    integer gPrWave = 0
+    integer gPrWaveCount = 0
+    boolean gPrWaveOpen = false
+    boolean gPrDone = false
+    boolean gPrTowerDown = false
+    boolean gPrNexusDown = false
+    boolean gPrBossDown = false
+    real gPrWaveAt = 0.0
+    real gPrFirstHit = -1.0
+    real gPrFirstDeal = -1.0
+    real gPrTaken = 0.0
+    real gPrTakenAll = 0.0
+    real gPrHeroWaveRaw = 0.0
+    real gPrHeroWaveHp = 0.0
+    real gPrHeroOtherRaw = 0.0
+    real gPrHeroOtherHp = 0.0
+    real gPrOtherRaw = 0.0
+    real gPrOtherHp = 0.0
+    real gPrHpMin = 0.0
+    real gPrBest = 0.0
+    real gPrBestX = 0.0
+    real gPrBestY = 0.0
+    integer gPrDeathsWave = 0
+    integer gPrTavernTries = 0
+    integer gPrPendType = 0
+    integer gPrPendKind = 0
+    integer gPrPendStep = 0
+    integer gPrPendPrice = 0
+    integer gPrPendGold = 0
+    real gPrPendAt = 0.0
+    string gPrPendName = ""
+    real gPrEX = 0.0
+    real gPrEY = 0.0
+    real gPrFarX = 0.0
+    real gPrFarY = 0.0
+    real gPrPotionAt = -100.0
+    real gPrOrderAt = -100.0
+    real gPrSpendAt = 0.0
+    real gPrBeatAt = 0.0
+    timer gPrClock = null
+    trigger gPrDealTrig = null
+"""
+
+
+def apply_probe(script):
+    """The production script, plus gen/probe.j and two hooks. No production line changes."""
+    cfg = {"hero": 0, "mode": 0, "seed": 1, "buy": "", "cycle": "", "duration": 300, "max_wave": 0, "stall_wave": 3}
+    cfg.update(PROBE)
+    def once(text, old, new):
+        assert text.count(old) == 1, old
+        return text.replace(old, new)
+    assert not TEST
+    def avg(dmg):
+        base, dice, sides = dmg
+        return base + dice * (sides + 1) / 2.0
+    hero_id = OB.ALL_HEROES[int(cfg["hero"])]
+    base_armor = OB.hero_base_armor(hero_id)
+    conf = "\n".join([
+        f"    set gPrHero = {int(cfg['hero'])}", f"    set gPrMode = {int(cfg['mode'])}", f"    set gPrSeed = {int(cfg['seed'])}",
+        f"    set gPrMaxWave = {int(cfg['max_wave'])}", f"    set gPrStallWave = {int(cfg['stall_wave'])}", f"    set gPrDuration = {float(cfg['duration'])}",
+        f'    set gPrBuy = "{cfg["buy"]}"', f'    set gPrCycle = "{cfg["cycle"]}"',
+        f"    set gPrPriceBase = {float(OB.STAT_BASE_PRICE)}", f"    set gPrPriceGrowth = {float(OB.STAT_PRICE_GROWTH)}",
+        f"    set gPrTowerHit = {avg(OB.TURRET_DMG)}", f"    set gPrNexusHit = {avg(OB.NEXUS_DMG)}", f"    set gPrBossHit = {avg(OB.BOSS_DMG[1])}",
+        f"    set gPrBaseArmor = {float(base_armor)}", f"    set gPrArmorStep = {float(OB.KINDS_DEF[3]['value'])}", f"    set gPrPushHits = {float(cfg.get('push_hits', 0))}",
+    ])
+    with open(os.path.join(ROOT, "gen", "probe.j"), encoding="utf-8") as fh:
+        probe = fh.read()
+    script = script.replace("\r\n", "\n")
+    script = once(script, "endglobals\n", PROBE_GLOBALS + "endglobals\n")
+    script = once(script, "function InitGame takes nothing returns nothing\n", probe + "\nfunction InitGame takes nothing returns nothing\n")
+    script = once(script, "    call InitData()\n    set gKingdom = Player(14)\n", "    call InitData()\n" + conf + "\n    call ProbeEarly()\n    set gKingdom = Player(14)\n")
+    script = once(script, "    call TimerStart(CreateTimer(), 0.5, false, function SetupChampionSelect)\n", "    call TimerStart(CreateTimer(), 0.5, false, function SetupChampionSelect)\n    call TimerStart(CreateTimer(), 2.0, false, function ProbeBoot)\n")
+    return script.replace("\n", "\r\n")
+
+
 def main():
-    install = "--no-install" not in sys.argv and not TEST
+    install = "--no-install" not in sys.argv and not TEST and PROBE is None
     rng = random.Random(SEED)
     os.makedirs(os.path.join(ROOT, "dist"), exist_ok=True)
 
@@ -1071,6 +1187,8 @@ def main():
     pw, path = build_pathing(walk)
     print(f"{len(walls)} wall pieces, {len(deco)} torches/braziers")
     script = build_script()
+    if PROBE is not None:
+        script = apply_probe(script)
     script_path = os.path.join(ROOT, "dist", "war3map.j")
     with open(script_path, "w", encoding="utf-8", newline="") as fh:
         fh.write(script)
