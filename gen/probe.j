@@ -380,12 +380,15 @@ endfunction
 // Campaign mode: spend what is there on the build's cycle; a tree goes to the Bank.
 function ProbeSpend takes nothing returns nothing
     local string c
+    local integer before
     if not ProbeResolve() then
         return
     endif
     if GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER) >= 1 then
+        // read before the order: a grove sale happens inside the order itself. A tree is its price, the income its proof.
+        set before = gIncome[0]
         if IssueNeutralImmediateOrderById(Player(0), gBankShop, gBankItem) then
-            call ProbePend(0, gIncome[0], 0, "income", ProbeGold(), 3)
+            call ProbePend(0, before, 0, "income", ProbeGold(), 3)
         endif
         return
     endif
