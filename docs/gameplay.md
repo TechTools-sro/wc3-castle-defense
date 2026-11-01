@@ -137,7 +137,9 @@ Every Nexus boss drops one EPIC crown at its ruins (purple ping + "EPIC DROP" me
 | 1,3 | Z | Experience | +1 level: XP = 100 × (level + 1), the game's NeedHeroXP step (kind type 2, `AdvanceStatPrice`) | 250 |
 
 - Instant: each buy adds a hidden item-bonus ability copy → shows as a **green +N**, base stats untouched.
-- Every buy +10 % for that player and kind (`STAT_PRICE_GROWTH`), 40 steps (`STAT_TIERS`).
+- Every buy +10 % for that player and kind (`STAT_PRICE_GROWTH`), 40 steps (`STAT_TIERS`). The buy counts **at once**,
+  also while the champion is dead (`GrabTick` → `GrabDeadEnum` counts tomes at the circle / in the dead champion's
+  inventory); the bonus is handed over when he is alive (`ApplyBought`: `gStatApplied` per kind, `gXpPending`).
 - Tooltip: `Agility  Lv 3  (S)` (Lv = times bought, light blue) / `+10 Agility` / orange `Next buy: +10% gold`.
 - Icons: game's own hero-attribute icons for Str/Agi/Int (`gen/icons.py`), Heal / Brilliance / Attack /
   Defend / StatUp for the rest.

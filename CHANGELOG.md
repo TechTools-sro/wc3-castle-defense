@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.5 — 2026-11-01: circle buys while dead raise the price
+
+- **Uploaded as catalogue map #30** (HTTP 201, download SHA-256 `d5c2553a…` matches).
+
+- Jiří: buying at the Champion's Circle while dead did not raise the price (so you could buy many at the old price).
+  A dead champion never "uses" the bought tome, so the price step waited for the revive. Now `AdvanceStatPrice` counts
+  every buy at once and `ApplyBought` gives the bonuses (and Experience) to the living champion (`gStatApplied`,
+  `gXpPending`); `GrabTick` counts tomes at the circle or in a dead champion's inventory directly (`GrabDeadEnum`).
+  Also, buys made before a champion is picked now arrive with him. Verified: pjass + build; not tried in-game.
+
 ## v2.4 — 2026-11-01: Shadow Crown icon
 
 - **Uploaded as catalogue map #29** (HTTP 201, download SHA-256 `054c3457…` matches).

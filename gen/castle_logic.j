@@ -156,6 +156,41 @@ function CastleShockwave takes nothing returns nothing
     set g = null
 endfunction
 
+// Gives the living champion every circle bonus bought so far: one hidden item-bonus ability per buy (green +N,
+// base stats untouched; gStatApplied = how many are on the champion) and pending Experience buys
+// (one level's worth of XP each, NeedHeroXP step = 100 x (level + 1)).
+function ApplyBought takes integer p returns nothing
+    local integer s = 0
+    local boolean fx = false
+    local unit h = gHero[p]
+    if h == null or GetWidgetLife(h) <= 0.405 then
+        set h = null
+        return
+    endif
+    loop
+        exitwhen s >= gKinds
+        if gKindType[s] == 1 then
+            loop
+                exitwhen gStatApplied[p * 16 + s] >= gStatNext[p * 16 + s]
+                call UnitAddAbility(h, gBonusAbil[s * 64 + gStatApplied[p * 16 + s]])
+                set gStatApplied[p * 16 + s] = gStatApplied[p * 16 + s] + 1
+                set fx = true
+            endloop
+        endif
+        set s = s + 1
+    endloop
+    loop
+        exitwhen gXpPending[p] <= 0
+        call AddHeroXP(h, 100 * (GetHeroLevel(h) + 1), true)
+        set gXpPending[p] = gXpPending[p] - 1
+        set fx = true
+    endloop
+    if fx then
+        call DestroyEffect(AddSpecialEffectTarget("Abilities\\Spells\\Items\\AIlm\\AIlmTarget.mdl", h, "origin"))
+    endif
+    set h = null
+endfunction
+
 // A shop item was picked up: add the next hidden bonus ability (hero kinds) or upgrade the castle
 // (castle kinds), remove the item, step the price up 10 % and restock.
 function AdvanceStatPrice takes integer p, item it returns nothing
@@ -187,22 +222,17 @@ function AdvanceStatPrice takes integer p, item it returns nothing
                 call StockCastle()
                 return
             endif
+            // the buy counts AT ONCE (price +10 %), even while the champion is dead or not picked yet;
+            // ApplyBought hands the bonus over as soon as the champion is alive
             set gStatNext[p * 16 + s] = k + 1
-            if gKindType[s] == 2 and gHero[p] != null then
-                // Experience: exactly one level's worth of XP (NeedHeroXP step = 100 x (level + 1))
-                call RemoveItem(it)
-                call AddHeroXP(gHero[p], 100 * (GetHeroLevel(gHero[p]) + 1), true)
+            call RemoveItem(it)
+            if gKindType[s] == 2 then
+                set gXpPending[p] = gXpPending[p] + 1
                 call DisplayTimedTextToPlayer(Player(p), 0.0, 0.0, 4.0, "|cffffcc00+1 level|r")
-                call StockCircle(p)
-                return
+            else
+                call DisplayTimedTextToPlayer(Player(p), 0.0, 0.0, 4.0, "|cffffcc00+" + I2S(gKindValue[s]) + " " + gKindName[s] + "|r")
             endif
-            if gHero[p] != null then
-                // item-bonus ability -> shows as a green +N bonus, base stats stay untouched
-                call UnitAddAbility(gHero[p], gBonusAbil[s * 64 + k])
-                call RemoveItem(it)
-                call DestroyEffect(AddSpecialEffectTarget("Abilities\\Spells\\Items\\AIlm\\AIlmTarget.mdl", gHero[p], "origin"))
-            endif
-            call DisplayTimedTextToPlayer(Player(p), 0.0, 0.0, 4.0, "|cffffcc00+" + I2S(gKindValue[s]) + " " + gKindName[s] + "|r")
+            call ApplyBought(p)
             call StockCircle(p)
             return
         endif
@@ -472,10 +502,32 @@ function GrabTomeEnum takes nothing returns nothing
     set it = null
 endfunction
 
+// Champion dead: a circle buy lands on the ground or in the dead champion's inventory and is never "used" ->
+// count it directly (price steps at once, the bonus follows on revive via ApplyBought).
+function GrabDeadEnum takes nothing returns nothing
+    call AdvanceStatPrice(gGrabP, GetEnumItem())
+endfunction
+
 function GrabTick takes nothing returns nothing
     local integer p = 0
+    local integer s
     loop
         exitwhen p >= 8
+        if gHero[p] != null and gCircleRect[p] != null and GetWidgetLife(gHero[p]) <= 0.405 then
+            set gGrabP = p
+            call EnumItemsInRect(gCircleRect[p], null, function GrabDeadEnum)
+            set s = 0
+            loop
+                exitwhen s >= 6
+                if UnitItemInSlot(gHero[p], s) != null then
+                    call AdvanceStatPrice(p, UnitItemInSlot(gHero[p], s))
+                endif
+                set s = s + 1
+            endloop
+        endif
+        if gHero[p] != null then
+            call ApplyBought(p)
+        endif
         if gHero[p] != null and gCircleRect[p] != null and GetWidgetLife(gHero[p]) > 0.405 then
             set gGrabP = p
             call EnumItemsInRect(gCircleRect[p], null, function GrabTomeEnum)
@@ -1820,9 +1872,11 @@ function SetupChampionSelect takes nothing returns nothing
             loop
                 exitwhen gSoulTmp >= 16
                 set gStatNext[i * 16 + gSoulTmp] = 0
+                set gStatApplied[i * 16 + gSoulTmp] = 0
                 set gCastleNext[gSoulTmp] = 0
                 set gSoulTmp = gSoulTmp + 1
             endloop
+            set gXpPending[i] = 0
             call StockCircle(i)
             set gSoul[i] = CreateUnit(Player(i), gSoulType, gHallX, gHallY, 90.0)
             call SetPlayerState(Player(i), PLAYER_STATE_RESOURCE_HERO_TOKENS, 1)
