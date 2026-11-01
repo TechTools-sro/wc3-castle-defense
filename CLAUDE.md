@@ -52,7 +52,8 @@ tools/balance_probe.py run LABEL --set fight   # real fights, hidden, played by 
 
 ## Versions
 
-- `MAP_VERSION` in `build.py` (**v4.4 on branch `v4.4-review`, waiting for Jiří's approval; v4.3 is the released one**) is in the map name, the file name (`TechToolsCastleDefence_v4.4.w3x`) and
+- ⚠️ **Jiří's gate on v4.4 (2026-11-01):** it is a review candidate on the local branch `codex/v4.4-review`. No install into his game, no catalogue upload, no push to `main`, no Brain version pointer until he approves. v4.3 stays the published version. Build it only with `python3 build.py --no-install`.
+- `MAP_VERSION` in `build.py` (**v4.4 on that branch; v4.3 on `main` and in the catalogue**) is in the map name, the file name (`TechToolsCastleDefence_v4.4.w3x`) and
   the catalogue title. ⚠️ **Jiří's rule: every feature = a new version (1.2, 1.3, …) AND an upload to the
   catalogue** (LAN players must have the identical file). Bump, build, commit, upload, verify the download's
   SHA-256, record the new entry below + in `CHANGELOG.md`. Install removes older `TechToolsCastleDefence*.w3x`.
