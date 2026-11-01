@@ -64,30 +64,32 @@ FACTIONS = [
 # Gate levels 2-5 (shared lanes 8-11 = arms 4-7). Each opens when the previous level's Nexus falls (Level 2: the
 # first player Nexus). Higher level = harder: tower, Nexus, wave bonus HP/damage, boss, gold.
 #   nexus/tower = (HP, armor, (dmg base, dice, sides)); unit_hp/unit_dmg = bonus on every wave unit (and Protector);
+#   v3.9 (Jiri): every tower and Nexus damage x10 and HP x5; "the better the building, the more damage": each Nexus hits
+#   ~10 % harder than its own tower and every level harder than the one before (build-time check: building_ladder)
 #   boss = (source faction index for model + spells, name, HP multiplier, damage multiplier, scale)
 GATE_LEVELS = [
     {"level": 2, "lane": 8, "arm": 4, "name": "The Dark Gate", "color": "|cffff4040", "dir": "north-east",
      "base": ("unp2", "Dark Citadel"), "turret": ("uzg1", "Dark Spire"),
      "stages": [("ngh2", "uabo"), ("ninf", "nbal"), ("ninf", "nbal")], "champion": "nrvd",
-     "nexus": (8000, 15, (1300, 4, 50)), "tower": (6500, 8, (3495, 1, 10)), "tint": (255, 90, 90),
+     "nexus": (40000, 15, (38400, 4, 50)), "tower": (32500, 8, (34995, 1, 10)), "tint": (255, 90, 90),
      "unit_hp": 300, "unit_dmg": 0, "gold": 500, "nexus_scale": 1.2, "tower_scale": 1.5,
      "boss": (0, "Malgrath the Dark Lich", 3, 1.5, 2.4)},
     {"level": 3, "lane": 9, "arm": 5, "name": "The Frozen Gate", "color": "|cff80dfff", "dir": "north-west",
      "base": ("uaod", "Frozen Throne"), "turret": ("uzg1", "Frozen Spire"),
      "stages": [("nsoc", "ufro"), ("nbal", "ninf"), ("nbal", "ninf")], "champion": "nlrv",
-     "nexus": (15000, 20, (1800, 4, 60)), "tower": (10000, 12, (4495, 1, 10)), "tint": (140, 200, 255),
+     "nexus": (75000, 20, (49400, 4, 50)), "tower": (50000, 12, (44995, 1, 10)), "tint": (140, 200, 255),
      "unit_hp": 500, "unit_dmg": 10, "gold": 1000, "nexus_scale": 1.6, "tower_scale": 1.7,
      "boss": (2, "Kel'Thar the Frozen Tide", 5, 2.0, 2.5)},
     {"level": 4, "lane": 10, "arm": 6, "name": "The Shadow Gate", "color": "|cffc080ff", "dir": "south-west",
      "base": ("ndmg", "Shadow Portal"), "turret": ("ntx2", "Shadow Spire"),
      "stages": [("ninf", "nerw"), ("nbal", "nhyc"), ("nbal", "nhyc")], "champion": "nina",
-     "nexus": (25000, 25, (2400, 4, 80)), "tower": (15000, 15, (5995, 1, 10)), "tint": (200, 120, 255),
+     "nexus": (125000, 25, (65900, 4, 50)), "tower": (75000, 15, (59995, 1, 10)), "tint": (200, 120, 255),
      "unit_hp": 1000, "unit_dmg": 25, "gold": 2000, "nexus_scale": 1.4, "tower_scale": 1.6,
      "boss": (1, "Azgaroth the Shadow Lord", 8, 3.0, 2.2)},
     {"level": 5, "lane": 11, "arm": 7, "name": "The Inferno Gate", "color": "|cffff9020", "dir": "far south-west",
      "base": ("ofrt", "Inferno Fortress"), "turret": ("owtw", "Inferno Tower"),
      "stages": [("nrvd", "ufro"), ("nlrv", "nbal"), ("nlrv", "nbal")], "champion": "nggr",
-     "nexus": (40000, 30, (3200, 4, 100)), "tower": (21000, 18, (7995, 1, 10)), "tint": (255, 160, 60),
+     "nexus": (200000, 30, (87900, 4, 50)), "tower": (105000, 18, (79995, 1, 10)), "tint": (255, 160, 60),
      "unit_hp": 2000, "unit_dmg": 50, "gold": 3000, "nexus_scale": 1.4, "tower_scale": 1.8,
      "boss": (1, "Infernus the World Breaker", 12, 4.0, 2.8)},
 ]
@@ -478,16 +480,37 @@ def boss_id(d, k):           # k = player-count tier: 0 (1-2 players), 1 (3-5), 
     return f"nb{d}{k}"
 
 
-BASE_HP, BASE_ARMOR = 3000, 10       # Jiri: v1.6 30000 -> 12000, v2.2 / 4 -> 3000; damage x2 (v1.6) - quick but deadly
-# Every Nexus fights back (huge attack, out of the tower's reach - see layout.tower_pos)
-NEXUS_DMG, NEXUS_COOLDOWN, NEXUS_RANGE = (900, 4, 40), 2.5, 700
+BASE_HP, BASE_ARMOR = 15000, 10      # Jiri: v1.6 30000 -> 12000, v2.2 / 4 -> 3000, v3.9 x5 -> 15000
+# Every Nexus fights back (huge attack, out of the tower's reach - see layout.tower_pos). v3.9: ~27 500 per shot, a bit
+# more than its own tower (was 900 + 4d40, weaker than the tower)
+NEXUS_DMG, NEXUS_COOLDOWN, NEXUS_RANGE = (27400, 4, 50), 2.5, 700
 NEXUS_MISSILE = "Abilities\\Weapons\\FrostWyrmMissile\\FrostWyrmMissile.mdl"
-TURRET_HP, TURRET_ARMOR, TURRET_DMG = 4000, 4, (2495, 1, 10)   # HP: v2.3 / 6 (was 25000); ~2500 chaos per hit / 1.3 s
+TURRET_HP, TURRET_ARMOR, TURRET_DMG = 20000, 4, (24995, 1, 10)  # v3.9 (Jiri) HP x5, damage x10: ~25 000 chaos per hit / 1.3 s
 # Towers and Nexuses are "Mechanical": WarCraft lifesteal does not work against mechanical targets.
 NO_LIFESTEAL = [("utyp", S, "Mechanical")]
-BOSS_HP = [3500, 6000, 9000]
+BOSS_HP = [35000, 60000, 90000]                               # v3.9 (Jiri): x10 (was 3500 / 6000 / 9000)
 BOSS_ARMOR = [3, 4, 5]
-BOSS_DMG = [(28, 2, 8), (38, 2, 10), (48, 2, 12)]
+BOSS_DMG = [(1400, 2, 400), (1900, 2, 500), (2400, 2, 600)]       # v3.9 (Jiri): x50 (was 28+2d8, 38+2d10, 48+2d12)
+
+
+def _avg(dmg):
+    base, dice, sides = dmg
+    return base + dice * (sides + 1) / 2
+
+
+def building_ladder():
+    """[(name, average damage per hit)] in progression order: Level 1 tower, Level 1 Nexus, Level 2 tower, ... Level 5 Nexus."""
+    out = [("Level 1 tower", _avg(TURRET_DMG)), ("Level 1 Nexus", _avg(NEXUS_DMG))]
+    for g in GATE_LEVELS:
+        out += [(f"Level {g['level']} tower", _avg(g["tower"][2])), (f"Level {g['level']} Nexus", _avg(g["nexus"][2]))]
+    return out
+
+
+_ladder = building_ladder()
+assert all(a[1] < b[1] for a, b in zip(_ladder, _ladder[1:])), f"every next building must hit harder: {_ladder}"
+assert all(GATE_LEVELS[i]["tower"][0] < GATE_LEVELS[i + 1]["tower"][0] and GATE_LEVELS[i]["nexus"][0] < GATE_LEVELS[i + 1]["nexus"][0]
+           for i in range(len(GATE_LEVELS) - 1)) and TURRET_HP < GATE_LEVELS[0]["tower"][0] and BASE_HP < GATE_LEVELS[0]["nexus"][0], \
+    "every next level's tower and Nexus must have more HP"
 
 
 def custom_units():

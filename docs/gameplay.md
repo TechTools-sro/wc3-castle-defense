@@ -96,10 +96,10 @@ Higher level = harder.
 | | L2 Dark Gate | L3 Frozen Gate | L4 Shadow Gate | L5 Inferno Gate |
 |---|---|---|---|---|
 | Where | NE | NW | SW (mirror of L2) | far SW, a chamber behind the L4 base |
-| Tower HP / dmg | 6 500 / ~3500 | 10 000 / ~4500 | 15 000 / ~6000 | 21 000 / ~8000 |
-| Nexus HP / attack | 8 000 / 1300+4d50 | 15 000 / 1800+4d60 | 25 000 / 2400+4d80 | 40 000 / 3200+4d100 |
+| Tower HP / dmg | 32 500 / ~35 000 | 50 000 / ~45 000 | 75 000 / ~60 000 | 105 000 / ~80 000 |
+| Nexus HP / dmg | 40 000 / ~38 500 | 75 000 / ~49 500 | 125 000 / ~66 000 | 200 000 / ~88 000 |
 | Wave bonus HP / dmg | +300 / — | +500 / +10 | +1000 / +25 | +2000 / +50 |
-| Boss (×lane boss HP) | Malgrath the Dark Lich ×3 | Kel'Thar the Frozen Tide ×5 | Azgaroth the Shadow Lord ×8 | Infernus the World Breaker ×12 |
+| Boss (×lane boss HP; HP / dmg) | Malgrath the Dark Lich ×3; 180 000 / ~3350 | Kel'Thar the Frozen Tide ×5; 300 000 / ~4300 | Azgaroth the Shadow Lord ×8; 480 000 / ~6200 | Infernus the World Breaker ×12; 720 000 / ~8100 |
 | Kill gold per minion | 2 × wave | 3 × wave | 4 × wave | 5 × wave |
 | Nexus down / boss slain | +500 / +500 | +1000 / +1000 | +2000 / +2000 | +3000 / +3000 |
 
@@ -220,12 +220,16 @@ anywhere on the map (`Aneu` radius 20 000). Bought items go straight into his in
 - Every tower and Nexus is classed **Mechanical** (`NO_LIFESTEAL`): WarCraft lifesteal does not work against
   mechanical targets, so champions cannot heal off them.
 
-- Tower: **4 000 HP**, armor 4, **~2500 chaos** (2495 + 1d10) / 1.3 s, range 750 — mid-lane (`tower_pos`, v = 3600,
+- **v3.9 (Jiří): every tower and Nexus damage ×10, HP ×5; bosses HP ×10, damage ×50.** Every next building hits
+  harder: Level 1 tower < Level 1 Nexus (~10 % more than its tower) < Level 2 tower < … < Level 5 Nexus
+  (`building_ladder`, asserted at build time).
+- Tower: **20 000 HP**, armor 4, **~25 000 chaos** (24995 + 1d10) / 1.3 s, range 750 — mid-lane (`tower_pos`, v = 3600,
   1776 from the Champion's Circle), far in front of the Nexus (v = 5440) so their ranges never overlap: tower first,
   then its stronger waves, then the Nexus.
-- **Nexus: 3 000 HP, armor 10, huge attack** 900 + 4d40 chaos missile every 2.5 s, range 700, hits air too
+- **Nexus: 15 000 HP, armor 10, huge attack** ~27 500 (27400 + 4d50) chaos missile every 2.5 s, range 700, hits air too
   (`BASE_HP`, `NEXUS_*`, `nexus_attack`).
-- Boss strength by player count: 1–2 / 3–5 / 6–8 players → 3500 / 6000 / 9000 HP, armor 3 / 4 / 5.
+- Boss strength by player count: 1–2 / 3–5 / 6–8 players → 35 000 / 60 000 / 90 000 HP, armor 3 / 4 / 5,
+  ~1800 / ~2400 / ~3000 chaos per hit (`BOSS_HP`, `BOSS_DMG`).
   Bosses cast spells, summon, and are leashed to their ruins (`BossTick`).
 
 ## UI and commands

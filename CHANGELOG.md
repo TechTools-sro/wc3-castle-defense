@@ -1,5 +1,21 @@
 # Changelog
 
+## v3.9 — 2026-11-01: much stronger towers, Nexuses and bosses
+
+- **Uploaded as catalogue map #76** (HTTP 201, download SHA-256 `19edd60e…` matches; 27 versions in the family).
+
+- Jiří: "towers damage 10x and health 5x, and Nexuses and inhibitors; the better the building, the more damage;
+  bosses health 10x and damage 50x".
+- **Towers:** HP ×5, damage ×10 — Level 1 20 000 HP / ~25 000 per hit, gates 32 500 → 105 000 HP / ~35 000 → ~80 000.
+- **Nexuses:** HP ×5 (15 000; gates 40 000 → 200 000). Their damage was *below* their own tower's (900 + 4d40 vs ~2500),
+  so "the better the building, the more damage" sets each Nexus ~10 % above its tower: ~27 500, gates ~38 500 → ~88 000
+  (effectively ×25–28). `building_ladder` asserts at build time that every next building hits harder and that every
+  next level has more HP.
+- **Bosses:** HP ×10 (lane 35 000 / 60 000 / 90 000 by player count; gates 180 000 → 720 000), damage ×50 (lane
+  ~1800 / ~2400 / ~3000; gates ~3350 → ~8100). Protectors and wave units unchanged.
+- **Verified:** pjass + build checks incl. the new ladder assertion. ⚠️ Not run in-game (the self-test kills buildings
+  and bosses with `KillUnit`, so it doesn't measure the new numbers either).
+
 ## v3.8 — 2026-11-01: the Hall of Champions moves to a small room in the top-right corner
 
 - **Uploaded as catalogue map #75** (HTTP 201, download SHA-256 `1183ef42…` matches; 26 versions in the family).
