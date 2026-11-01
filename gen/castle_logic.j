@@ -1133,6 +1133,7 @@ function OnDamaged takes nothing returns nothing
             set gDmgLock = true
             call UnitDamageTarget(src, tgt, dmg * I2R(gFirePct * f) / 100.0, true, false, ATTACK_TYPE_CHAOS, DAMAGE_TYPE_UNIVERSAL, WEAPON_TYPE_WHOKNOWS)
             set gDmgLock = false
+            call DestroyEffect(AddSpecialEffectTarget("Abilities\\Weapons\\FireBallMissile\\FireBallMissile.mdl", tgt, "chest"))
         endif
     endif
     set src = null
@@ -1174,6 +1175,14 @@ function OnAttacked takes nothing returns nothing
             endif
         endloop
         call GroupClear(gDmgGroup)
+        // not enough other enemies: the remaining spears fly at the same target (several spears at once)
+        loop
+            exitwhen n <= 0
+            set d = CreateUnit(Player(p), dt, GetUnitX(a), GetUnitY(a), bj_RADTODEG * Atan2(GetUnitY(tgt) - GetUnitY(a), GetUnitX(tgt) - GetUnitX(a)))
+            call UnitApplyTimedLife(d, 'BTLF', 4.0)
+            call IssueTargetOrder(d, "attack", tgt)
+            set n = n - 1
+        endloop
     endif
     set a = null
     set tgt = null
@@ -1221,8 +1230,6 @@ function OnHeroSkill takes nothing returns nothing
     local integer L = GetLearnedSkillLevel()
     if GetLearnedSkill() == gSwiftSkill and L >= 1 and L <= 5 then
         call UnitAddAbility(GetTriggerUnit(), gSwiftAbil[L])
-    elseif GetLearnedSkill() == gFireSkill and L == 1 then
-        call UnitAddAbility(GetTriggerUnit(), gFireOrb)
     endif
 endfunction
 

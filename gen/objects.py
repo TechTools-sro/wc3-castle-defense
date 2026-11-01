@@ -125,7 +125,7 @@ WAVE_CHAMP_HP, WAVE_CHAMP_ARMOR, WAVE_CHAMP_DMG, WAVE_CHAMP_SCALE = 800, 2, (30,
 # copies with 0 % evasion); the map script does the effects (gen/castle_logic.j: OnDamaged, OnHeroSkill):
 #   Q Extra Spear  : +1 spear per level at another enemy near the target, full damage (+ fire bonus)
 #   W Swift Throw  : +SWIFT_STEP attack speed per level (hidden item-bonus copies of AIsx, one per level)
-#   E Fire Spears  : +FIRE_PCT % of every hit as extra fire damage per level; level 1 adds a hidden fire orb (missile)
+#   E Fire Spears  : +FIRE_PCT % of every hit as extra fire damage per level (fire burst on the target, no splash)
 DRYAD_ID = "Edry"
 DRYAD_SKILLS = [      # (id, name, key, icon, tip(level), research text)
     ("Xesp", "Extra Spear", "Q", "BTNEnvenomedSpear",
@@ -140,11 +140,12 @@ DRYAD_SKILL_LEVELS = 5
 SWIFT_STEP = 0.20
 SWIFT_ABILS = [f"Xsw{L}" for L in range(1, DRYAD_SKILL_LEVELS + 1)]     # AIsx copies, +20 % each (they stack)
 FIRE_PCT = 20
-FIRE_ORB = "Xfor"            # AIfb copy with 0 bonus damage: only turns the spears into fire missiles
+# (v3.2: no fire orb any more - Orb of Fire gives attacks SPLASH, Jiri wants none; the fire is a burst effect on hit)
 DRYAD_MISSILE_SPEED, DRYAD_MISSILE_ARC = 450, 0.25
 # Extra spears FLY (Jiri: the number of spears must be visible): each one is an invisible locust dummy that attacks once
 # with the spear missile; its hit makes the script deal the champion's damage (OnAttacked / OnDamaged).
 SPEAR_DUMMY, FIRE_DUMMY = "dspr", "dspf"
+DRYAD_DAMAGE_POINT = 0.3     # her attack releases the spear 0.3 s in: the dummies wait the same, so all spears fly together
 SPEAR_RANGE = 600.0          # extra spears hit enemies within this distance of the main target
 TAVERNS = [("tvc0", "Hall of Champions", [DRYAD_ID])]
 ALL_HEROES = [DRYAD_ID]
@@ -394,7 +395,7 @@ def custom_units():
             ("unam", S, "Spear"), ("usca", R, 0.01), ("ushu", S, ""), ("uabi", S, "Aloc"), ("upgr", S, ""), ("ureq", S, ""),
             ("umvs", I, 0), ("ucol", U, 0.0), ("ufoo", I, 0), ("uhpm", I, 100),
             ("ua1b", I, 0), ("ua1d", I, 1), ("ua1s", I, 1), ("ua1c", U, 5.0), ("ua1r", I, 2000), ("uacq", U, 2000.0),
-            ("udp1", U, 0.0), ("ubs1", U, 0.0), ("ua1m", S, missile), ("ua1z", I, DRYAD_MISSILE_SPEED),
+            ("udp1", U, DRYAD_DAMAGE_POINT), ("ubs1", U, 0.0), ("ua1m", S, missile), ("ua1z", I, DRYAD_MISSILE_SPEED),
             ("uma1", U, DRYAD_MISSILE_ARC), ("ua1g", S, "ground,air,structure,ward"), ("ulpz", U, 60.0)] + no_bounty))
     for (sid, name, items) in SHOPS.values():
         mods = [("unam", S, name), ("usei", S, ",".join(items))]
@@ -567,7 +568,6 @@ def dryad_abilities():
         out.append(("AEev", aid, mods))
     for aid in SWIFT_ABILS:
         out.append(("AIsx", aid, [("Isx1", U, 1, 1, SWIFT_STEP)]))
-    out.append(("AIfb", FIRE_ORB, [("Idam", U, 1, 1, 0.0), ("aare", U, 1, 0, 0.0)]))
     return out
 
 

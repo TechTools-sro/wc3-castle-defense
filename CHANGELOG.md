@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.2 — 2026-11-01: no splash on the Dryad, all spears fly together
+
+- Jiří: remove her splash damage; she should attack with several spears at once. The splash came from the hidden fire
+  orb (`Xfor`, an Orb of Fire copy) that Fire Spears added → removed; Fire Spears is now only the script bonus with a
+  fire burst on the target. Extra-spear dummies wait the same 0.3 s damage point as her (`DRYAD_DAMAGE_POINT`) so all
+  spears leave together, and when there are too few other enemies the spare spears hit the main target. Verified:
+  pjass + build; not tried in-game.
+
 ## v3.1 — 2026-11-01: cheaper stat shop steps, bigger stat buys
 
 - Jiří: price growth per buy +10 % → **+3 %**; Strength / Agility / Intelligence +10 → **+20**; All stats +3 → **+10**

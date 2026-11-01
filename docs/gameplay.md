@@ -25,9 +25,9 @@ Invader of arm `d` = Player(8 + d): 0 North **The Scourge**, 1 East **The Burnin
 
    | Key | Skill (5 levels, `DRYAD_SKILLS`) | Per level | How |
    |---|---|---|---|
-   | Q | Extra Spear (`Xesp`) | +1 spear at another enemy within 600 of the target, full damage (+ fire bonus) — the spears **fly** (one per level) | `OnAttacked` spawns invisible locust dummies `dspr`/`dspf` (fire) that attack once; their hit → `OnDamaged` deals the champion's last hit (`gLastHit`) |
+   | Q | Extra Spear (`Xesp`) | +1 spear at another enemy within 600 of the target, full damage (+ fire bonus) — the spears **fly together** with her own (one per level; dummy damage point 0.3 s = hers); with too few other enemies the spare spears hit the main target | `OnAttacked` spawns invisible locust dummies `dspr`/`dspf` (fire) that attack once; their hit → `OnDamaged` deals the champion's last hit (`gLastHit`) |
    | W | Swift Throw (`Xswt`) | +20 % attack speed | `OnHeroSkill` adds hidden `Xsw1`–`Xsw5` (AIsx copies) |
-   | E | Fire Spears (`Xfsp`) | +20 % of every hit as extra fire damage | `OnDamaged`; level 1 adds the fire orb `Xfor` (missile look) |
+   | E | Fire Spears (`Xfsp`) | +20 % of every hit as extra fire damage (fire burst on the target; **no splash**) | `OnDamaged` |
    | T | Attributes (`Xatt`) | +10 all stats, from hero level 11 | |
 
    The 3 skills are passive `AEev` copies with 0 % evasion (level holders only). 1.27 has no generic damage event:

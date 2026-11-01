@@ -30,7 +30,7 @@ GAME_DIR = os.environ.get("WC3_DIR", "/home/novakj/games/warcraft3")
 TEST = "--test" in sys.argv
 # VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
 # map name (game list, lobby, loading screen), the file name and the catalogue title.
-MAP_VERSION = "3.1"
+MAP_VERSION = "3.2"
 MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
@@ -337,7 +337,6 @@ globals
     integer gSpearAbil = 0
     integer gSwiftSkill = 0
     integer gFireSkill = 0
-    integer gFireOrb = 0
     integer array gSwiftAbil
     integer gFirePct = 20
     real gSpearRange = 600.0
@@ -560,7 +559,6 @@ def build_script():
     a(f"    set gSpearAbil = '{OB.DRYAD_SKILLS[0][0]}'")
     a(f"    set gSwiftSkill = '{OB.DRYAD_SKILLS[1][0]}'")
     a(f"    set gFireSkill = '{OB.DRYAD_SKILLS[2][0]}'")
-    a(f"    set gFireOrb = '{OB.FIRE_ORB}'")
     for lv, aid in enumerate(OB.SWIFT_ABILS, start=1):     # (not "L": that is the script's line list here)
         a(f"    set gSwiftAbil[{lv}] = '{aid}'")
     a(f"    set gFirePct = {OB.FIRE_PCT}")
