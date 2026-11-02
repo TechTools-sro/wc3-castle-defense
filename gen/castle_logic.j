@@ -2339,6 +2339,9 @@ function OnReviveTimer takes nothing returns nothing
             call TimerDialogDisplay(gReviveDialog[p], false)
             if GetWidgetLife(gHero[p]) <= 0.405 then
                 call ReviveHero(gHero[p], gHeroX[p], gHeroY[p], true)
+                if gTestMode then
+                    call TestLog("champion of player " + I2S(p) + " at game time " + I2S(gGameTime) + ": the revive timer, life now " + I2S(R2I(GetWidgetLife(gHero[p]))))
+                endif
                 call PanCameraToTimedForPlayer(Player(p), gHeroX[p], gHeroY[p], 0.5)
                 call SelectUnitForPlayerSingle(gHero[p], Player(p))
                 if gFollow[p] then
@@ -2430,6 +2433,9 @@ function OnUnitDeath takes nothing returns nothing
             set L = L + 1
         endloop
     elseif oid < 8 and u == gHero[oid] then
+        if gTestMode then
+            call TestLog("champion of player " + I2S(oid) + " dies at game time " + I2S(gGameTime) + ", killed by " + GetUnitName(killer) + ", invulnerable " + I2S(GetUnitAbilityLevel(u, 'Avul')) + ", hidden " + I2S(IntegerTertiaryOp(IsUnitHidden(u), 1, 0)))
+        endif
         set gDeaths[oid] = gDeaths[oid] + 1
         call UpdateBoard()
         call StartRevive(oid)
@@ -3332,6 +3338,9 @@ function TestSceneTick takes nothing returns nothing
         // her weapon carries the spears: more Agility, more damage on every spear
         set gTestWeapon = gTestBurstDmgHigh
         call SetHeroAgi(gTestScene, GetHeroAgi(gTestScene, false) + 200, true)
+        set gTestHitN = 0
+    elseif t == 34 then
+        // a spear thrown before the Agility can still land in that first moment (46 in 20261102-232634-b-7ad4)
         set gTestHitN = 0
     elseif t == 39 then
         set b = TestSceneBursts("+200 Agility")
@@ -5112,6 +5121,11 @@ function TestFinalBolt takes nothing returns nothing
     local unit h = gHero[0]
     local boolean ok
     set gTestBoltTries = gTestBoltTries + 1
+    // the fixture's caster: a dead one cannot cast, the order is refused (life 0 in 20261102-234502-b-f89d, probably also v4.4's unexplained refusal)
+    if GetWidgetLife(h) <= 0.405 then
+        call TestLog("the caster is dead at game time " + I2S(gGameTime) + ", deaths " + I2S(gDeaths[0]) + ", revive timer " + I2S(R2I(TimerGetRemaining(gReviveTimer[0]))) + ", revived now " + TestB2S(ReviveHero(h, gFinalX + 600.0, gFinalY, false)) + ", life " + I2S(R2I(GetWidgetLife(h))))
+        call SetUnitInvulnerable(h, true)
+    endif
     set ok = IssueTargetOrder(h, "creepthunderbolt", gFinalBoss)
     call TestLog("Storm Bolt order at the final boss, try " + I2S(gTestBoltTries) + ": " + TestB2S(ok) + ", " + GetUnitName(h) + ", ACtb rank " + I2S(GetUnitAbilityLevel(h, 'ACtb')) + ", mana " + I2S(R2I(GetUnitState(h, UNIT_STATE_MANA))) + ", life " + I2S(R2I(GetWidgetLife(h))) + ", order " + OrderId2String(GetUnitCurrentOrder(h)) + ", stunned " + TestB2S(GetUnitAbilityLevel(h, 'BPSE') > 0) + ", " + I2S(R2I(SquareRoot((GetUnitX(h) - gFinalX) * (GetUnitX(h) - gFinalX) + (GetUnitY(h) - gFinalY) * (GetUnitY(h) - gFinalY)))) + " away")
     if ok or gTestBoltTries >= 6 then
@@ -5770,8 +5784,9 @@ function TestStep takes nothing returns nothing
             call PauseUnit(u, true)
             set L = L + 1
         endloop
+        call TestLog("the caster before the fixture, game time " + I2S(gGameTime) + ": life " + I2S(R2I(GetWidgetLife(gHero[0]))) + ", revive timer " + I2S(R2I(TimerGetRemaining(gReviveTimer[0]))))
         if GetWidgetLife(gHero[0]) <= 0.405 then
-            call ReviveHero(gHero[0], gFinalX + 600.0, gFinalY, false)
+            call TestLog("the caster revived: " + TestB2S(ReviveHero(gHero[0], gFinalX + 600.0, gFinalY, false)) + ", life " + I2S(R2I(GetWidgetLife(gHero[0]))))
         endif
         call SetUnitInvulnerable(gHero[0], true)
         call SetUnitPosition(gHero[0], gFinalX + 600.0, gFinalY)
