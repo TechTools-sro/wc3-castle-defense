@@ -1,5 +1,20 @@
 # Changelog
 
+## v4.5 (candidate, NOT uploaded) — 2026-11-03: buy at the castle while your champion is dead
+
+- **Not released.** Committed so the work is safe, without a clean full self-test yet. Not uploaded, not installed: the catalogue and Jiří's game stay at v4.4 (#81). Next: one clean `tools/test_env.py run`, then the usual release steps.
+- Jiří, playing v4.4, with a picture of the castle's grey buttons: "kdyz jsem mrtvy pridej moznost kupovat v hradu !"
+- **Why it failed:** a neutral shop sells only to a nearby living unit with an inventory. With the champion dead every button read "Requires: Nearby Patron". `docs/gameplay.md` claimed it worked; no test had tried the castle with a dead champion.
+- **The fix, `BuyerTick` from the 0.2 s `GrabTick`:** while his champion is dead a player has a buyer (`ecd1`, base wisp, `AInv,Avul`, tiny, no minimap dot) at `BUYER_POS` (2560, -1792), in the dark, 3125 from the castle, inside its shop's 3400. It goes on the revive, because a shop sells to the player's closest inventory unit and it must not take what a living champion buys. What it holds goes to him, or to his feet when his inventory is full.
+- **The same buyer opens the grove, whose shops reach the whole map:** the Bank works at once. Premium items and the Apothecary's normal items wait in its bag, 6 at most, and reach him on the revive, merged. Potions need him: the gold comes back, with the new text "Champion is dead - refunded".
+- **Measured on the way, in `docs/wc3-127-gotchas.md`:** a hidden unit or one with Locust does not count as a buyer, so it must be visible, hence tiny and in the dark. A hidden living champion does not count either: during Partition the castle and the grove still refuse him, not changed here. The hidden test window cannot press a shop's button (`ForceUIKey`, `xdotool key`, and a click freezes it).
+- **Self-test fixtures fixed:** "stats raise every spear" could read a spear thrown before the Agility (46 instead of about 220): the first second after the change no longer counts. The Storm Bolt at the final boss failed because its caster was dead (`life 0`, run `20261102-234502-b-f89d`), probably also the refusal left unexplained in v4.4: it is now revived on the spot, and a test build logs every champion's death and revive. Why he was dead in spite of the revive at t=80 is not known: the new lines will say.
+- **Tools:** `CD_TEST_ONLY=deadbuy` (a dead champion's player at every shop, with the fog on), `tools/layout_audit.py` checks the buyer's spot.
+- **Verified, lab:** `20261102-233628-a-453c`, 32 PASS, 0 FAIL, fog on: all 5 castle buttons, castle selected before and after the death, no tree no buy, Armory, Boots, potion refund, Bank, circle, a full bag refused, two Fangs merged on the revive, a full inventory, the buyer gone and back on a second death, the Armory selling to the living champion again.
+- **Verified, pictures:** `20261102-231632-a-d514/hover/deadbuy-dead-castle.png` shows the old state, "Requires: Nearby Patron", grey. `20261102-232334-a-0ebe/hover/deadbuy-dead-castle.png` shows the castle's button in colour without that line, with the champion dead.
+- **Full self-test, no clean run yet:** `20261102-232634-b-7ad4` 475 PASS, 1 FAIL (the spear). `20261102-234502-b-f89d` 475 PASS, 1 FAIL (the caster). The new castle checks pass in both. Two runs with both fixes, `20261103-000627-a-ea97` and `20261103-000630-b-430e`, were stopped by low memory on pc1 after 15 min at 393 and 392 PASS, 0 FAIL, before the final boss. So the caster's fix has not been through a full run.
+- **NOT verified:** a real mouse click on the button: the test proves the tooltip and a scripted order only. Several real players and desyncs. The production map in the game. What a box selection over the buyer's spot does in play, it has no commands. Balance of buying while dead.
+
 ## v4.4 — 2026-11-02: real tooltips, a boss on every ruined tower, bosses in gear, a modest Premium Armory, +5 % prices
 
 - **Approved by Jiří, uploaded as catalogue map #81** (HTTP 201, download SHA-256 `aad2c4b9…` matches dist and the installed map; 32 versions in the family).

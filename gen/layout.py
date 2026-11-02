@@ -171,6 +171,7 @@ FINAL_LEASH = 2500.0
 # Hall of Champions: ONE tavern (v2.0) just north of the souls (selectors, at HALL_SOUL_DY below the centre)
 HALL_TAVERNS = [(0, 160)]              # 256 x 256 footprint -> y +32..+288 inside the 384 half-size
 HALL_SOUL_DY = -128
+BUYER_POS = (2560, -1792)              # a dead champion's buyer (BuyerTick): inside the castle shop's range, in the dark east of the grove passage, away from anything a player selects
 
 
 def hall_point(dx, dy):

@@ -38,7 +38,7 @@ if TEST and PROBE is not None:
     sys.exit("--probe and --test cannot be combined: --test changes the timers and runs TestStep")
 # VERSION: bump it for every build that is published or shared (LAN players need the SAME file). It is in the
 # map name (game list, lobby, loading screen), the file name and the catalogue title.
-MAP_VERSION = "4.4"
+MAP_VERSION = "4.5"
 MAP_FILE = "TechToolsCastleDefence_TEST.w3x" if TEST else "TechToolsCastleDefence_PROBE.w3x" if PROBE is not None else f"TechToolsCastleDefence_v{MAP_VERSION}.w3x"
 OLD_MAP_FILES = ["CastleDefense4Fronts.w3x"]          # removed from the game folder on install
 MAP_NAME = f"TechTools Castle Defence v{MAP_VERSION}"
@@ -480,6 +480,15 @@ globals
     integer gTestPremStuns = 0
     integer gTestBoltTries = 0
     integer gTestBoltT = 0
+    integer gTestBuyT = 0
+    integer gTestBuyStep = 0
+    integer gTestBuyLumber = 0
+    integer gTestBuyGold = 0
+    integer gTestBuyIncome = 0
+    integer gTestBuyStat = 0
+    real gTestBuyMaxHp = 0.0
+    boolean gTestBuyOrder = false
+    rect gTestBuyRect = null
     integer gTestBoltSpells = 0
     integer gTestBoltHits = 0
     integer gTestBoltStunned = 0
@@ -717,6 +726,7 @@ globals
     integer gHeroPoolCount = 0
     integer gCastleType = 0
     integer gSoulType = 0
+    integer gBuyerType = 0
     integer gCircleType = 0
     integer array gStatItem
     integer array gStatNext
@@ -747,6 +757,9 @@ globals
     real gHallX = 0.0
     real gHallY = 0.0
     real gHallSoulDY = -128.0
+    real gCastleShopRange = 0.0
+    real gBuyerX = 0.0
+    real gBuyerY = 0.0
     real gSelectTime = 45.0
     real gFirstWaveDelay = 30.0
     real gWaveInterval = 0.0
@@ -800,6 +813,7 @@ globals
     integer gBoardRows = 1
     multiboard gBoard = null
     unit array gSoul
+    unit array gBuyer
     unit array gLaneMarker
     destructable array gGate
     unit array gTavern
@@ -929,6 +943,11 @@ def build_script():
         build_tour_table(a)
     if TEST and os.environ.get("CD_TEST_ONLY") == "finalbolt":
         a('    set gTestOnly = "finalbolt"')
+    if TEST and os.environ.get("CD_TEST_ONLY") == "deadbuy":
+        a('    set gTestOnly = "deadbuy"')
+        x, y = card_point(0, 0)    # the first button of the castle's and the armory's card
+        a(f"    set gTourX[0] = {x}")
+        a(f"    set gTourY[0] = {y}")
     a(f"    set gFinalType = '{OB.FINAL_BOSS_ID}'")
     a(f"    set gFinalName = {jstr(OB.FINAL_BOSS_NAME)}")
     a(f"    set gFinalFx = {jstr(OB.FX['final'])}")
@@ -1070,6 +1089,7 @@ def build_script():
     a(f"    set gHeroPoolCount = {len(OB.ALL_HEROES)}")
     a(f"    set gCastleType = '{OB.CASTLE_ID}'")
     a(f"    set gSoulType = '{OB.SOUL_ID}'")
+    a(f"    set gBuyerType = '{OB.BUYER_ID}'")
     a(f"    set gCircleType = '{OB.CIRCLE_ID}'")
     for si in range(OB.KINDS):
         a(f"    set gKindName[{si}] = {jstr(OB.kind_name(si))}")
@@ -1088,6 +1108,9 @@ def build_script():
     a(f"    set gHallX = {jr(LY.HALL_CENTRE[0])}")
     a(f"    set gHallY = {jr(LY.HALL_CENTRE[1])}")
     a(f"    set gHallSoulDY = {jr(LY.HALL_SOUL_DY)}")
+    a(f"    set gCastleShopRange = {jr(OB.CASTLE_SHOP_RANGE)}")
+    a(f"    set gBuyerX = {jr(LY.BUYER_POS[0])}")
+    a(f"    set gBuyerY = {jr(LY.BUYER_POS[1])}")
     a(f"    set gSelectTime = {jr(SELECT_TIME)}")
     a(f"    set gFirstWaveDelay = {jr(FIRST_WAVE_DELAY)}")
     a(f"    set gWaveInterval = {jr(WAVE_INTERVAL)}")
@@ -1494,7 +1517,7 @@ def misc_constants(game):
     return ("\r\n".join(out) + "\r\n").encode("latin1")
 
 
-REQUIRED_SCRIPT_DATA = ["set gScaleBit[0] = ", "set gWaveHpGrowth = ", "set gTeamHpPer = ", "set gIncomeWaveSeconds = ", "set gFinalType = ", "set gFinalBit[0] = ", "set gFinalSpell[0] = ", "set gFinalHpBase = ", "set gBankItem = ", "set gIncomeStep = ", "set gPremItem[1] = ", "set gPremCount = ",
+REQUIRED_SCRIPT_DATA = ["set gBuyerType = ", "set gBuyerX = ", "set gScaleBit[0] = ", "set gWaveHpGrowth = ", "set gTeamHpPer = ", "set gIncomeWaveSeconds = ", "set gFinalType = ", "set gFinalBit[0] = ", "set gFinalSpell[0] = ", "set gFinalHpBase = ", "set gBankItem = ", "set gIncomeStep = ", "set gPremItem[1] = ", "set gPremCount = ",
                         "set gShopFxCount = ", "set gDevCount = ", "set gAttrPerLevel = ", "set gReachItem = ",
                         "set gGateState[11] = ", "set gStageUnit[0] = ", "set gEpicItem[5] = ", "set gStatItem[0] = ", "set gHeroPool[0] = ",
                         "set gPotCount = ", "set gHeroSkill[0] = ", "set gGrantN = ", "set gDrumAura[4] = ",

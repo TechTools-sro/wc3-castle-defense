@@ -474,6 +474,7 @@ def kind_effect(s):
     kd = KINDS_DEF[s]
     return kd.get("effect", f"+{kd['value']} {kd['name']}")
 SOUL_ID = "ecd0"
+BUYER_ID = "ecd1"
 
 
 def base_id(d):
@@ -726,6 +727,11 @@ def custom_units():
     # for the player, so nobody ever sees or touches it. Removed as soon as the champion is picked.
     units.append(("ewsp", SOUL_ID, [
         ("unam", S, "Champion Select"), ("uabi", S, "Avul"), ("ubui", S, ""), ("ufoo", I, 0),
+        ("usca", R, 0.01), ("ussc", R, 0.01), ("ushu", S, ""), ("uhom", I, 1), ("utyp", S, ""),
+        ("umvs", I, 0), ("usid", I, 0), ("usin", I, 0)] + no_bounty))
+    # A dead champion's buyer: shops sell only to a nearby living unit with an inventory. It stands in the dark while he is dead (BuyerTick). Hidden or with Locust the game does not take it as a patron.
+    units.append(("ewsp", BUYER_ID, [
+        ("unam", S, "Champion's Buyer"), ("uabi", S, "AInv,Avul"), ("ubui", S, ""), ("ufoo", I, 0),
         ("usca", R, 0.01), ("ussc", R, 0.01), ("ushu", S, ""), ("uhom", I, 1), ("utyp", S, ""),
         ("umvs", I, 0), ("usid", I, 0), ("usin", I, 0)] + no_bounty))
     units.append(("ncp3", CIRCLE_ID, [

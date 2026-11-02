@@ -149,6 +149,8 @@ def main():
             if walk(x, y) and not (LY.PLAY_MINX + 128 <= x <= LY.PLAY_MAXX - 128 and LY.PLAY_MINY + 128 <= y <= LY.PLAY_MAXY - 128):
                 edge += 1
     check(edge == 0, "all floor is at least a tile inside the playable area")
+    bx, by = LY.BUYER_POS
+    check(not walk(bx, by) and math.hypot(bx, by) <= OB.CASTLE_SHOP_RANGE - 128, f"a dead champion's buyer stands in the dark, {math.hypot(bx, by):.0f} from the castle (its shop reaches {OB.CASTLE_SHOP_RANGE:.0f})")
     print("the way to the castle: " + ", ".join(f"lane {L} {v:.0f}" for L, v in travel.items()))
     try:
         from PIL import Image, ImageDraw

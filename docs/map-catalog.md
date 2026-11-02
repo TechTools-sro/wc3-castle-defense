@@ -42,7 +42,7 @@ ruins, then fight through the four shared **gate levels** (2–5). When every bo
 - **Champion's Circle** (your own shop, instant, +5 % price per buy): Health +600, Mana +75, Damage +20,
   Armor +8, Strength +20, Agility +20, Intelligence +20, All stats +10 — bonuses show as green stats — and
   **Experience +1 level** (250 gold).
-- **The Castle** (select it; 1 tree each): Castle Health +1000, Castle Armor +3, Castle Regeneration +10 HP/s (its button shows what was bought so far),
+- **The Castle** (select it, also while your champion is dead; 1 tree each): Castle Health +1000, Castle Armor +3, Castle Regeneration +10 HP/s (its button shows what was bought so far),
   Repair +2000 HP, Shockwave (a quarter of their HP off every wave monster near the castle).
 - **Secret grove** (narrow passage at the SE corner of the plaza; its shops sell to your champion anywhere on the
   map — just select the shop): Fountain of Power (fast HP + mana),

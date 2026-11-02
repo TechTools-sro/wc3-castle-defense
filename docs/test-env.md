@@ -29,6 +29,8 @@ A map can ask for a film of the hidden display: a `VIDEO name seconds` line in i
 
 **Looking at a tooltip:** a `HOVER name x y` line makes the runner move the pointer of that private display to x, y, take `hover/name.png` and move it away. No click, no other display. `CD_TEST_ONLY=tour python3 build.py --test --no-install` builds a map that does nothing else: the rows of `tour_rows()` in `build.py` put a fresh champion on the card with the ranks asked for and no points left (or the Learn card, a shop), then ask for the picture. Run it with `tools/test_env.py run --map ...`. A picture's name is what was asked for: look at the picture.
 `CD_TEST_ONLY=finalbolt` likewise builds a map for one thing: three real Storm Bolts at the final boss.
+`CD_TEST_ONLY=deadbuy` likewise: a player whose champion is dead at every shop, with the fog on, and the tooltip pictures of the castle and the armory. About 1 min, the full run has the castle part too.
+⚠️ **One full run at a time on pc1.** Two together, on top of the usual desktop load, ran the machine out of memory and both were stopped after 15 min (`20261103-000627-a-ea97`, `20261103-000630-b-430e`).
 
 ## Where everything is
 

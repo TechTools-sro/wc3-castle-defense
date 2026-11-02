@@ -489,7 +489,7 @@ function PotionTokenIndex takes integer id returns integer
 endfunction
 
 // A potion token was bought: +1 charge on the potion the champion carries, else a new potion in a free slot, else
-// (full inventory, no such potion, or champion dead) the gold comes back.
+// (full inventory, no such potion, or champion dead: his buyer pays) the gold comes back.
 function GivePotion takes integer p, integer i returns nothing
     local unit h = gHero[p]
     local integer s = 0
@@ -513,7 +513,11 @@ function GivePotion takes integer p, integer i returns nothing
         endif
     endif
     call SetPlayerState(Player(p), PLAYER_STATE_RESOURCE_GOLD, GetPlayerState(Player(p), PLAYER_STATE_RESOURCE_GOLD) + gPotPrice[i])
-    call DisplayTimedTextToPlayer(Player(p), 0.0, 0.0, 4.0, "|cffffcc00Inventory full|r - refunded")
+    if h != null and GetWidgetLife(h) > 0.405 then
+        call DisplayTimedTextToPlayer(Player(p), 0.0, 0.0, 4.0, "|cffffcc00Inventory full|r - refunded")
+    else
+        call DisplayTimedTextToPlayer(Player(p), 0.0, 0.0, 4.0, "|cffffcc00Champion is dead|r - refunded")
+    endif
     set o = null
     set h = null
 endfunction
@@ -683,6 +687,9 @@ function PendingTick takes nothing returns nothing
             if not UnitAddItem(h, it) then
                 call SetItemPosition(it, GetUnitX(h), GetUnitY(h))
             endif
+        elseif GetItemTypeId(it) != 0 and not IsItemOwned(it) then
+            // his champion is dead: a castle buy counts now, anything else waits for him
+            call AdvanceStatPrice(gPendP[i], it)
         endif
         if GetItemTypeId(it) == 0 or IsItemOwned(it) or (h != null and GetWidgetLife(h) > 0.405) then
             set gPendN = gPendN - 1
@@ -694,6 +701,37 @@ function PendingTick takes nothing returns nothing
     endloop
     set it = null
     set h = null
+endfunction
+
+// A shop sells only to a nearby living unit with an inventory ("Requires: Nearby Patron"), so a player whose champion
+// is dead could not buy at the castle. While he is dead a tiny buyer of his stands in the dark, in the castle shop's
+// range. Hidden or with Locust the game does not take it (measured). It must go when he lives: a shop sells to the
+// player's closest such unit, and that could be this one. Whatever it still holds goes to him then.
+function BuyerTick takes integer p returns nothing
+    local integer s = 0
+    local item it
+    if gHero[p] != null and GetWidgetLife(gHero[p]) <= 0.405 then
+        if gBuyer[p] == null or GetUnitTypeId(gBuyer[p]) == 0 then
+            set gBuyer[p] = CreateUnit(Player(p), gBuyerType, gBuyerX, gBuyerY, 270.0)
+            call SetUnitX(gBuyer[p], gBuyerX)
+            call SetUnitY(gBuyer[p], gBuyerY)
+        endif
+    elseif gBuyer[p] != null then
+        loop
+            exitwhen s >= 6
+            set it = UnitItemInSlot(gBuyer[p], s)
+            if it != null then
+                call UnitRemoveItem(gBuyer[p], it)
+                if gHero[p] != null and not UnitAddItem(gHero[p], it) then
+                    call SetItemPosition(it, GetUnitX(gHero[p]), GetUnitY(gHero[p]))
+                endif
+            endif
+            set s = s + 1
+        endloop
+        call RemoveUnit(gBuyer[p])
+        set gBuyer[p] = null
+    endif
+    set it = null
 endfunction
 
 // Champion dead: a circle buy lands on the ground or in the dead champion's inventory and is never "used" ->
@@ -708,6 +746,7 @@ function GrabTick takes nothing returns nothing
     call PendingTick()
     loop
         exitwhen p >= 8
+        call BuyerTick(p)
         if gHero[p] != null and gCircleRect[p] != null and GetWidgetLife(gHero[p]) <= 0.405 then
             set gGrabP = p
             call EnumItemsInRect(gCircleRect[p], null, function GrabDeadEnum)
@@ -5203,21 +5242,252 @@ function TestBoltLab takes nothing returns nothing
     endif
 endfunction
 
+// the first slot that holds this item type, -1 if none
+function TestFirstSlot takes unit h, integer id returns integer
+    local integer k = 0
+    loop
+        exitwhen k >= 6
+        if GetItemTypeId(UnitItemInSlot(h, k)) == id then
+            return k
+        endif
+        set k = k + 1
+    endloop
+    return -1
+endfunction
+
+// CD_TEST_ONLY=deadbuy: a player whose champion is dead, in the fog of a real game. The game's own answer: the button's tooltip in a picture, and what a real sale does.
+function TestBuyCastle takes integer s returns nothing
+    set gTestBuyStep = gCastleNext[s]
+    set gTestBuyLumber = GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER)
+    set gTestBuyOrder = IssueNeutralImmediateOrderById(Player(0), gCastle, gStatItem[s * gKindStride + gCastleNext[s]])
+endfunction
+
+function TestBuyCheck takes integer s, integer more, string what returns nothing
+    call TestCheck(gTestBuyOrder and gCastleNext[s] == gTestBuyStep + more and GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER) == gTestBuyLumber - 1, what + ": order taken " + TestB2S(gTestBuyOrder) + ", step " + I2S(gTestBuyStep) + " -> " + I2S(gCastleNext[s]) + ", trees " + I2S(gTestBuyLumber) + " -> " + I2S(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER)))
+endfunction
+
+function TestBuyLab takes nothing returns nothing
+    local integer t
+    local integer kq = 0
+    local integer kw = 0
+    local integer ke = 0
+    local integer kr = 0
+    local integer ka = 0
+    local integer s = 0
+    loop
+        exitwhen s >= gKinds
+        if gKindType[s] == 4 then
+            if kq == 0 then
+                set kq = s
+            elseif kw == 0 then
+                set kw = s
+            else
+                set ke = s
+            endif
+        elseif gKindType[s] == 3 then
+            set kr = s
+        elseif gKindType[s] == 5 then
+            set ka = s
+        endif
+        set s = s + 1
+    endloop
+    set gTestBuyT = gTestBuyT + 1
+    set t = gTestBuyT
+    if t == 1 then
+        call FogEnable(true)
+        call FogMaskEnable(true)
+        set gHero[0] = CreateUnit(Player(0), gHeroPool[5], GetUnitX(gCastle) + 700.0, GetUnitY(gCastle) - 700.0, 90.0)
+        call SetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER, 20)
+        call SetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD, 5000)
+        call SelectUnitForPlayerSingle(gCastle, Player(0))
+    elseif t == 4 then
+        call TestLog("HOVER deadbuy-alive-castle " + I2S(gTourX[0]) + " " + I2S(gTourY[0]))
+        call TestFlush()
+    elseif t == 7 then
+        set gTestBuyMaxHp = GetUnitState(gCastle, UNIT_STATE_MAX_LIFE)
+        call TestBuyCastle(kq)
+    elseif t == 9 then
+        call TestBuyCheck(kq, 1, "champion alive, Castle Health")
+        call TestCheck(GetUnitState(gCastle, UNIT_STATE_MAX_LIFE) == gTestBuyMaxHp + 1000.0, "the castle has 1000 more max HP: " + I2S(R2I(GetUnitState(gCastle, UNIT_STATE_MAX_LIFE))))
+        // the castle stays selected through his death. At that instant no buyer stands there yet: what every version before this one did
+        call KillUnit(gHero[0])
+        call PauseTimer(gReviveTimer[0])
+        set gTestBuyOrder = IssueNeutralImmediateOrderById(Player(0), gCastle, gStatItem[kq * gKindStride + gCastleNext[kq]])
+        call TestCheck(not gTestBuyOrder and gBuyer[0] == null, "the moment he dies, nobody to sell to: order refused " + TestB2S(not gTestBuyOrder))
+        call TestFlush()
+    elseif t == 10 then
+        call TestCheck(gBuyer[0] != null and GetOwningPlayer(gBuyer[0]) == Player(0) and GetUnitAbilityLevel(gBuyer[0], 'Avul') > 0 and GetUnitX(gBuyer[0]) == gBuyerX and GetUnitY(gBuyer[0]) == gBuyerY and IsUnitInRange(gBuyer[0], gCastle, gCastleShopRange), "he is dead: an invulnerable buyer of his at " + I2S(R2I(GetUnitX(gBuyer[0]))) + ", " + I2S(R2I(GetUnitY(gBuyer[0]))))
+        call TestLog("HOVER deadbuy-dead-castle " + I2S(gTourX[0]) + " " + I2S(gTourY[0]))
+        call TestFlush()
+    elseif t == 13 then
+        set gTestBuyMaxHp = GetUnitState(gCastle, UNIT_STATE_MAX_LIFE)
+        call TestBuyCastle(kq)
+    elseif t == 15 then
+        call TestBuyCheck(kq, 1, "champion dead, castle selected before he died, Castle Health")
+        call TestCheck(GetUnitState(gCastle, UNIT_STATE_MAX_LIFE) == gTestBuyMaxHp + 1000.0, "the castle has 1000 more max HP: " + I2S(R2I(GetUnitState(gCastle, UNIT_STATE_MAX_LIFE))))
+        call TestBuyCastle(kw)
+    elseif t == 17 then
+        call TestBuyCheck(kw, 1, "champion dead, Castle Armor")
+        call TestBuyCastle(ke)
+    elseif t == 19 then
+        call TestBuyCheck(ke, 1, "champion dead, Castle Regeneration")
+        call SetWidgetLife(gCastle, 3000.0)
+        call TestBuyCastle(kr)
+    elseif t == 21 then
+        call TestBuyCheck(kr, 0, "champion dead, Repair Castle")
+        call TestCheck(GetWidgetLife(gCastle) >= 5000.0, "2000 HP repaired: " + I2S(R2I(GetWidgetLife(gCastle))))
+        call TestBuyCastle(ka)
+    elseif t == 23 then
+        call TestBuyCheck(ka, 0, "champion dead, Shockwave")
+        call TestFlush()
+        // selected only now, after his death
+        call SelectUnitForPlayerSingle(gLaneMarker[0], Player(0))
+    elseif t == 24 then
+        call SelectUnitForPlayerSingle(gCastle, Player(0))
+    elseif t == 26 then
+        call TestLog("HOVER deadbuy-dead-castle-reselected " + I2S(gTourX[0]) + " " + I2S(gTourY[0]))
+        call TestFlush()
+    elseif t == 29 then
+        call TestBuyCastle(kq)
+    elseif t == 31 then
+        call TestBuyCheck(kq, 1, "champion dead, castle selected after he died, Castle Health")
+        // no tree, no buy
+        call SetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER, 0)
+        call TestBuyCastle(kq)
+    elseif t == 33 then
+        call TestCheck(not gTestBuyOrder and gCastleNext[kq] == gTestBuyStep, "no tree: no buy, the step stays " + I2S(gCastleNext[kq]))
+        call SetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER, 20)
+        call TestFlush()
+        // the same buyer serves the grove: a premium item waits for him, a potion cannot, the Bank needs nobody
+        call SelectUnitForPlayerSingle(gArmoryShop, Player(0))
+    elseif t == 35 then
+        call TestLog("HOVER deadbuy-dead-armory " + I2S(gTourX[0]) + " " + I2S(gTourY[0]))
+        call TestFlush()
+    elseif t == 38 then
+        set gTestBuyGold = GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)
+        call TestLog("Fang order " + TestB2S(IssueNeutralImmediateOrderById(Player(0), gArmoryShop, gPremItem[1])))
+    elseif t == 40 then
+        // the armory stands near the buyer: the item goes straight into the buyer's bag
+        call TestCheck(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD) == gTestBuyGold - 1000 and TestSlots(gBuyer[0], gPremItem[1]) == 1, "champion dead, Vampire Fang: 1000 gold paid (" + I2S(gTestBuyGold) + " -> " + I2S(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)) + "), in the buyer's bag " + I2S(TestSlots(gBuyer[0], gPremItem[1])))
+        set gTestBuyGold = GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)
+        call TestLog("potion order " + TestB2S(IssueNeutralImmediateOrderById(Player(0), gApoShop, gPotToken[0])))
+    elseif t == 42 then
+        call TestCheck(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD) == gTestBuyGold, "champion dead, a potion: the gold comes back (" + I2S(gTestBuyGold) + " -> " + I2S(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)) + ")")
+        set gTestBuyIncome = gIncome[0]
+        set gTestBuyLumber = GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER)
+        call TestLog("Bank order " + TestB2S(IssueNeutralImmediateOrderById(Player(0), gBankShop, gBankItem)))
+    elseif t == 44 then
+        call TestCheck(gIncome[0] == gTestBuyIncome + gIncomeStep and GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER) == gTestBuyLumber - 1, "champion dead, the Bank: income " + I2S(gTestBuyIncome) + " -> " + I2S(gIncome[0]) + ", trees " + I2S(gTestBuyLumber) + " -> " + I2S(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER)))
+        // no income of its own in the gold checks below
+        set gIncome[0] = gTestBuyIncome
+        set gTestBuyStat = gStatNext[0]
+        call TestLog("circle order " + TestB2S(IssueImmediateOrderById(gLaneMarker[0], gStatItem[KindNext(0, 0)])))
+    elseif t == 46 then
+        call TestCheck(gStatNext[0] == gTestBuyStat + 1 and gStatApplied[0] < gStatNext[0], "champion dead, his circle: counted at once, step " + I2S(gTestBuyStat) + " -> " + I2S(gStatNext[0]) + ", on him " + I2S(gStatApplied[0]))
+        call TestFlush()
+        set gTestBuyGold = GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)
+        call TestLog("Boots order " + TestB2S(IssueNeutralImmediateOrderById(Player(0), gApoShop, 'bspd')))
+    elseif t == 47 then
+        call TestCheck(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD) < gTestBuyGold and TestSlots(gBuyer[0], 'bspd') == 1, "champion dead, the Apothecary's Boots: paid (" + I2S(gTestBuyGold) + " -> " + I2S(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)) + "), " + I2S(TestSlots(gBuyer[0], 'bspd')) + " in the buyer's bag")
+        set gTestBuyGold = GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)
+        call TestLog("second Fang order " + TestB2S(IssueNeutralImmediateOrderById(Player(0), gArmoryShop, gPremItem[1])))
+    elseif t == 48 then
+        call TestCheck(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD) == gTestBuyGold - 1000 and TestSlots(gBuyer[0], gPremItem[1]) == 2, "a second Fang while dead: paid, " + I2S(TestSlots(gBuyer[0], gPremItem[1])) + " in the buyer's bag")
+        // a full bag: the shop refuses a normal item, nothing is paid
+        loop
+            exitwhen UnitInventoryCount(gBuyer[0]) >= 6
+            call UnitAddItemById(gBuyer[0], 'ratc')
+        endloop
+        set gTestBuyGold = GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)
+        set gTestBuyOrder = IssueNeutralImmediateOrderById(Player(0), gArmoryShop, gPremItem[1])
+    elseif t == 50 then
+        call TestCheck(not gTestBuyOrder and GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD) == gTestBuyGold, "the buyer's bag full: order refused " + TestB2S(not gTestBuyOrder) + ", nothing paid (" + I2S(gTestBuyGold) + " -> " + I2S(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)) + ")")
+        loop
+            exitwhen TestSlots(gBuyer[0], 'ratc') == 0
+            call RemoveItem(UnitItemInSlot(gBuyer[0], TestFirstSlot(gBuyer[0], 'ratc')))
+        endloop
+        // what the buyer may hold goes to him
+        call UnitAddItemById(gBuyer[0], gPremItem[8 + 1])
+        call TestLog("in the buyer's bag now: " + I2S(UnitInventoryCount(gBuyer[0])))
+        call ReviveHero(gHero[0], GetUnitX(gCastle) + 700.0, GetUnitY(gCastle) - 700.0, false)
+    elseif t == 51 then
+        call TestCheck(gBuyer[0] == null, "he is back: the buyer is gone")
+    elseif t == 54 then
+        call TestCheck(TestSlots(gHero[0], gPremItem[1]) == 0 and TestPremLevel(gHero[0]) == 2, "the two Fangs bought while dead reach him, merged: rank " + I2S(TestPremLevel(gHero[0])))
+        call TestCheck(TestSlots(gHero[0], gPremItem[8 + 1]) == 1 and TestSlots(gHero[0], 'bspd') == 1, "what the buyer held is in his inventory (Gloves " + I2S(TestSlots(gHero[0], gPremItem[8 + 1])) + ", Boots " + I2S(TestSlots(gHero[0], 'bspd')) + ")")
+        call TestCheck(gStatApplied[0] == gStatNext[0], "the circle's bonus is on him (" + I2S(gStatApplied[0]) + " of " + I2S(gStatNext[0]) + ")")
+        call SelectUnitForPlayerSingle(gCastle, Player(0))
+    elseif t == 56 then
+        call TestBuyCastle(kq)
+    elseif t == 58 then
+        call TestBuyCheck(kq, 1, "alive again, Castle Health")
+        call TestLog("Fang order " + TestB2S(IssueNeutralImmediateOrderById(Player(0), gArmoryShop, gPremItem[1])))
+    elseif t == 60 then
+        call TestCheck(TestPremLevel(gHero[0]) == 3, "alive again, the Armory sells to him, nobody else: the Fang is rank " + I2S(TestPremLevel(gHero[0])))
+        call TestFlush()
+        // his inventory full, a second death
+        loop
+            exitwhen UnitInventoryCount(gHero[0]) >= 6
+            call UnitAddItemById(gHero[0], 'ratc')
+        endloop
+        call KillUnit(gHero[0])
+        call PauseTimer(gReviveTimer[0])
+    elseif t == 61 then
+        call TestCheck(gBuyer[0] != null, "a second death: the buyer is back")
+    elseif t == 64 then
+        call TestBuyCastle(kq)
+    elseif t == 66 then
+        call TestBuyCheck(kq, 1, "a second death, Castle Health")
+        set gTestBuyGold = GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)
+        call TestLog("Gloves order, his inventory full " + TestB2S(IssueNeutralImmediateOrderById(Player(0), gArmoryShop, gPremItem[8 + 1])))
+    elseif t == 68 then
+        call TestCheck(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD) == gTestBuyGold - 1000, "the Gloves paid (" + I2S(gTestBuyGold) + " -> " + I2S(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)) + ")")
+        call ReviveHero(gHero[0], GetUnitX(gCastle) + 700.0, GetUnitY(gCastle) - 700.0, false)
+    elseif t == 71 then
+        set gTestBuyRect = Rect(GetUnitX(gHero[0]) - 200.0, GetUnitY(gHero[0]) - 200.0, GetUnitX(gHero[0]) + 200.0, GetUnitY(gHero[0]) + 200.0)
+        set gTestWardenItems = 0
+        call EnumItemsInRect(gTestBuyRect, null, function TestItemNear)
+        call RemoveRect(gTestBuyRect)
+        set gTestBuyRect = null
+        call TestCheck(gBuyer[0] == null and UnitInventoryCount(gHero[0]) == 6 and gTestWardenItems >= 1, "his inventory full: what he bought waits at his feet (" + I2S(gTestWardenItems) + " on the ground), the buyer is gone")
+        // a champion hidden by a form of his: does the castle take him? Logged as it is
+        call TestFlush()
+        call ShowUnit(gHero[0], false)
+    elseif t == 74 then
+        call TestBuyCastle(kq)
+        call TestLog("a hidden, living champion at the castle: order taken " + TestB2S(gTestBuyOrder))
+        call ShowUnit(gHero[0], true)
+    elseif t == 76 then
+        call TestLog("SELFTEST DONE")
+        call TestFlush()
+        call PauseTimer(GetExpiredTimer())
+    endif
+endfunction
+
 function TestEdge takes nothing returns nothing
     local unit h = gHero[0]
     local integer s
     set gTestEdgeT = gTestEdgeT + 1
     if gTestEdgeT == 1 then
-        // remote buy while the champion is dead: refused (nothing paid) or it must arrive after the revive
+        // his champion is dead: a buyer of his stands in the shop's range, and the castle sells
+        call TestCheck(gBuyer[0] != null and IsUnitInRange(gBuyer[0], gCastle, gCastleShopRange) and GetUnitAbilityLevel(gBuyer[0], 'Avul') > 0, "champion dead: an invulnerable buyer of his in the castle's range")
+        call SetPlayerState(Player(0), PLAYER_STATE_RESOURCE_LUMBER, 5)
+        set gTestBuyMaxHp = GetUnitState(gCastle, UNIT_STATE_MAX_LIFE)
+        call TestBuyCastle(9)
+        // a potion while the champion is dead: no potion, and the gold comes back
         set gTestGold = GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)
         set gTestDeadOrder = IssueNeutralImmediateOrderById(Player(0), gApoShop, gPotToken[2])
         call TestLog("dead remote buy: order accepted = " + TestB2S(gTestDeadOrder) + ", gold " + I2S(gTestGold) + " -> " + I2S(GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD)))
+    elseif gTestEdgeT == 2 then
+        call TestBuyCheck(9, 1, "champion dead, Castle Health")
+        call TestCheck(GetUnitState(gCastle, UNIT_STATE_MAX_LIFE) == gTestBuyMaxHp + 1000.0, "champion dead: the castle has 1000 more max HP: " + I2S(R2I(GetUnitState(gCastle, UNIT_STATE_MAX_LIFE))))
     elseif gTestEdgeT == 3 then
         call ReviveHero(h, gHeroX[0], gHeroY[0], false)
     elseif gTestEdgeT == 6 then
         // (the game refuses shop orders for about a second after a revive - wait 3 s)
+        call TestCheck(gBuyer[0] == null, "champion back: the buyer is gone")
         if GetPlayerState(Player(0), PLAYER_STATE_RESOURCE_GOLD) >= gTestGold then
-            call TestCheck(TestSlots(h, 'pres') == 0, "remote buy while dead: refused, no gold taken")
+            call TestCheck(TestSlots(h, 'pres') == 0, "remote potion while dead: no potion, no gold taken")
         else
             call TestCheck(TestSlots(h, 'pres') == 1, "remote buy while dead: paid and arrives (slots " + I2S(TestSlots(h, 'pres')) + ")")
         endif
@@ -5534,6 +5804,14 @@ function TestStep takes nothing returns nothing
     if gTestOnly == "finalbolt" and gTestClock == 10 then
         set gTestHold = true
         call TimerStart(CreateTimer(), 1.0, true, function TestBoltLab)
+        return
+    endif
+    if gTestOnly == "deadbuy" and gTestClock == 10 then
+        set gTestHold = true
+        call LanesStop()
+        call TestFormEmptyMap()
+        call SetUnitInvulnerable(gCastle, true)
+        call TimerStart(CreateTimer(), 1.0, true, function TestBuyLab)
         return
     endif
     if gTestOnly == "tour" and gTestClock == 10 then

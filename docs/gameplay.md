@@ -183,7 +183,7 @@ Their abilities are the game's own native abilities with the numbers of X Hero S
 - **Different from the reference, on purpose:** our max hero level is 1000 (there 30), and from level 21 every level-up adds +30 to all stats (`ATTR_*`), because the old Attributes skill no longer fits: a hero has at most 5 learnable abilities. Their gameplay constants stay ours (armor per Agility and so on, the shops depend on them) except the speed cap, see the bosses. Natives our bosses also use got their own ids (`XHS_REMAP`), so their numbers stay apart.
 - **Not in the reference, not here:** the Far Seer, who was a champion until v4.2. The Priestess takes his lightning role.
 - Spells on **Q W E R T**, innate on **D**, level 20 on **F**. Death → revive on the Champion's Circle after `4 + 2*level` s, max 24 s (`StartRevive`), not if Reincarnation has already brought him back. Deaths counted.
-- **Partition and Terror Wolf:** the hero is hidden while the summoned form fights. It buys and collects as usual; if all forms die he dies and revives.
+- **Partition and Terror Wolf:** the hero is hidden while the summoned form fights. His circle sells and he collects as usual; if all forms die he dies and revives. A hidden hero does not count as a buyer at the castle or in the grove (measured with no form around, order refused: `20261102-233628-a-453c`).
 - **Level 2** when the player's first wave is cleared (or at his wave 2). Every level-up refills HP + mana.
 
 ## Champion's Circle shop (per player, `KINDS_DEF` rows 1–3 in `gen/objects.py`)
@@ -212,7 +212,7 @@ Their abilities are the game's own native abilities with the numbers of X Hero S
 
 ## Castle (`hcd0`): 8000 HP, armor 10 — and the castle shop
 
-Select the castle and buy with a champion anywhere on the plaza (3400 radius, `CASTLE_SHOP_RANGE`). Every castle buy costs
+Select the castle and buy with a champion anywhere on the plaza (3400 radius, `CASTLE_SHOP_RANGE`), **or while your champion is dead, from anywhere** (v4.5, Jiří; `BuyerTick`, see below). Every castle buy costs
 **1 tree** (`CASTLE_TREE_COST`), no gold. Everyone sees "Name: +3 castle armor".
 
 | Key | Buy | Effect |
@@ -223,8 +223,17 @@ Select the castle and buy with a champion anywhere on the plaza (3400 radius, `C
 | R | Repair Castle | +2000 HP heal (repeatable) |
 | A | Shockwave | 25 % of their max HP to every wave monster within 1100 of the castle; a boss takes 300 + 30 × the highest wave of any lane (repeatable) |
 
-Stacking upgrades use one hidden ability per buy (global counter, 100 max). Works while the buyer's champion is
-dead. A restart replaces the castle, so upgrades reset. The castle deals no damage on its own.
+Stacking upgrades use one hidden ability per buy (global counter, 100 max). A restart replaces the castle, so upgrades reset. The castle deals no damage on its own.
+
+**While the champion is dead** (`BuyerTick`, up to v4.4 every button read "Requires: Nearby Patron"): a buyer of the player (`ecd1`: invulnerable, tiny, no minimap dot) stands in the dark at `BUYER_POS`, inside the castle shop's range. It appears within 0.2 s of the death and goes within 0.2 s of the revive, because a shop sells to the player's closest unit with an inventory and it must not take what a living champion buys.
+
+| Shop, champion dead | What happens |
+|---|---|
+| Castle | Works as usual, at once |
+| Circle | Counted at once, the bonus reaches him on the revive (as before) |
+| Bank | Works as usual, at once |
+| Premium Armory, the Apothecary's Boots, rings and so on | Paid, in the buyer's bag, up to 6 items; a 7th is refused, nothing paid. On the revive into his inventory and merged. His inventory full: at his feet |
+| Apothecary's potions | The gold comes back, "Champion is dead - refunded": a potion is a token that needs him |
 ⚠️ The castle is owned by the neutral-extra player (15); its shop carries both a neutral-building (`Xcsh`, `Aneu`)
 and an allied shop-sharing (`Xcs2`, `Aall`) buyer ability — the `Aall`-only version could not be used in-game.
 
